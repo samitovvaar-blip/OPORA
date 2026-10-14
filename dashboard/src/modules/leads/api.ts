@@ -35,6 +35,8 @@ async function call<T>(path: string, { method = "GET", body }: { method?: string
     method,
     headers: { "Content-Type": "application/json", ...(s?.token ? { Authorization: "Bearer " + s.token } : {}) },
     body: body ? JSON.stringify(body) : undefined,
+  }).catch(() => {
+    throw new Error("Нет связи с Yandex Cloud: облако недоступно или не разрешён этот адрес (CORS). Данные в облаке не пострадали.");
   });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && path !== "/auth/login") { writeSession(null); throw new AuthError("Сессия истекла, войдите снова."); }

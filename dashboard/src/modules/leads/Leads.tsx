@@ -176,7 +176,8 @@ export default function Leads() {
   }, [leads, q, status, pain, period]);
 
   if (!authed) return <><h1>Заявки</h1><Login onDone={() => setAuthed(true)} /></>;
-  if (!leads) return <><h1>Заявки</h1>{err ? <div className="error">Не удалось загрузить заявки: {err}</div> : <div className="muted">Загружаем заявки…</div>}</>;
+  if (!leads) return <><h1>Заявки</h1>{err ? <div className="card"><div className="error">{err}</div>
+    <button style={{ marginTop: 10 }} onClick={() => load(false)}>↻ Повторить</button></div> : <div className="muted">Загружаем заявки…</div>}</>;
 
   const counts = Object.fromEntries(STATUSES.map((s) => [s.id, leads.filter((l) => l.status === s.id).length]));
   const pains = [...new Set(leads.map((l) => l.pain))];
