@@ -5,9 +5,14 @@ import { collection, doc, getDocs, onSnapshot, query, setDoc, where } from "fire
 import { db } from "./firebase";
 import { useAuth } from "./auth";
 
+// Почта владельца. Если задана — только она видит личные разделы,
+// все остальные — максимум «Задания» (если приглашены и доступ открыт).
+const OWNER = ((import.meta.env.VITE_OWNER_EMAIL as string) || "").toLowerCase();
+
 export interface Workspace { members: string[]; open: boolean; }
 interface Ctx { wsId: string | null; isOwner: boolean; ws: Workspace | null; ready: boolean; }
-const C = createContext<Ctx>({ wsId: null, isOwner: false, ws: null, ready: false });
+const NONE: Ctx = { wsId: null, isOwner: false, ws: null, ready: true };
+const C = createContext<Ctx>({ ...NONE, ready: false });
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -19,14 +24,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (async () => {
       const email = (user.email || "").toLowerCase();
       // Сотрудник: ищем пространство, куда его пригласили
-      const inv = await getDocs(query(collection(db, "workspaces"), where("members", "array-contains", email)))
-        .catch(() => null);
-      const foreign = inv?.docs.find((d) => d.id !== user.uid);
-      if (foreign) {
-        unsub = onSnapshot(foreign.ref, (s) =>
-          setState({ wsId: foreign.id, isOwner: false, ws: s.data() as Workspace, ready: true }),
-          () => setState({ wsId: null, isOwner: false, ws: null, ready: true }));
-        return;
+      const ownerByEmail = OWNER ? email === OWNER : null;
+      if (ownerByEmail !== true) {
+        const inv = await getDocs(query(collection(db, "workspaces"), where("members", "array-contains", email)))
+          .catch(() => null);
+        const foreign = inv?.docs.find((d) => d.id !== user.uid);
+        if (foreign) {
+          unsub = onSnapshot(foreign.ref, (s) =>
+            setState({ wsId: foreign.id, isOwner: false, ws: s.data() as Workspace, ready: true }),
+            () => setState(NONE));
+          return;
+        }
+        // Не владелец и не приглашён (или ошибка) — никаких личных разделов
+        if (ownerByEmail === false || !inv) { setState(NONE); return; }
       }
       // Владелец: своё пространство
       const ref = doc(db, "workspaces", user.uid);

@@ -29,6 +29,7 @@ jobs:
       VITE_FIREBASE_MESSAGING_SENDER_ID: "636220497751"
       VITE_FIREBASE_APP_ID: 1:636220497751:web:2bb666f7270141fc692812
       VITE_CRM_API_URL: ""
+      VITE_OWNER_EMAIL: ${{ vars.OWNER_EMAIL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

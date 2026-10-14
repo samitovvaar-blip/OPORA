@@ -48,3 +48,12 @@ textarea{width:100%;min-height:70px;resize:vertical}
 .assign{border-bottom:1px solid var(--border);padding:6px 0}
 .newtask{display:flex;flex-direction:column;gap:8px;margin-top:16px}
 @media (max-width:760px){.cal-d{min-height:52px}.chip{display:none}.cal-d:has(.chip)::after{content:"•";color:var(--accent)}}
+/* PWA на телефоне: нижнее меню вместо верхнего, отступы под «чёлку» */
+@media (max-width:760px){
+  .side{position:fixed;bottom:0;left:0;right:0;z-index:10;border-top:1px solid var(--border);border-bottom:0;
+    flex-wrap:nowrap;overflow-x:auto;padding:6px 8px calc(6px + env(safe-area-inset-bottom));gap:4px}
+  .side .logo,.side-foot .small{display:none}
+  .navlink{flex-direction:column;gap:2px;font-size:11px;padding:6px 10px;align-items:center;white-space:nowrap}
+  .side-foot{flex-direction:row;gap:0}
+  .main{padding:calc(16px + env(safe-area-inset-top)) 16px 90px}
+}

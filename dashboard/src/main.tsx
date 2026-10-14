@@ -28,6 +28,13 @@ function OwnerOnly({ children }: { children: JSX.Element }) {
   return isOwner ? children : <Navigate to="/tasks" replace />;
 }
 
+// Задания: владелец или приглашённый сотрудник; остальные — «нет доступа»
+function TasksGate() {
+  const { wsId, ready } = useWorkspace();
+  if (!ready) return <div className="muted">Загрузка…</div>;
+  return wsId ? <Tasks /> : <><h1>Нет доступа</h1><div className="card">🔒 Владелец ещё не открыл вам доступ. Выйдите и попросите добавить вашу почту.</div></>;
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AuthProvider>
@@ -37,7 +44,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route element={<Protected />}>
             <Route index element={<OwnerOnly><Home /></OwnerOnly>} />
             <Route path="planner" element={<OwnerOnly><Planner /></OwnerOnly>} />
-            <Route path="tasks" element={<Tasks />} />
+            <Route path="tasks" element={<TasksGate />} />
             <Route path="notes" element={<OwnerOnly><Notes /></OwnerOnly>} />
             <Route path="clients" element={<OwnerOnly><Clients /></OwnerOnly>} />
             <Route path="projects" element={<OwnerOnly><Projects /></OwnerOnly>} />
@@ -49,3 +56,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </AuthProvider>
   </React.StrictMode>
 );
+
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
+}
