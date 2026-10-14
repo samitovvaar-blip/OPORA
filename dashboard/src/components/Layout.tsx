@@ -41,6 +41,7 @@ export default function Layout() {
           </button>
           <div className="muted small">{user?.email}</div>
           <button className="ghost" onClick={() => signOut(auth)}>Выйти</button>
+          <div className="muted small">версия {__BUILD__}</div>
         </div>
       </aside>
       <main className="main"><PullToRefresh /><Outlet /></main>

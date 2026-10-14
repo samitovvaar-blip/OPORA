@@ -58,5 +58,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 );
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
+  window.addEventListener("load", async () => {
+    const reg = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+    // Проверяем обновления при каждом возврате в приложение
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) reg.update(); });
+    // Новая версия активировалась — перезагружаемся один раз
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!reloaded) { reloaded = true; location.reload(); }
+    });
+  });
 }
