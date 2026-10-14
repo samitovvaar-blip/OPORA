@@ -1,0 +1,23 @@
+name: Deploy Firebase rules
+
+on:
+  push:
+    branches: [claude/gallant-gates-fn749m, main]
+    paths: [firestore.rules, firebase.json, .github/workflows/firebase.yml]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write service account key
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Добавь секрет FIREBASE_SERVICE_ACCOUNT в Settings → Secrets → Actions"; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+      - name: Deploy Firestore rules
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: npx -y firebase-tools@13 deploy --only firestore:rules --project opora-4efe1 --non-interactive
