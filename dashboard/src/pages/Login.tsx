@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { Navigate } from "react-router-dom";
 import { auth } from "../lib/firebase";
 import { useAuth } from "../lib/auth";
@@ -10,12 +10,17 @@ export default function Login() {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [signup, setSignup] = useState(false);
   if (user) return <Navigate to="/" replace />;
 
   async function submit(e: FormEvent) {
     e.preventDefault(); setErr(""); setBusy(true);
-    try { await signInWithEmailAndPassword(auth, email, pw); }
-    catch { setErr("Неверная почта или пароль"); }
+    try {
+      if (signup) await createUserWithEmailAndPassword(auth, email, pw);
+      else await signInWithEmailAndPassword(auth, email, pw);
+    } catch (e: any) {
+      setErr(signup ? (e?.code === "auth/weak-password" ? "Пароль минимум 6 символов" : "Не удалось создать аккаунт (возможно, он уже есть)") : "Неверная почта или пароль");
+    }
     finally { setBusy(false); }
   }
 
@@ -27,7 +32,10 @@ export default function Login() {
         <input type="email" placeholder="Почта" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <input type="password" placeholder="Пароль" value={pw} onChange={(e) => setPw(e.target.value)} required />
         {err && <div className="error">{err}</div>}
-        <button disabled={busy}>{busy ? "Вход…" : "Войти"}</button>
+        <button disabled={busy}>{busy ? "…" : signup ? "Создать пароль и войти" : "Войти"}</button>
+        <button type="button" className="ghost" onClick={() => setSignup(!signup)}>
+          {signup ? "У меня уже есть пароль" : "Первый вход (для сотрудника)"}
+        </button>
       </form>
     </div>
   );

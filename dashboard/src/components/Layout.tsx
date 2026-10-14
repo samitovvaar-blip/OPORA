@@ -4,10 +4,12 @@ import { auth } from "../lib/firebase";
 import { useAuth } from "../lib/auth";
 import { modules } from "../lib/modules";
 import { useEffect, useState } from "react";
+import { useWorkspace } from "../lib/workspace";
 
 const nav = [
   { to: "/", label: "Главная", icon: "◧" },
   { to: "/planner", label: "Планер", icon: "☑" },
+  { to: "/tasks", label: "Задания", icon: "▦" },
   { to: "/clients", label: "Клиенты", icon: "◉" },
   { to: "/projects", label: "Проекты", icon: "◆" },
   { to: "/notes", label: "Заметки", icon: "✎" },
@@ -16,6 +18,7 @@ const nav = [
 
 export default function Layout() {
   const { user } = useAuth();
+  const { isOwner } = useWorkspace();
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem("theme") || "light"; } catch { return "light"; } });
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -26,7 +29,7 @@ export default function Layout() {
     <div className="shell">
       <aside className="side">
         <div className="logo">OPORA</div>
-        {[...nav, ...modules.map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon }))].map((n) => (
+        {(isOwner ? [...nav, ...modules.map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon }))] : nav.filter((n) => n.to === "/tasks")).map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === "/"} className="navlink">
             <span>{n.icon}</span>{n.label}
           </NavLink>

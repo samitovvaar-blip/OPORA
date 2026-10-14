@@ -8,6 +8,8 @@ import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Planner from "./pages/Planner";
 import Notes from "./pages/Notes";
+import Tasks from "./pages/Tasks";
+import { WorkspaceProvider, useWorkspace } from "./lib/workspace";
 import Clients from "./pages/Clients";
 import Projects from "./pages/Projects";
 import Admin from "./pages/Admin";
@@ -16,7 +18,14 @@ import "./styles.css";
 function Protected() {
   const { user, loading } = useAuth();
   if (loading) return <div className="center">Загрузка…</div>;
-  return user ? <Layout /> : <Navigate to="/login" replace />;
+  return user ? <WorkspaceProvider><Layout /></WorkspaceProvider> : <Navigate to="/login" replace />;
+}
+
+// Сотрудник видит только «Задания»
+function OwnerOnly({ children }: { children: JSX.Element }) {
+  const { isOwner, ready } = useWorkspace();
+  if (!ready) return <div className="muted">Загрузка…</div>;
+  return isOwner ? children : <Navigate to="/tasks" replace />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -26,12 +35,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route element={<Protected />}>
-            <Route index element={<Home />} />
-            <Route path="planner" element={<Planner />} />
-            <Route path="notes" element={<Notes />} />
-            <Route path="clients" element={<Clients />} />
-            <Route path="projects" element={<Projects />} />
-            <Route path="admin" element={<Admin />} />
+            <Route index element={<OwnerOnly><Home /></OwnerOnly>} />
+            <Route path="planner" element={<OwnerOnly><Planner /></OwnerOnly>} />
+            <Route path="tasks" element={<Tasks />} />
+            <Route path="notes" element={<OwnerOnly><Notes /></OwnerOnly>} />
+            <Route path="clients" element={<OwnerOnly><Clients /></OwnerOnly>} />
+            <Route path="projects" element={<OwnerOnly><Projects /></OwnerOnly>} />
+            <Route path="admin" element={<OwnerOnly><Admin /></OwnerOnly>} />
             {modules.map((m) => <Route key={m.id} path={m.path} element={<m.component />} />)}
           </Route>
         </Routes>
