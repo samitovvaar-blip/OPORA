@@ -23,9 +23,13 @@ service cloud.firestore {
       match /assignments/{id} {
         allow read: if isOwner(ws) || isMember(ws);
         allow create, delete: if isOwner(ws);
-        // Сотрудник может менять только чекпоинты и статус
+        // Сотрудник может менять только чекпоинты и статус:
+        // статус — из списка, чекпоинтов столько же (не добавить и не удалить)
         allow update: if isOwner(ws) || (isMember(ws)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["checkpoints", "status"]));
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["checkpoints", "status"])
+          && request.resource.data.status in ["todo", "doing", "done"]
+          && request.resource.data.checkpoints is list
+          && request.resource.data.checkpoints.size() == resource.data.checkpoints.size());
       }
     }
 
