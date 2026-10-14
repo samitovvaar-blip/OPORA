@@ -9,15 +9,17 @@ service cloud.firestore {
 
     // Общее пространство владельца ({ws} = uid владельца)
     function isOwner(ws) { return request.auth != null && request.auth.uid == ws; }
+    // Сотрудник: почта подтверждена письмом, есть в списке, доступ открыт
+    function verified() { return request.auth != null && request.auth.token.email_verified == true; }
     function isMember(ws) {
       let w = get(/databases/$(database)/documents/workspaces/$(ws)).data;
-      return request.auth != null && w.open == true
+      return verified() && w.open == true
         && request.auth.token.email.lower() in w.members;
     }
 
     match /workspaces/{ws} {
       allow read: if isOwner(ws)
-        || (request.auth != null && request.auth.token.email.lower() in resource.data.members);
+        || (verified() && request.auth.token.email.lower() in resource.data.members);
       allow write: if isOwner(ws);
 
       match /assignments/{id} {
@@ -33,6 +35,7 @@ service cloud.firestore {
       }
     }
 
+    // Всё остальное закрыто
     match /{document=**} {
       allow read, write: if false;
     }

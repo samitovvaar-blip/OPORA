@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword } from "firebase/auth";
 import { Navigate } from "react-router-dom";
 import { auth } from "../lib/firebase";
 import { useAuth } from "../lib/auth";
@@ -16,7 +16,10 @@ export default function Login() {
   async function submit(e: FormEvent) {
     e.preventDefault(); setErr(""); setBusy(true);
     try {
-      if (signup) await createUserWithEmailAndPassword(auth, email, pw);
+      if (signup) {
+        const cred = await createUserWithEmailAndPassword(auth, email, pw);
+        await sendEmailVerification(cred.user).catch(() => {});
+      }
       else await signInWithEmailAndPassword(auth, email, pw);
     } catch (e: any) {
       setErr(signup ? (e?.code === "auth/weak-password" ? "Пароль минимум 6 символов" : "Не удалось создать аккаунт (возможно, он уже есть)") : "Неверная почта или пароль");

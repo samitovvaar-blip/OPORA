@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import Planner from "./pages/Planner";
 import Notes from "./pages/Notes";
 import Tasks from "./pages/Tasks";
+import VerifyEmail from "./pages/VerifyEmail";
 import { WorkspaceProvider, useWorkspace } from "./lib/workspace";
 import Clients from "./pages/Clients";
 import Projects from "./pages/Projects";
@@ -30,8 +31,10 @@ function OwnerOnly({ children }: { children: JSX.Element }) {
 
 // Задания: владелец или приглашённый сотрудник; остальные — «нет доступа»
 function TasksGate() {
-  const { wsId, ready } = useWorkspace();
+  const { wsId, ready, isOwner } = useWorkspace();
+  const { user } = useAuth();
   if (!ready) return <div className="muted">Загрузка…</div>;
+  if (!isOwner && user && !user.emailVerified) return <VerifyEmail />;
   return wsId ? <Tasks /> : <><h1>Нет доступа</h1><div className="card">🔒 Владелец ещё не открыл вам доступ. Выйдите и попросите добавить вашу почту.</div></>;
 }
 

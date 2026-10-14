@@ -26,6 +26,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       // Сотрудник: ищем пространство, куда его пригласили
       const ownerByEmail = OWNER ? email === OWNER : null;
       if (ownerByEmail !== true) {
+        // Неподтверждённая почта — правила всё равно не пустят
+        if (!user.emailVerified) { setState(NONE); return; }
         const inv = await getDocs(query(collection(db, "workspaces"), where("members", "array-contains", email)))
           .catch(() => null);
         const foreign = inv?.docs.find((d) => d.id !== user.uid);
@@ -46,7 +48,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       }, () => setState({ wsId: user.uid, isOwner: true, ws: null, ready: true }));
     })();
     return () => unsub();
-  }, [user?.uid]);
+  }, [user?.uid, user?.emailVerified]);
 
   return <C.Provider value={state}>{children}</C.Provider>;
 }

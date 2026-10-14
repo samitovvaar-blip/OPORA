@@ -30,7 +30,7 @@ export default function AccessCard() {
         <input type="email" placeholder="Почта сотрудника" value={email} onChange={(e) => setEmail(e.target.value)} />
         <button>Добавить</button>
       </form>
-      <div className="muted small">Сотрудник входит под этой почтой (кнопка «Первый вход» на экране входа) и видит только «Задания».</div>
+      <div className="muted small">Сотрудник жмёт «Первый вход», придумывает пароль и подтверждает почту по ссылке из письма — только после этого видит «Задания».</div>
     </div>
   );
 }
