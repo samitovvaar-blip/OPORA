@@ -1,27 +1,35 @@
-import { useEffect, useState } from "react";
-import { getLeads, isMock, Lead } from "../lib/crm";
-import StatusBadge from "../components/StatusBadge";
-
-const rub = (n: number) => n.toLocaleString("ru-RU") + " ₽";
+import { Link } from "react-router-dom";
+import { today, useCollection } from "../lib/store";
+import { Client, Project, Task, clientStatuses } from "../lib/types";
+import { TaskRow } from "./Planner";
 
 export default function Home() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  useEffect(() => { getLeads().then(setLeads); }, []);
-  const count = (s: Lead["status"]) => leads.filter((l) => l.status === s).length;
-  const pipeline = leads.filter((l) => l.status === "in_progress").reduce((a, l) => a + l.amount, 0);
+  const tasks = useCollection<Task>("tasks");
+  const clients = useCollection<Client>("clients").items;
+  const projects = useCollection<Project>("projects").items;
+
+  const open = tasks.items.filter((t) => !t.done);
+  const todayList = open.filter((t) => t.date && t.date <= today());
+  const date = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <>
-      <h1>Привет, Арина 👋 {isMock && <span className="badge">тестовые данные</span>}</h1>
+      <h1>Привет, Арина 👋</h1>
+      <div className="muted" style={{ marginTop: -12, marginBottom: 20 }}>{date}</div>
       <div className="bento">
-        <div className="card stat"><div className="muted">Новые заявки</div><b>{count("new")}</b></div>
-        <div className="card stat"><div className="muted">В работе</div><b>{count("in_progress")}</b></div>
-        <div className="card stat"><div className="muted">Закрыто</div><b>{count("won")}</b></div>
-        <div className="card stat"><div className="muted">Сумма в работе</div><b>{rub(pipeline)}</b></div>
-        <div className="card wide">
-          <h3>Последние заявки</h3>
-          {leads.slice(0, 5).map((l) => (
-            <div key={l.id} className="row"><span>{l.title} · <span className="muted">{l.client}</span></span><StatusBadge s={l.status} /></div>
+        <Link to="/planner" className="card stat"><div className="muted">Задачи на сегодня</div><b>{todayList.length}</b></Link>
+        <Link to="/clients" className="card stat"><div className="muted">Новые клиенты</div><b>{clients.filter((c) => c.status === "new").length}</b></Link>
+        <Link to="/clients" className="card stat"><div className="muted">В работе</div><b>{clients.filter((c) => c.status === "work").length}</b></Link>
+        <Link to="/projects" className="card stat"><div className="muted">Проекты</div><b>{projects.length}</b></Link>
+        <div className="card wide2">
+          <h3>Сегодня и просрочено</h3>
+          {todayList.map((t) => <TaskRow key={t.id} t={t} update={tasks.update} remove={tasks.remove} />)}
+          {!todayList.length && <div className="muted small">Свободный день ✨</div>}
+        </div>
+        <div className="card wide2">
+          <h3>Клиенты по статусам</h3>
+          {clientStatuses.map((s) => (
+            <div key={s.id} className="row"><span>{s.label}</span><b>{clients.filter((c) => c.status === s.id).length}</b></div>
           ))}
         </div>
       </div>

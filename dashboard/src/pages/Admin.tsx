@@ -1,5 +1,4 @@
 import { modules } from "../lib/modules";
-import { isMock } from "../lib/crm";
 import { useAuth } from "../lib/auth";
 
 export default function Admin() {
@@ -10,9 +9,8 @@ export default function Admin() {
       <div className="bento">
         <div className="card">
           <h3>Контуры данных</h3>
-          <div className="row"><span>Личный · Firebase</span><span className="badge b-won">подключён</span></div>
-          <div className="row"><span>Бизнес · Yandex CRM</span>
-            <span className={`badge ${isMock ? "b-new" : "b-won"}`}>{isMock ? "тестовые данные" : "подключён"}</span></div>
+          <div className="row"><span>Личное · Firebase</span><span className="badge b-won">подключено</span></div>
+          <div className="row"><span>Бизнес · Yandex CRM</span><span className="badge">позже</span></div>
         </div>
         <div className="card">
           <h3>Аккаунт</h3>

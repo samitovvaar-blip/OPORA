@@ -7,9 +7,10 @@ import { useEffect, useState } from "react";
 
 const nav = [
   { to: "/", label: "Главная", icon: "◧" },
-  { to: "/leads", label: "Заявки", icon: "☰" },
+  { to: "/planner", label: "Планер", icon: "☑" },
   { to: "/clients", label: "Клиенты", icon: "◉" },
   { to: "/projects", label: "Проекты", icon: "◆" },
+  { to: "/notes", label: "Заметки", icon: "✎" },
   { to: "/admin", label: "Админка", icon: "⚙" },
 ];
 
