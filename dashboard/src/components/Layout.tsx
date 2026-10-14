@@ -30,7 +30,7 @@ export default function Layout() {
     <div className="shell">
       <aside className="side">
         <div className="logo">OPORA</div>
-        {(isOwner ? [...nav, ...modules.map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon }))] : nav.filter((n) => n.to === "/tasks")).map((n) => (
+        {(isOwner ? [nav[0], ...modules.map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })), ...nav.slice(1)] : nav.filter((n) => n.to === "/tasks")).map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === "/"} className="navlink">
             <span>{n.icon}</span>{n.label}
           </NavLink>

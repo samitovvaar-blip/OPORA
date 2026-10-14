@@ -1,6 +1,6 @@
-// Реестр модулей для подключения из других репозиториев.
-// Сейчас: npm-пакеты (@opora/module-*). Интерфейс совместим с будущим Module Federation.
+// Реестр модулей из других репозиториев. Модули видны только владельцу.
 import type { ComponentType } from "react";
+import Leads from "../modules/leads/Leads";
 
 export interface OporaModule {
   id: string;
@@ -8,9 +8,10 @@ export interface OporaModule {
   icon: string;
   path: string;
   component: ComponentType;
-  adminOnly?: boolean;
+  source?: string;
 }
 
 export const modules: OporaModule[] = [
-  // import x from "@opora/module-x"; затем добавить сюда
+  // Перенос antonioavanzato/opora. Данные — только Yandex Cloud, свой вход.
+  { id: "leads", title: "Заявки с сайта", icon: "✉", path: "leads", component: Leads, source: "antonioavanzato/opora" },
 ];

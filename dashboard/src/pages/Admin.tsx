@@ -11,7 +11,7 @@ export default function Admin() {
         <div className="card">
           <h3>Контуры данных</h3>
           <div className="row"><span>Личное · Firebase</span><span className="badge b-won">подключено</span></div>
-          <div className="row"><span>Бизнес · Yandex CRM</span><span className="badge">позже</span></div>
+          <div className="row"><span>Бизнес · Yandex Cloud (заявки)</span><span className="badge b-won">отдельный вход</span></div>
         </div>
         <div className="card">
           <h3>Аккаунт</h3>
@@ -21,7 +21,7 @@ export default function Admin() {
         <AccessCard />
         <div className="card wide">
           <h3>Модули из других репозиториев</h3>
-          {modules.length ? modules.map((m) => <div key={m.id} className="row"><span>{m.icon} {m.title}</span><code>/{m.path}</code></div>)
+          {modules.length ? modules.map((m) => <div key={m.id} className="row"><span>{m.icon} {m.title}</span><code>{m.source || "/" + m.path}</code></div>)
             : <div className="muted">Модулей пока нет. Добавь пакет <code>@opora/module-*</code> в <code>src/lib/modules.ts</code>.</div>}
         </div>
       </div>
