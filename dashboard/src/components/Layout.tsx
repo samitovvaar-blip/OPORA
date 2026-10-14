@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { modules } from "../lib/modules";
 import { useEffect, useState } from "react";
 import { useWorkspace } from "../lib/workspace";
+import PullToRefresh from "./PullToRefresh";
 
 const nav = [
   { to: "/", label: "Главная", icon: "◧" },
@@ -42,7 +43,7 @@ export default function Layout() {
           <button className="ghost" onClick={() => signOut(auth)}>Выйти</button>
         </div>
       </aside>
-      <main className="main"><Outlet /></main>
+      <main className="main"><PullToRefresh /><Outlet /></main>
     </div>
   );
 }

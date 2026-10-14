@@ -57,3 +57,7 @@ textarea{width:100%;min-height:70px;resize:vertical}
   .side-foot{flex-direction:row;gap:0}
   .main{padding:calc(16px + env(safe-area-inset-top)) 16px 90px}
 }
+.ptr{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;overflow:hidden;transition:height .15s}
+.ptr-icon{font-size:22px;color:var(--accent);display:inline-block}
+.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+html,body{overscroll-behavior-y:contain}
