@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { modules } from "./lib/modules";
 import Layout from "./components/Layout";
@@ -21,7 +21,7 @@ function Protected() {
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AuthProvider>
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route element={<Protected />}>
@@ -33,7 +33,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             {modules.map((m) => <Route key={m.id} path={m.path} element={<m.component />} />)}
           </Route>
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </AuthProvider>
   </React.StrictMode>
 );
