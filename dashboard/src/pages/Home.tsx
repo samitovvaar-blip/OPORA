@@ -12,7 +12,7 @@ export default function Home() {
 
   return (
     <>
-      <h1>Главная {isMock && <span className="badge">тестовые данные</span>}</h1>
+      <h1>Привет, Арина 👋 {isMock && <span className="badge">тестовые данные</span>}</h1>
       <div className="bento">
         <div className="card stat"><div className="muted">Новые заявки</div><b>{count("new")}</b></div>
         <div className="card stat"><div className="muted">В работе</div><b>{count("in_progress")}</b></div>

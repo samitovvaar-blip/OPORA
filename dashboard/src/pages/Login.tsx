@@ -23,6 +23,7 @@ export default function Login() {
     <div className="center">
       <form className="card login" onSubmit={submit}>
         <div className="logo">OPORA</div>
+        <div className="muted small">Личный кабинет Арины</div>
         <input type="email" placeholder="Почта" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <input type="password" placeholder="Пароль" value={pw} onChange={(e) => setPw(e.target.value)} required />
         {err && <div className="error">{err}</div>}
