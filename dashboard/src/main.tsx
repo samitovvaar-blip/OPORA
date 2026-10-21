@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import Planner from "./pages/Planner";
 import Notes from "./pages/Notes";
 import Tasks from "./pages/Tasks";
+import Monthly from "./pages/Monthly";
 import VerifyEmail from "./pages/VerifyEmail";
 import { WorkspaceProvider, useWorkspace } from "./lib/workspace";
 import Clients from "./pages/Clients";
@@ -29,13 +30,13 @@ function OwnerOnly({ children }: { children: JSX.Element }) {
   return isOwner ? children : <Navigate to="/tasks" replace />;
 }
 
-// Задания: владелец или приглашённый сотрудник; остальные — «нет доступа»
-function TasksGate() {
+// Общие разделы: владелец или приглашённый сотрудник; остальные — «нет доступа»
+function MemberGate({ children }: { children: JSX.Element }) {
   const { wsId, ready, isOwner } = useWorkspace();
   const { user } = useAuth();
   if (!ready) return <div className="muted">Загрузка…</div>;
   if (!isOwner && user && !user.emailVerified) return <VerifyEmail />;
-  return wsId ? <Tasks /> : <><h1>Нет доступа</h1><div className="card">🔒 Владелец ещё не открыл вам доступ. Выйдите и попросите добавить вашу почту.</div></>;
+  return wsId ? children : <><h1>Нет доступа</h1><div className="card">🔒 Владелец ещё не открыл вам доступ. Выйдите и попросите добавить вашу почту.</div></>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -47,7 +48,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route element={<Protected />}>
             <Route index element={<OwnerOnly><Home /></OwnerOnly>} />
             <Route path="planner" element={<OwnerOnly><Planner /></OwnerOnly>} />
-            <Route path="tasks" element={<TasksGate />} />
+            <Route path="tasks" element={<MemberGate><Tasks /></MemberGate>} />
+            <Route path="monthly" element={<MemberGate><Monthly /></MemberGate>} />
             <Route path="notes" element={<OwnerOnly><Notes /></OwnerOnly>} />
             <Route path="clients" element={<OwnerOnly><Clients /></OwnerOnly>} />
             <Route path="projects" element={<OwnerOnly><Projects /></OwnerOnly>} />

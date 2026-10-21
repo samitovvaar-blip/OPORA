@@ -35,6 +35,20 @@ service cloud.firestore {
       }
     }
 
+    // Ежемесячные задачи: шаблон ведёт владелец, сотрудник только читает
+    match /workspaces/{ws}/monthly/{id} {
+      allow read: if isOwner(ws) || isMember(ws);
+      allow write: if isOwner(ws);
+    }
+    // Отметки за месяц: сотрудник ставит галочку и пишет комментарий
+    match /workspaces/{ws}/months/{month}/items/{id} {
+      allow read: if isOwner(ws) || isMember(ws);
+      allow delete: if isOwner(ws);
+      allow create, update: if isOwner(ws) || (isMember(ws)
+        && request.resource.data.keys().hasOnly(["done", "doneBy", "doneAt", "comment", "commentBy", "commentAt"])
+        && (!("comment" in request.resource.data) || (request.resource.data.comment is string && request.resource.data.comment.size() <= 1000)));
+    }
+
     // Всё остальное закрыто
     match /{document=**} {
       allow read, write: if false;

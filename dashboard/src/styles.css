@@ -61,3 +61,7 @@ textarea{width:100%;min-height:70px;resize:vertical}
 .ptr-icon{font-size:22px;color:var(--accent);display:inline-block}
 .spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 html,body{overscroll-behavior-y:contain}
+.progress{height:8px;border-radius:4px;background:var(--bg);margin:10px 0 4px;overflow:hidden}
+.progress>div{height:100%;background:var(--won);transition:width .3s}
+.mrow{border-bottom:1px solid var(--border);padding:8px 0}
+.comment{background:var(--bg);border-radius:8px;padding:6px 10px;margin-top:4px;cursor:pointer}
