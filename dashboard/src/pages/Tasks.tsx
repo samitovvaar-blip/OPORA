@@ -1,14 +1,16 @@
 // Задания сотруднику в виде календаря. Видят оба; создаёт и удаляет — владелец,
 // сотрудник отмечает чекпоинты и статус.
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { useClientProjects, useMarks } from "../lib/clients";
+import { dueDate, monthKey, shown, STAGES, stamp } from "../lib/catalog";
 import { db } from "../lib/firebase";
 import { useAuth } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { today } from "../lib/store";
 
 interface Checkpoint { text: string; done: boolean; }
-interface Assignment { id: string; title: string; description: string; date: string; checkpoints: Checkpoint[]; status: "todo" | "doing" | "done"; }
+interface Assignment { id: string; title: string; description: string; date: string; checkpoints: Checkpoint[]; status: "todo" | "doing" | "done"; shared?: boolean; }
 const statusLabel = { todo: "Не начато", doing: "В работе", done: "Готово" };
 
 const ymd = (d: Date) => d.toLocaleDateString("sv-SE");
@@ -27,14 +29,28 @@ export default function Tasks() {
   const col = wsId ? collection(db, "workspaces", wsId, "assignments") : null;
   useEffect(() => {
     if (!col) return;
-    return onSnapshot(col, (s) => setItems(s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Assignment, "id">) }))),
-      (e) => setError(e.code === "permission-denied" ? "Доступ закрыт владельцем" : e.message));
-  }, [wsId]);
+    // Сотрудник видит только задания, открытые ему (shared == true)
+    return onSnapshot(isOwner ? col : query(col, where("shared", "==", true)), (s) => {
+      const list = s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Assignment, "id">) }));
+      // старые задания без флага считаем открытыми — проставляем один раз
+      if (isOwner) list.filter((a) => a.shared === undefined).forEach((a) => updateDoc(doc(col, a.id), { shared: true }));
+      setItems(list);
+    }, (e) => setError(e.code === "permission-denied" ? "Доступ закрыт владельцем" : e.message));
+  }, [wsId, isOwner]);
 
   const days = useMemo(() => {
     const start = new Date(month); start.setDate(1 - ((month.getDay() + 6) % 7));
     return Array.from({ length: 42 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
   }, [month]);
+
+  // Ежемесячные задачи со сроком из проектов — в календарь
+  const mk = monthKey(month);
+  const { list: projects } = useClientProjects();
+  const calProjects = projects.filter((p) => isOwner || p.calendarOpen);
+  const { marks, setMark } = useMarks(calProjects.map((p) => p.id), mk);
+  const deadlines = calProjects.flatMap((p) => STAGES.flatMap((st) => st.items
+    .filter((it) => it.due != null && shown(it, p.flags || {}))
+    .map((it) => ({ key: p.id + it.id, pid: p.id, itemId: it.id, project: p.name, title: it.title, date: dueDate(mk, it.due!), done: !!marks[p.id]?.[it.id]?.done, open: p.calendarOpen }))));
 
   if (!ready) return <div className="muted">Загрузка…</div>;
   if (!isOwner && ws && !ws.open) return <><h1>Задания</h1><div className="card">🔒 Доступ сейчас закрыт. Обратись к владельцу.</div></>;
@@ -44,7 +60,7 @@ export default function Tasks() {
     await addDoc(col, {
       title: form.title.trim(), description: form.description.trim(), date: selDay, status: "todo",
       checkpoints: form.checkpoints.split("\n").map((t) => t.trim()).filter(Boolean).map((text) => ({ text, done: false })),
-      createdAt: serverTimestamp(), createdBy: user!.email,
+      createdAt: serverTimestamp(), createdBy: user!.email, shared: true,
     });
     setForm({ title: "", description: "", checkpoints: "" });
   }
@@ -70,11 +86,13 @@ export default function Tasks() {
             {["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map((d) => <div key={d} className="cal-h muted small">{d}</div>)}
             {days.map((d) => {
               const key = ymd(d); const list = items.filter((a) => a.date === key);
+              const dl = deadlines.filter((x) => x.date === key);
               return (
                 <div key={key} onClick={() => setSelDay(key)}
                   className={`cal-d ${d.getMonth() !== month.getMonth() ? "out" : ""} ${key === today() ? "now" : ""} ${key === selDay ? "sel" : ""}`}>
                   <span className="small">{d.getDate()}</span>
                   {list.slice(0, 3).map((a) => <div key={a.id} className={`chip s-${a.status}`}>{a.title}</div>)}
+                  {dl.length > 0 && <div className={`chip dl ${dl.every((x) => x.done) ? "s-done" : ""}`}>◆ {dl.filter((x) => !x.done).length || "✓"} {dl.length === 1 ? dl[0].project : "срок"}</div>}
                   {list.length > 3 && <div className="muted small">+{list.length - 3}</div>}
                 </div>
               );
@@ -88,6 +106,8 @@ export default function Tasks() {
             <div key={a.id} className="assign">
               <div className="row" onClick={() => setOpenId(openId === a.id ? null : a.id)} style={{ cursor: "pointer" }}>
                 <b>{a.title}</b><span className={`badge s-${a.status}`}>{statusLabel[a.status]} · {progress(a)}%</span>
+                {isOwner && <button className="ghost" title={a.shared === false ? "Сотрудник не видит" : "Сотрудник видит"}
+                  onClick={(e) => { e.stopPropagation(); upd(a.id, { shared: a.shared === false }); }}>{a.shared === false ? "🔒" : "🔓"}</button>}
               </div>
               {openId === a.id && <>
                 {a.description && <p className="small">{a.description}</p>}
@@ -108,7 +128,17 @@ export default function Tasks() {
               </>}
             </div>
           ))}
-          {!dayItems.length && <div className="muted small">На этот день заданий нет</div>}
+          {!dayItems.length && !deadlines.some((x) => x.date === selDay) && <div className="muted small">На этот день заданий нет</div>}
+          {deadlines.some((x) => x.date === selDay) && <h3 style={{ marginTop: 16 }}>◆ Сроки по проектам</h3>}
+          {deadlines.filter((x) => x.date === selDay).map((x) => (
+            <label key={x.key} className={`task row ${x.done ? "done" : ""}`} style={{ justifyContent: "flex-start", gap: 8, cursor: "pointer" }}>
+              <input type="checkbox" checked={x.done} onChange={() => setMark(x.pid, x.itemId, x.done
+                ? { done: false, doneBy: "", doneAt: "" } : { done: true, doneBy: user!.email || "", doneAt: stamp() })} />
+              <span><span className="tagc">{x.project}</span> {x.title}
+                {isOwner && <span className="muted small"> {x.open ? "🔓" : "🔒"}</span>}</span>
+            </label>
+          ))}
+          {deadlines.some((x) => x.date === selDay) && <div className="muted small">Весь чек-лист — в <a href="#/monthly">Ежемесячных</a>. 🔓/🔒 видит ли сотрудник — переключается в проекте.</div>}
 
           {isOwner && (
             <form onSubmit={add} className="newtask">

@@ -1,37 +1,89 @@
+// Проекты-клиенты: при создании выбираются данные клиента, и под них
+// собирается список ежемесячных задач (каталог в lib/catalog.ts).
 import { FormEvent, useState } from "react";
+import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { useWorkspace } from "../lib/workspace";
+import { useClientProjects, useMarks } from "../lib/clients";
+import { Flag, FLAG_LABEL, monthKey, shown, STAGES } from "../lib/catalog";
+import { visibleItems } from "../components/Checklist";
+import FlagPicker from "../components/FlagPicker";
 import { useCollection } from "../lib/store";
 import { Project } from "../lib/types";
 
 export default function Projects() {
-  const { items, error, add, update, remove } = useCollection<Project>("projects");
+  const { wsId } = useWorkspace();
+  const { list, error } = useClientProjects();
+  const mk = monthKey(new Date());
+  const { marks } = useMarks(list.map((p) => p.id), mk);
+  const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [flags, setFlags] = useState<Partial<Record<Flag, boolean>>>({});
+  const old = useCollection<Project>("projects");
 
-  async function submit(e: FormEvent) {
-    e.preventDefault(); if (!name.trim()) return;
-    await add({ name: name.trim(), progress: 0, deadline }); setName(""); setDeadline("");
+  const col = wsId ? collection(db, "workspaces", wsId, "clients") : null;
+  async function create(e: FormEvent) {
+    e.preventDefault(); if (!col || !name.trim()) return;
+    const r = await addDoc(col, { name: name.trim(), flags, monthlyOpen: false, calendarOpen: false, createdAt: serverTimestamp() });
+    setName(""); setFlags({}); setCreating(false);
+    location.hash = "#/monthly?p=" + r.id;
   }
+  const preview = STAGES.map((s) => ({ s, n: s.items.filter((it) => shown(it, flags)).length })).filter((x) => x.n);
+  const total = preview.reduce((a, x) => a + x.n, 0);
+  const withDue = STAGES.flatMap((s) => s.items).filter((it) => shown(it, flags) && it.due != null).length;
 
   return (
     <>
       <h1>Проекты</h1>
-      {error && <div className="error">Firestore: {error}</div>}
-      <form className="inline" onSubmit={submit}>
-        <input placeholder="Новый проект" value={name} onChange={(e) => setName(e.target.value)} />
-        <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
-        <button>Добавить</button>
-      </form>
-      <div className="bento">
-        {items.map((p) => (
-          <div key={p.id} className="card">
-            <div className="row"><b>{p.name}</b><button className="ghost" onClick={() => remove(p.id)}>✕</button></div>
-            {p.deadline && <div className="muted small">до {p.deadline}</div>}
-            <input type="range" min={0} max={100} value={p.progress} onChange={(e) => update(p.id, { progress: +e.target.value })} />
-            <div className="muted small">{p.progress}%</div>
+      {error && <div className="error">{error}</div>}
+      {!creating ? <button onClick={() => setCreating(true)}>+ Новый проект</button> : (
+        <form className="card" onSubmit={create} style={{ maxWidth: 860 }}>
+          <h3>Новый проект</h3>
+          <input placeholder="Клиент / название проекта" value={name} onChange={(e) => setName(e.target.value)} autoFocus style={{ width: "100%" }} />
+          <div style={{ marginTop: 10 }}><b>Что есть у клиента?</b> <span className="muted small">Нажми — список задач подстроится</span></div>
+          <FlagPicker flags={flags} onChange={setFlags} />
+          <div className="card" style={{ background: "var(--bg)", marginTop: 8 }}>
+            <b>Ежемесячные задачи: {total}</b> <span className="muted small">· {withDue} со сроком попадут в календарь</span>
+            {preview.map(({ s, n }) => (
+              <details key={s.id} className="small" style={{ marginTop: 6 }}>
+                <summary><span className="tagc">{s.when}</span> {s.title} — {n}</summary>
+                <ul>{s.items.filter((it) => shown(it, flags)).map((it) => <li key={it.id}>{it.title}</li>)}</ul>
+              </details>
+            ))}
           </div>
-        ))}
-        {!items.length && <div className="muted">Пока нет проектов</div>}
+          <div className="inline" style={{ marginTop: 10 }}>
+            <button>Создать проект</button>
+            <button type="button" className="ghost" onClick={() => setCreating(false)}>Отмена</button>
+          </div>
+        </form>
+      )}
+
+      <div className="bento" style={{ marginTop: 16 }}>
+        {list.map((p) => {
+          const items = visibleItems(p); const m = marks[p.id] || {};
+          const d = items.filter((it) => m[it.id]?.done).length;
+          return (
+            <div key={p.id} className="card">
+              <div className="row"><a href={"#/monthly?p=" + p.id}><b>{p.name}</b></a>
+                <button className="ghost" onClick={() => confirm(`Удалить проект «${p.name}»? Отметки по нему пропадут из вида.`) && deleteDoc(doc(col!, p.id))}>✕</button></div>
+              <div className="tags">{(Object.keys(p.flags || {}) as Flag[]).filter((k) => p.flags[k]).map((k) => <span key={k} className="tagc">{FLAG_LABEL[k]}</span>)}</div>
+              <div className="progress"><div style={{ width: (items.length ? d / items.length * 100 : 0) + "%" }} /></div>
+              <div className="muted small">Этот месяц: {d} из {items.length}</div>
+              <div className="inline" style={{ marginTop: 8 }}>
+                <button className={p.monthlyOpen ? "" : "ghost"} title="Сотрудник видит чек-лист"
+                  onClick={() => updateDoc(doc(col!, p.id), { monthlyOpen: !p.monthlyOpen })}>{p.monthlyOpen ? "🔓" : "🔒"} Чек-лист</button>
+                <button className={p.calendarOpen ? "" : "ghost"} title="Сотрудник видит сроки в календаре"
+                  onClick={() => updateDoc(doc(col!, p.id), { calendarOpen: !p.calendarOpen })}>{p.calendarOpen ? "🔓" : "🔒"} Календарь</button>
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {old.items.length > 0 && <details style={{ marginTop: 24 }}><summary className="muted">Личные проекты (старые) — {old.items.length}</summary>
+        <div className="bento" style={{ marginTop: 8 }}>{old.items.map((p) => (
+          <div key={p.id} className="card"><div className="row"><b>{p.name}</b><button className="ghost" onClick={() => old.remove(p.id)}>✕</button></div>
+            <div className="muted small">{p.progress}%{p.deadline ? ` · до ${p.deadline}` : ""}</div></div>))}</div></details>}
     </>
   );
 }

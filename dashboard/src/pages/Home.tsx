@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
 import { today, useCollection } from "../lib/store";
-import { Client, Project, Task, clientStatuses } from "../lib/types";
+import { Client, Task, clientStatuses } from "../lib/types";
 import { TaskRow } from "./Planner";
+import { useClientProjects } from "../lib/clients";
 
 export default function Home() {
   const tasks = useCollection<Task>("tasks");
   const clients = useCollection<Client>("clients").items;
-  const projects = useCollection<Project>("projects").items;
+  const projects = useClientProjects().list;
 
   const open = tasks.items.filter((t) => !t.done);
   const todayList = open.filter((t) => t.date && t.date <= today());

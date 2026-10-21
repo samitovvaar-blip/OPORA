@@ -23,11 +23,12 @@ service cloud.firestore {
       allow write: if isOwner(ws);
 
       match /assignments/{id} {
-        allow read: if isOwner(ws) || isMember(ws);
+        // Сотрудник видит только задания, открытые ему (shared)
+        allow read: if isOwner(ws) || (isMember(ws) && resource.data.shared == true);
         allow create, delete: if isOwner(ws);
         // Сотрудник может менять только чекпоинты и статус:
         // статус — из списка, чекпоинтов столько же (не добавить и не удалить)
-        allow update: if isOwner(ws) || (isMember(ws)
+        allow update: if isOwner(ws) || (isMember(ws) && resource.data.shared == true
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["checkpoints", "status"])
           && request.resource.data.status in ["todo", "doing", "done"]
           && request.resource.data.checkpoints is list
@@ -35,18 +36,24 @@ service cloud.firestore {
       }
     }
 
-    // Ежемесячные задачи: шаблон ведёт владелец, сотрудник только читает
-    match /workspaces/{ws}/monthly/{id} {
-      allow read: if isOwner(ws) || isMember(ws);
+    // Проекты-клиенты: ведёт владелец; сотрудник видит только открытые ему
+    match /workspaces/{ws}/clients/{cid} {
+      allow read: if isOwner(ws) || (isMember(ws)
+        && (resource.data.monthlyOpen == true || resource.data.calendarOpen == true));
       allow write: if isOwner(ws);
-    }
-    // Отметки за месяц: сотрудник ставит галочку и пишет комментарий
-    match /workspaces/{ws}/months/{month}/items/{id} {
-      allow read: if isOwner(ws) || isMember(ws);
-      allow delete: if isOwner(ws);
-      allow create, update: if isOwner(ws) || (isMember(ws)
-        && request.resource.data.keys().hasOnly(["done", "doneBy", "doneAt", "comment", "commentBy", "commentAt"])
-        && (!("comment" in request.resource.data) || (request.resource.data.comment is string && request.resource.data.comment.size() <= 1000)));
+
+      // Отметки за месяц: сотрудник ставит галочку и пишет комментарий
+      match /months/{month}/items/{id} {
+        function opened() {
+          let c = get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data;
+          return c.monthlyOpen == true || c.calendarOpen == true;
+        }
+        allow read: if isOwner(ws) || (isMember(ws) && opened());
+        allow delete: if isOwner(ws);
+        allow create, update: if isOwner(ws) || (isMember(ws) && opened()
+          && request.resource.data.keys().hasOnly(["done", "doneBy", "doneAt", "comment", "commentBy", "commentAt"])
+          && (!("comment" in request.resource.data) || (request.resource.data.comment is string && request.resource.data.comment.size() <= 1000)));
+      }
     }
 
     // Всё остальное закрыто
