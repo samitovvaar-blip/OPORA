@@ -32,7 +32,7 @@ export default function Monthly() {
   useEffect(() => tplCol ? onSnapshot(tplCol, (s) =>
     setTpl(s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Template, "id">) })).sort((a, b) => a.order - b.order)), onErr) : undefined, [wsId]);
   useEffect(() => markCol ? onSnapshot(markCol, (s) =>
-    setMarks(Object.fromEntries(s.docs.map((d) => [d.id, { id: d.id, ...(d.data() as Mark) }]))), onErr) : undefined, [wsId, mk]);
+    setMarks(Object.fromEntries(s.docs.map((d) => [d.id, { ...(d.data() as Mark), id: d.id }]))), onErr) : undefined, [wsId, mk]);
 
   if (!isOwner && ws && !ws.open) return <><h1>Ежемесячные задачи</h1><div className="card">🔒 Доступ сейчас закрыт.</div></>;
 
