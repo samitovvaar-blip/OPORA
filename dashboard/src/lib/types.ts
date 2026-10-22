@@ -6,7 +6,8 @@ export const clientStatuses: { id: ClientStatus; label: string }[] = [
   { id: "pause", label: "Пауза" },
   { id: "done", label: "Завершён" },
 ];
-export interface Client { name: string; contact: string; source: string; service: string; status: ClientStatus; note: string; projectId?: string; }
+export interface Client { name: string; contact: string; source: string; service: string; status: ClientStatus; note: string; projectId?: string;
+  links?: { sheet?: string; folder?: string; chat?: string }; }
 export type Repeat = "once" | "daily" | "weekly";
 // once: date — день; daily/weekly: date — с какого дня; days — 0=Пн … 6=Вс; doneDates — отметки по дням
 export interface Task { title: string; date: string; done: boolean; clientId?: string;

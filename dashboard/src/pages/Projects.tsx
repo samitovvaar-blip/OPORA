@@ -1,6 +1,6 @@
 // Проекты-клиенты: при создании выбираются данные клиента, и под них
 // собирается список ежемесячных задач (каталог в lib/catalog.ts).
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
@@ -25,6 +25,8 @@ export default function Projects() {
   const [links, setLinks] = useState<Links>({});
   const old = useCollection<Project>("projects");
   const clients = useCollection<Client>("clients");
+  const src = fromClient ? clients.items.find((c) => c.id === fromClient) : undefined;
+  useEffect(() => { if (src?.links && !Object.keys(links).length) setLinks(src.links); }, [src?.id]);
 
   const col = wsId ? collection(db, "workspaces", wsId, "clients") : null;
   async function create(e: FormEvent) {
@@ -50,7 +52,7 @@ export default function Projects() {
           <div style={{ marginTop: 10 }}><b>Что есть у клиента?</b> <span className="muted small">Нажми — список задач подстроится</span></div>
           <FlagPicker flags={flags} onChange={setFlags} />
           <div style={{ marginTop: 10 }}><b>Ссылки</b> <span className="muted small">по желанию, можно добавить позже</span></div>
-          <LinkEditor links={links} onChange={setLinks} />
+          <LinkEditor key={Object.values(links).join("|")} links={links} onChange={setLinks} />
           <div className="card" style={{ background: "var(--bg)", marginTop: 8 }}>
             <b>Ежемесячные задачи: {total}</b> <span className="muted small">· {withDue} со сроком попадут в календарь</span>
             {preview.map(({ s, n }) => (
