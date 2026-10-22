@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { today, useCollection } from "../lib/store";
 import { Client, Task, clientStatuses } from "../lib/types";
 import { TaskRow } from "./Planner";
+import { doneOn, isRecurring, occursOn } from "../lib/recurring";
 import { useClientProjects } from "../lib/clients";
 
 export default function Home() {
@@ -9,8 +10,9 @@ export default function Home() {
   const clients = useCollection<Client>("clients").items;
   const projects = useClientProjects().list;
 
-  const open = tasks.items.filter((t) => !t.done);
-  const todayList = open.filter((t) => t.date && t.date <= today());
+  const todayList = tasks.items.filter((t) => isRecurring(t)
+    ? occursOn(t, today()) && !doneOn(t, today())
+    : !t.done && t.date && t.date <= today());
   const date = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
 
   return (

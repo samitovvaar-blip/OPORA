@@ -6,6 +6,19 @@ import { modules } from "../lib/modules";
 import { useEffect, useState } from "react";
 import { useWorkspace } from "../lib/workspace";
 import PullToRefresh from "./PullToRefresh";
+import { useCollection } from "../lib/store";
+import { Task } from "../lib/types";
+import { checkReminders } from "../lib/reminders";
+
+function Reminders() {
+  const { items } = useCollection<Task>("tasks");
+  useEffect(() => {
+    checkReminders(items);
+    const t = setInterval(() => checkReminders(items), 30000);
+    return () => clearInterval(t);
+  }, [items]);
+  return null;
+}
 
 const nav = [
   { to: "/", label: "Главная", icon: "◧" },
@@ -45,7 +58,7 @@ export default function Layout() {
           <div className="muted small">версия {__BUILD__}</div>
         </div>
       </aside>
-      <main className="main"><PullToRefresh /><Outlet /></main>
+      <main className="main">{isOwner && <Reminders />}<PullToRefresh /><Outlet /></main>
     </div>
   );
 }
