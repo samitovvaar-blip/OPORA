@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { useCollection } from "../lib/store";
 import { Client, ClientStatus, clientStatuses } from "../lib/types";
+import Funnel from "../components/Funnel";
 import { LINK_FIELDS, LinkButtons, LinkEditor, Links, normUrl } from "../components/ProjectLinks";
 
 const empty: Client = { name: "", contact: "", source: "", service: "", status: "new", note: "" };
@@ -49,6 +50,7 @@ export default function Clients() {
     <>
       <h1>Клиенты <span className="badge">{items.length}</span></h1>
       {error && <div className="error">Firestore: {error}</div>}
+      <Funnel />
       <form className="card" onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
         <div className="inline" style={{ margin: 0 }}>
         <input placeholder="Имя *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
