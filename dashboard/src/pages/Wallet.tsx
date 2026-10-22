@@ -1,5 +1,8 @@
 // Личные деньги: прибыль бизнеса (из P&L) + другие доходы, личные траты. Только владелец: users/{uid}/walletIn, walletOut
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { useAuth } from "../lib/auth";
 import { today, useCollection } from "../lib/store";
 import { addMonths, parseAmount, rub, useBusinessProfit } from "../lib/money";
 import { monthKey } from "../lib/catalog";
@@ -33,6 +36,13 @@ export default function Wallet() {
   const ins = useCollection<Entry>("walletIn"), outs = useCollection<Entry>("walletOut");
   const biz = useBusinessProfit();
   const [withBiz, setWithBiz] = useState(true);
+  // Копилка: план = % от оплат клиентов месяца, факт = сколько реально отложила
+  const { user } = useAuth();
+  const saves = useCollection<Entry>("walletSave");
+  const [pct, setPct] = useState(50);
+  const metaRef = doc(db, "users", user!.uid, "meta", "wallet");
+  useEffect(() => onSnapshot(metaRef, (d) => { const v = d.data()?.savePct; if (typeof v === "number") setPct(v); }), [user?.uid]);
+  const [sv, setSv] = useState({ amount: "", date: today(), out: false, note: "" });
 
   const b = biz(mk);
   const inM = ins.items.filter((x) => x.date?.startsWith(mk)).sort((a, c) => c.date.localeCompare(a.date));
@@ -42,6 +52,10 @@ export default function Wallet() {
   const inCats = [...new Set(ins.items.map((x) => x.category).filter(Boolean))] as string[];
   const outCats = [...new Set(outs.items.map((x) => x.category).filter(Boolean))] as string[];
   const outByCat = group(outM, "Прочее");
+  const saveM = saves.items.filter((x) => x.date?.startsWith(mk)).sort((a, c) => c.date.localeCompare(a.date));
+  const planSave = Math.round(b.income * pct / 100);
+  const factSave = sum(saveM);
+  const bank = sum(saves.items);
 
   const hist = Array.from({ length: 6 }, (_, i) => {
     const k = addMonths(mk, i - 5); const [, m] = k.split("-").map(Number);
@@ -99,6 +113,38 @@ export default function Wallet() {
             </div>))}
           {outM.map((x) => <Row key={x.id} x={x} remove={outs.remove} />)}
           {!outM.length && <div className="muted small">Трат в этом месяце нет</div>}
+        </div>
+
+        <div className="card wide">
+          <div className="row"><h3 style={{ margin: 0 }}>🐷 Копилка</h3>
+            <span className="small muted">откладываю
+              <input type="number" min={0} max={100} value={pct} style={{ width: 56, margin: "0 4px" }}
+                onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); setPct(v); setDoc(metaRef, { savePct: v }, { merge: true }); }} />
+              % от каждой оплаты клиентов</span></div>
+          <div className="bento" style={{ marginTop: 10 }}>
+            <div className="card stat"><div className="muted">План за месяц</div><b>{rub(planSave)}</b><div className="muted small">{pct}% от {rub(b.income)}</div></div>
+            <div className="card stat"><div className="muted">Отложено (факт)</div><b className={factSave >= planSave ? "ok" : ""}>{rub(factSave)}</b>
+              <div className={`small ${factSave >= planSave ? "ok" : "error"}`}>{factSave >= planSave ? "✓ план выполнен" : `осталось отложить ${rub(planSave - factSave)}`}</div></div>
+            <div className="card stat"><div className="muted">В копилке всего</div><b className="ok">{rub(bank)}</b></div>
+          </div>
+          <div className="progress"><div style={{ width: (planSave ? Math.min(100, factSave / planSave * 100) : 0) + "%" }} /></div>
+          <form className="inline" style={{ marginTop: 8 }} onSubmit={(e) => { e.preventDefault(); const n = parseAmount(sv.amount); if (!n) return;
+            saves.add({ title: sv.note.trim() || (sv.out ? "Взяла из копилки" : "Отложила"), amount: sv.out ? -n : n, date: sv.date }); setSv({ ...sv, amount: "", note: "" }); }}>
+            <select value={sv.out ? "out" : "in"} onChange={(e) => setSv({ ...sv, out: e.target.value === "out" })}>
+              <option value="in">+ Отложить</option><option value="out">− Взять</option></select>
+            <input inputMode="decimal" placeholder="₽" value={sv.amount} onChange={(e) => setSv({ ...sv, amount: e.target.value })} style={{ width: 110 }} />
+            <input type="date" value={sv.date} onChange={(e) => setSv({ ...sv, date: e.target.value })} />
+            <input placeholder="Комментарий" value={sv.note} onChange={(e) => setSv({ ...sv, note: e.target.value })} style={{ flex: 1, minWidth: 120 }} />
+            {planSave > factSave && <button type="button" className="ghost" onClick={() => setSv({ ...sv, amount: String(planSave - factSave), out: false })}>по плану</button>}
+            <button>Сохранить</button>
+          </form>
+          {saveM.map((x) => (
+            <div key={x.id} className="row small" style={{ borderTop: "1px solid var(--border)", paddingTop: 4 }}>
+              <span>{dm(x.date)} · {x.title}</span>
+              <span className={x.amount < 0 ? "error" : "ok"}>{x.amount < 0 ? "−" : "+"}{rub(Math.abs(x.amount))}
+                <button className="ghost" onClick={() => confirm("Удалить запись?") && saves.remove(x.id)}>✕</button></span>
+            </div>))}
+          <div className="muted small" style={{ marginTop: 6 }}>Свободно после копилки в этом месяце: <b>{rub(LEFT - factSave)}</b></div>
         </div>
 
         <div className="card wide">
