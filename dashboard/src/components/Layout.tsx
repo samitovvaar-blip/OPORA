@@ -17,6 +17,7 @@ const nav = [
   { to: "/projects", label: "Проекты", icon: "◆" },
   { to: "/products", label: "Продукты", icon: "★" },
   { to: "/pnl", label: "P&L", icon: "₽" },
+  { to: "/wallet", label: "Личные деньги", icon: "👛" },
   { to: "/report", label: "Отчёт", icon: "📊" },
   { to: "/admin", label: "Админка", icon: "⚙" },
 ];

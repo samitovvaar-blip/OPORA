@@ -7,6 +7,7 @@ import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import PnL from "./pages/PnL";
+import Wallet from "./pages/Wallet";
 import Products from "./pages/Products";
 import Knowledge from "./pages/Knowledge";
 import Tasks from "./pages/Tasks";
@@ -53,6 +54,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="kb" element={<MemberGate><Knowledge /></MemberGate>} />
             <Route path="monthly" element={<MemberGate><Monthly /></MemberGate>} />
             <Route path="products" element={<OwnerOnly><Products /></OwnerOnly>} />
+            <Route path="wallet" element={<OwnerOnly><Wallet /></OwnerOnly>} />
             <Route path="pnl" element={<OwnerOnly><PnL /></OwnerOnly>} />
             <Route path="clients" element={<OwnerOnly><Clients /></OwnerOnly>} />
             <Route path="projects" element={<OwnerOnly><Projects /></OwnerOnly>} />

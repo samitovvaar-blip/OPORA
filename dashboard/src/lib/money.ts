@@ -86,3 +86,20 @@ export function usePaidAll() {
       Object.values(d.data() as Record<string, PaidMark>).filter((m) => m?.paid).reduce((a, m) => a + (m.amount || 0), 0)])))), [user?.uid]);
   return byMonth;
 }
+
+// Чистая прибыль бизнеса за месяц — та же логика, что в P&L (для «Личных денег»)
+import { useCollection } from "./store";
+export function useBusinessProfit() {
+  const payments = useCollection<Payment>("payments").items;
+  const manual = useCollection<Expense>("incomes").items;
+  const expenses = useCollection<Expense>("expenses").items;
+  const recurring = useCollection<Recurring>("recurring").items;
+  const paidByMonth = usePaidAll();
+  return (mk: string) => {
+    const I = payments.filter((p) => p.date?.startsWith(mk)).reduce((a, p) => a + p.amount, 0)
+      + (paidByMonth[mk] || 0) + manual.filter((x) => incMonth(x) === mk).reduce((a, x) => a + x.amount, 0);
+    const E = expenses.reduce((a, x) => a + expShare(x, mk), 0)
+      + recurring.filter((r) => recActive(r, mk)).reduce((a, r) => a + (r.kind === "percent" ? I * r.amount / 100 : r.amount), 0);
+    return { income: I, expenses: E, profit: I - E };
+  };
+}
