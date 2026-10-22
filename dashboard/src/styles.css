@@ -76,3 +76,12 @@ html,body{overscroll-behavior-y:contain}
 .chip.dl{border-left:3px solid #e8873a}
 .linkbtn{font-size:13px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);text-decoration:none;white-space:nowrap}
 .linkbtn:hover{border-color:var(--accent)}
+.ok{color:var(--won)}
+.chart{display:flex;gap:10px;align-items:flex-end;height:160px;margin:8px 0}
+.chart-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%}
+.chart-bars{flex:1;width:100%;display:flex;gap:3px;align-items:flex-end;justify-content:center}
+.bar-i,.bar-e{width:40%;max-width:22px;border-radius:4px 4px 0 0;min-height:2px}
+.bar-i{background:var(--won)}.bar-e{background:#e8873a}
+.dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin:0 2px 0 8px}.dot.i{background:var(--won)}.dot.e{background:#e8873a}
+.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:760px){.plan-grid{grid-template-columns:1fr}}
