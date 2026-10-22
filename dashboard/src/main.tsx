@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import Notes from "./pages/Notes";
 import Tasks from "./pages/Tasks";
 import Monthly from "./pages/Monthly";
+import Report from "./pages/Report";
 import VerifyEmail from "./pages/VerifyEmail";
 import { WorkspaceProvider, useWorkspace } from "./lib/workspace";
 import Clients from "./pages/Clients";
@@ -51,6 +52,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="notes" element={<OwnerOnly><Notes /></OwnerOnly>} />
             <Route path="clients" element={<OwnerOnly><Clients /></OwnerOnly>} />
             <Route path="projects" element={<OwnerOnly><Projects /></OwnerOnly>} />
+            <Route path="report" element={<OwnerOnly><Report /></OwnerOnly>} />
             <Route path="admin" element={<OwnerOnly><Admin /></OwnerOnly>} />
             {modules.map((m) => <Route key={m.id} path={m.path} element={<OwnerOnly><m.component /></OwnerOnly>} />)}
           </Route>

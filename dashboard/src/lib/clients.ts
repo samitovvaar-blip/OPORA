@@ -43,3 +43,21 @@ export function useMarks(projectIds: string[], mk: string) {
     setDoc(doc(db, "workspaces", wsId!, "clients", pid, "months", mk, "items", itemId), data, { merge: true });
   return { marks, setMark };
 }
+
+import { dueDate, shown, STAGES } from "./catalog";
+// Пункты чек-листа со сроком на месяц mk по всем проектам
+export function projectDeadlines(projects: ClientProject[], marks: Record<string, Record<string, Mark>>, mk: string) {
+  return projects.flatMap((p) => STAGES.flatMap((st) => st.items
+    .filter((it) => it.due != null && shown(it, p.flags || {}))
+    .map((it) => ({ key: p.id + it.id, pid: p.id, itemId: it.id, project: p.name, title: it.title,
+      date: dueDate(mk, it.due!), done: !!marks[p.id]?.[it.id]?.done, open: p.calendarOpen }))));
+}
+
+// Задания календаря (общие)
+export function useAssignments() {
+  const { wsId } = useWorkspace();
+  const [list, setList] = useState<any[]>([]);
+  useEffect(() => wsId ? onSnapshot(collection(db, "workspaces", wsId, "assignments"),
+    (s) => setList(s.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {}) : undefined, [wsId]);
+  return list;
+}

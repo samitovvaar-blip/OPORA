@@ -9,22 +9,27 @@ import { Flag, FLAG_LABEL, monthKey, shown, STAGES } from "../lib/catalog";
 import { visibleItems } from "../components/Checklist";
 import FlagPicker from "../components/FlagPicker";
 import { useCollection } from "../lib/store";
-import { Project } from "../lib/types";
+import { Client, Project } from "../lib/types";
 
 export default function Projects() {
   const { wsId } = useWorkspace();
   const { list, error } = useClientProjects();
   const mk = monthKey(new Date());
   const { marks } = useMarks(list.map((p) => p.id), mk);
-  const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
+  const qs = new URLSearchParams(location.hash.split("?")[1]);
+  const fromClient = qs.get("client");
+  const [creating, setCreating] = useState(!!qs.get("new"));
+  const [name, setName] = useState(qs.get("new") || "");
   const [flags, setFlags] = useState<Partial<Record<Flag, boolean>>>({});
   const old = useCollection<Project>("projects");
+  const clients = useCollection<Client>("clients");
 
   const col = wsId ? collection(db, "workspaces", wsId, "clients") : null;
   async function create(e: FormEvent) {
     e.preventDefault(); if (!col || !name.trim()) return;
     const r = await addDoc(col, { name: name.trim(), flags, monthlyOpen: false, calendarOpen: false, createdAt: serverTimestamp() });
+    // создан из карточки клиента — связываем и переводим клиента «В работу»
+    if (fromClient) await clients.update(fromClient, { projectId: r.id, status: "work" });
     setName(""); setFlags({}); setCreating(false);
     location.hash = "#/monthly?p=" + r.id;
   }
@@ -38,7 +43,7 @@ export default function Projects() {
       {error && <div className="error">{error}</div>}
       {!creating ? <button onClick={() => setCreating(true)}>+ Новый проект</button> : (
         <form className="card" onSubmit={create} style={{ maxWidth: 860 }}>
-          <h3>Новый проект</h3>
+          <h3>Новый проект{fromClient ? " из клиента" : ""}</h3>
           <input placeholder="Клиент / название проекта" value={name} onChange={(e) => setName(e.target.value)} autoFocus style={{ width: "100%" }} />
           <div style={{ marginTop: 10 }}><b>Что есть у клиента?</b> <span className="muted small">Нажми — список задач подстроится</span></div>
           <FlagPicker flags={flags} onChange={setFlags} />

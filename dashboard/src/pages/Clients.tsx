@@ -25,6 +25,9 @@ export default function Clients() {
           {clientStatuses.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select></div>
       <div className="muted small">{[c.contact, c.service, c.source].filter(Boolean).join(" · ")}</div>
+      {c.projectId
+        ? <a className="small" href={"#/monthly?p=" + c.projectId}>◆ Проект: ежемесячные задачи →</a>
+        : <a className="small" href={`#/projects?new=${encodeURIComponent(c.name)}&client=${c.id}`}>+ Сделать проектом</a>}
       {open === c.id && <>
         <textarea placeholder="Заметки о клиенте" defaultValue={c.note} onBlur={(e) => update(c.id, { note: e.target.value })} />
         <button className="ghost" onClick={() => confirm(`Удалить ${c.name}?`) && remove(c.id)}>Удалить</button>
