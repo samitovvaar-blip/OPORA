@@ -14,6 +14,7 @@ const nav = [
   { to: "/monthly", label: "Ежемесячные", icon: "↻" },
   { to: "/clients", label: "Клиенты", icon: "◉" },
   { to: "/projects", label: "Проекты", icon: "◆" },
+  { to: "/products", label: "Продукты", icon: "★" },
   { to: "/pnl", label: "P&L", icon: "₽" },
   { to: "/report", label: "Отчёт", icon: "📊" },
   { to: "/admin", label: "Админка", icon: "⚙" },

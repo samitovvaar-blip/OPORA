@@ -7,6 +7,7 @@ import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import PnL from "./pages/PnL";
+import Products from "./pages/Products";
 import Tasks from "./pages/Tasks";
 import Monthly from "./pages/Monthly";
 import Report from "./pages/Report";
@@ -49,6 +50,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route index element={<OwnerOnly><Home /></OwnerOnly>} />
             <Route path="tasks" element={<MemberGate><Tasks /></MemberGate>} />
             <Route path="monthly" element={<MemberGate><Monthly /></MemberGate>} />
+            <Route path="products" element={<OwnerOnly><Products /></OwnerOnly>} />
             <Route path="pnl" element={<OwnerOnly><PnL /></OwnerOnly>} />
             <Route path="clients" element={<OwnerOnly><Clients /></OwnerOnly>} />
             <Route path="projects" element={<OwnerOnly><Projects /></OwnerOnly>} />
