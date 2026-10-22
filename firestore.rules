@@ -37,6 +37,12 @@ service cloud.firestore {
       }
     }
 
+    // База знаний: ведёт владелец, сотрудник смотрит
+    match /workspaces/{ws}/kb/{id} {
+      allow read: if isOwner(ws) || isMember(ws);
+      allow write: if isOwner(ws);
+    }
+
     // Проекты-клиенты: ведёт владелец; сотрудник видит только открытые ему
     match /workspaces/{ws}/clients/{cid} {
       allow read: if isOwner(ws) || (isMember(ws)

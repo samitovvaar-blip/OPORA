@@ -12,6 +12,7 @@ const nav = [
   { to: "/", label: "Главная", icon: "◧" },
   { to: "/tasks", label: "Задания", icon: "▦" },
   { to: "/monthly", label: "Ежемесячные", icon: "↻" },
+  { to: "/kb", label: "База знаний", icon: "🎓" },
   { to: "/clients", label: "Клиенты", icon: "◉" },
   { to: "/projects", label: "Проекты", icon: "◆" },
   { to: "/products", label: "Продукты", icon: "★" },
@@ -33,7 +34,7 @@ export default function Layout() {
     <div className="shell">
       <aside className="side">
         <div className="logo">OPORA</div>
-        {(isOwner ? [nav[0], ...modules.map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })), ...nav.slice(1)] : nav.filter((n) => n.to === "/tasks" || n.to === "/monthly")).map((n) => (
+        {(isOwner ? [nav[0], ...modules.map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })), ...nav.slice(1)] : nav.filter((n) => ["/tasks", "/monthly", "/kb"].includes(n.to))).map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === "/"} className="navlink">
             <span>{n.icon}</span>{n.label}
           </NavLink>
