@@ -34,8 +34,14 @@ export default function Knowledge() {
   async function submit(e: FormEvent) {
     e.preventDefault(); const url = normUrl(f.url);
     if (!f.title.trim() || !url) return alert("Нужны название и ссылка (https://…)");
-    await addDoc(col!, { title: f.title.trim(), url, description: f.description.trim(), section: f.section.trim(), order: Date.now(), createdAt: serverTimestamp() });
-    setF({ ...f, title: "", url: "", description: "" });
+    try {
+      await addDoc(col!, { title: f.title.trim(), url, description: f.description.trim(), section: f.section.trim(), order: Date.now(), createdAt: serverTimestamp() });
+      setF({ ...f, title: "", url: "", description: "" }); setErr("");
+    } catch (x: any) {
+      setErr(x?.code === "permission-denied"
+        ? "Firebase не разрешает сохранить урок: обнови правила Firestore (блок «База знаний»)."
+        : "Не удалось сохранить: " + (x?.message || x));
+    }
   }
   const sections = [...new Set(list.map((l) => l.section || "Общее"))];
 
