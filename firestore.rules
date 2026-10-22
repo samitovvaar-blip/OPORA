@@ -26,11 +26,12 @@ service cloud.firestore {
         // Сотрудник видит только задания, открытые ему (shared)
         allow read: if isOwner(ws) || (isMember(ws) && resource.data.shared == true);
         allow create, delete: if isOwner(ws);
-        // Сотрудник может менять только чекпоинты и статус:
+        // Сотрудник может менять только чекпоинты, статус и отметки по дням (регулярные):
         // статус — из списка, чекпоинтов столько же (не добавить и не удалить)
         allow update: if isOwner(ws) || (isMember(ws) && resource.data.shared == true
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["checkpoints", "status"])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["checkpoints", "status", "doneDates"])
           && request.resource.data.status in ["todo", "doing", "done"]
+          && (!("doneDates" in request.resource.data) || (request.resource.data.doneDates is list && request.resource.data.doneDates.size() <= 90))
           && request.resource.data.checkpoints is list
           && request.resource.data.checkpoints.size() == resource.data.checkpoints.size());
       }

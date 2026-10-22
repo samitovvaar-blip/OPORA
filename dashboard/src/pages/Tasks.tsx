@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { useClientProjects, useMarks } from "../lib/clients";
+import { describe, isRecurring, occursOn, WD } from "../lib/recurring";
+import { Repeat } from "../lib/types";
 import { dueDate, monthKey, shown, STAGES, stamp } from "../lib/catalog";
 import { db } from "../lib/firebase";
 import { useAuth } from "../lib/auth";
@@ -10,7 +12,8 @@ import { useWorkspace } from "../lib/workspace";
 import { today } from "../lib/store";
 
 interface Checkpoint { text: string; done: boolean; }
-interface Assignment { id: string; title: string; description: string; date: string; checkpoints: Checkpoint[]; status: "todo" | "doing" | "done"; shared?: boolean; }
+interface Assignment { id: string; title: string; description: string; date: string; checkpoints: Checkpoint[]; status: "todo" | "doing" | "done"; shared?: boolean;
+  repeat?: Repeat; days?: number[]; time?: string; doneDates?: string[]; }
 const statusLabel = { todo: "Не начато", doing: "В работе", done: "Готово" };
 
 const ymd = (d: Date) => d.toLocaleDateString("sv-SE");
@@ -25,6 +28,9 @@ export default function Tasks() {
   const [selDay, setSelDay] = useState(today());
   const [openId, setOpenId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: "", description: "", checkpoints: "" });
+  const [repeat, setRepeat] = useState<Repeat>("once");
+  const [rdays, setRdays] = useState<number[]>([0, 1, 2, 3, 4]);
+  const [rtime, setRtime] = useState("");
 
   const col = wsId ? collection(db, "workspaces", wsId, "assignments") : null;
   useEffect(() => {
@@ -58,17 +64,24 @@ export default function Tasks() {
   async function add(e: FormEvent) {
     e.preventDefault(); if (!col || !form.title.trim()) return;
     await addDoc(col, {
-      title: form.title.trim(), description: form.description.trim(), date: selDay, status: "todo",
+      title: form.title.trim(), description: form.description.trim(), date: selDay, status: "todo", repeat,
+      ...(repeat === "weekly" ? { days: rdays } : {}), ...(rtime ? { time: rtime } : {}), ...(repeat !== "once" ? { doneDates: [] } : {}),
       checkpoints: form.checkpoints.split("\n").map((t) => t.trim()).filter(Boolean).map((text) => ({ text, done: false })),
       createdAt: serverTimestamp(), createdBy: user!.email, shared: true,
     });
-    setForm({ title: "", description: "", checkpoints: "" });
+    setForm({ title: "", description: "", checkpoints: "" }); setRtime("");
   }
   const upd = (id: string, d: Partial<Assignment>) => updateDoc(doc(col!, id), d);
   const toggleCp = (a: Assignment, i: number) =>
     upd(a.id, { checkpoints: a.checkpoints.map((c, j) => (j === i ? { ...c, done: !c.done } : c)) });
 
-  const dayItems = items.filter((a) => a.date === selDay);
+  const onDay = (a: Assignment, d: string) => occursOn(a as any, d);
+  const isDone = (a: Assignment, d: string) => isRecurring(a as any) ? (a.doneDates || []).includes(d) : a.status === "done";
+  const toggleDay = (a: Assignment, d: string) => {
+    const set = new Set(a.doneDates || []); set.has(d) ? set.delete(d) : set.add(d);
+    upd(a.id, { doneDates: [...set].sort().slice(-90) });
+  };
+  const dayItems = items.filter((a) => onDay(a, selDay)).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
   const progress = (a: Assignment) => a.checkpoints.length ? Math.round(a.checkpoints.filter((c) => c.done).length / a.checkpoints.length * 100) : 0;
 
   return (
@@ -85,13 +98,13 @@ export default function Tasks() {
           <div className="cal">
             {["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map((d) => <div key={d} className="cal-h muted small">{d}</div>)}
             {days.map((d) => {
-              const key = ymd(d); const list = items.filter((a) => a.date === key);
+              const key = ymd(d); const list = items.filter((a) => onDay(a, key));
               const dl = deadlines.filter((x) => x.date === key);
               return (
                 <div key={key} onClick={() => setSelDay(key)}
                   className={`cal-d ${d.getMonth() !== month.getMonth() ? "out" : ""} ${key === today() ? "now" : ""} ${key === selDay ? "sel" : ""}`}>
                   <span className="small">{d.getDate()}</span>
-                  {list.slice(0, 3).map((a) => <div key={a.id} className={`chip s-${a.status}`}>{a.title}</div>)}
+                  {list.slice(0, 3).map((a) => <div key={a.id} className={`chip s-${isRecurring(a as any) ? (isDone(a, key) ? "done" : "todo") : a.status}`}>{isRecurring(a as any) ? "🔁 " : ""}{a.title}</div>)}
                   {dl.length > 0 && <div className={`chip dl ${dl.every((x) => x.done) ? "s-done" : ""}`}>◆ {dl.filter((x) => !x.done).length || "✓"} {dl.length === 1 ? dl[0].project : "срок"}</div>}
                   {list.length > 3 && <div className="muted small">+{list.length - 3}</div>}
                 </div>
@@ -102,7 +115,21 @@ export default function Tasks() {
 
         <div className="card">
           <h3>{new Date(selDay).toLocaleDateString("ru-RU", { day: "numeric", month: "long", weekday: "short" })}</h3>
-          {dayItems.map((a) => (
+          {dayItems.filter((a) => isRecurring(a as any)).map((a) => (
+            <div key={a.id} className="assign">
+              <div className="row">
+                <label className={`task ${isDone(a, selDay) ? "done" : ""}`} style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, cursor: "pointer" }}>
+                  <input type="checkbox" checked={isDone(a, selDay)} onChange={() => toggleDay(a, selDay)} />
+                  🔁 <b>{a.title}</b></label>
+                <span className="muted small">{describe(a as any)}</span>
+                {isOwner && <button className="ghost" title={a.shared === false ? "Сотрудник не видит" : "Сотрудник видит"}
+                  onClick={() => upd(a.id, { shared: a.shared === false })}>{a.shared === false ? "🔒" : "🔓"}</button>}
+                {isOwner && <button className="ghost" onClick={() => confirm(`Удалить регулярное задание «${a.title}» со всех дней?`) && deleteDoc(doc(col!, a.id))}>✕</button>}
+              </div>
+              {a.description && <div className="muted small">{a.description}</div>}
+            </div>
+          ))}
+          {dayItems.filter((a) => !isRecurring(a as any)).map((a) => (
             <div key={a.id} className="assign">
               <div className="row" onClick={() => setOpenId(openId === a.id ? null : a.id)} style={{ cursor: "pointer" }}>
                 <b>{a.title}</b><span className={`badge s-${a.status}`}>{statusLabel[a.status]} · {progress(a)}%</span>
@@ -142,11 +169,21 @@ export default function Tasks() {
 
           {isOwner && (
             <form onSubmit={add} className="newtask">
-              <h3>+ Новое задание на этот день</h3>
+              <h3>+ Новое задание {repeat === "once" ? "на этот день" : "(начиная с этого дня)"}</h3>
               <input placeholder="Название" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <div className="chips" style={{ margin: 0 }}>
+                {([["once", "Один раз"], ["daily", "Каждый день"], ["weekly", "По дням недели"]] as [Repeat, string][]).map(([k, l]) =>
+                  <button key={k} type="button" className={`chipbtn ${repeat === k ? "on" : ""}`} onClick={() => setRepeat(k)}>{l}</button>)}
+              </div>
+              {repeat === "weekly" && <div className="chips" style={{ margin: 0 }}>
+                {WD.map((w, i) => <button key={i} type="button" className={`chipbtn ${rdays.includes(i) ? "on" : ""}`}
+                  onClick={() => setRdays(rdays.includes(i) ? rdays.filter((x) => x !== i) : [...rdays, i])}>{w}</button>)}
+              </div>}
+              <label className="small muted" style={{ display: "flex", gap: 6, alignItems: "center" }}>⏰ время (по желанию)
+                <input type="time" value={rtime} onChange={(e) => setRtime(e.target.value)} /></label>
               <textarea placeholder="Описание" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-              <textarea placeholder={"Чекпоинты — каждый с новой строки"} value={form.checkpoints} onChange={(e) => setForm({ ...form, checkpoints: e.target.value })} />
-              <button>Добавить</button>
+              {repeat === "once" && <textarea placeholder={"Чекпоинты — каждый с новой строки"} value={form.checkpoints} onChange={(e) => setForm({ ...form, checkpoints: e.target.value })} />}
+              <button disabled={repeat === "weekly" && !rdays.length}>Добавить</button>
             </form>
           )}
         </div>
