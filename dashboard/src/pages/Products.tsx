@@ -1,6 +1,9 @@
 // Продукты: карточки услуг в фирменном стиле ОПОРЫ.
 // Копируются текстом или скачиваются картинкой, чтобы отправить клиенту. Личное: users/{uid}/products
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { collection, doc, getDoc, getDocs, setDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { useAuth } from "../lib/auth";
 import { toPng } from "html-to-image";
 import { useCollection } from "../lib/store";
 import { parseAmount, rub } from "../lib/money";
@@ -64,6 +67,18 @@ export default function Products() {
   const [msg, setMsg] = useState("");
   const refs = useRef<Record<string, HTMLDivElement | null>>({});
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
+  const { user } = useAuth();
+
+  // Один раз: если продуктов нет — сами добавляем тарифы ОПОРЫ (флаг, чтобы не возвращать удалённые)
+  useEffect(() => {
+    const flag = doc(db, "users", user!.uid, "meta", "products");
+    (async () => {
+      if ((await getDoc(flag)).exists()) return;
+      const cur = await getDocs(collection(db, "users", user!.uid, "products"));
+      if (cur.empty) for (const p of SEED) await add(p);
+      await setDoc(flag, { seeded: true });
+    })().catch(() => {});
+  }, [user?.uid]);
 
   const toForm = (p: Product) => ({ title: p.title, price: String(p.price), priceFrom: !!p.priceFrom, period: p.period || "",
     short: p.short || "", note: p.note || "", badge: p.badge || "",
