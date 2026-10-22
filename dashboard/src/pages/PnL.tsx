@@ -2,7 +2,7 @@
 // Всё в личном Firestore (users/{uid}), сотрудник не видит.
 import { FormEvent, useState } from "react";
 import { today, useCollection } from "../lib/store";
-import { expected, Expense, parseAmount, Payment, PlanLine, rub, useBilling, usePaid, usePaidAll, usePlan } from "../lib/money";
+import { addMonths, expected, Expense, expShare, incMonth, parseAmount, Payment, PlanLine, recActive, Recurring, rub, useBilling, usePaid, usePaidAll, usePlan } from "../lib/money";
 import { useClientProjects } from "../lib/clients";
 import { monthKey } from "../lib/catalog";
 
@@ -33,11 +33,13 @@ export default function PnL() {
   const next = new Date(month.getFullYear(), month.getMonth() + 1, 1); const nk = monthKey(next);
   const payments = useCollection<Payment>("payments");
   const manual = useCollection<Expense>("incomes"); // ручные доходы — живут только в P&L
-  const [fi, setFi] = useState({ title: "", amount: "", date: today() });
+  const [fi, setFi] = useState({ title: "", amount: "", date: today(), period: addMonths(today().slice(0, 7), 1) });
+  const recurring = useCollection<Recurring>("recurring");
+  const [fr, setFr] = useState({ title: "", kind: "fixed" as Recurring["kind"], amount: "", category: "", from: today().slice(0, 7), to: "" });
   const expenses = useCollection<Expense>("expenses");
   const { plan } = usePlan(mk);
   const nextPlan = usePlan(nk);
-  const [f, setF] = useState({ title: "", amount: "", date: today(), category: "" });
+  const [f, setF] = useState({ title: "", amount: "", date: today(), category: "", months: "1" });
   const { list: projects } = useClientProjects();
   const { map: billing } = useBilling();
   const { marks: paid, set: setPaid } = usePaid(mk);
@@ -48,29 +50,38 @@ export default function PnL() {
   const paidByMonth = usePaidAll();
 
   const inc = payments.items.filter((p) => p.date?.startsWith(mk)).sort((a, b) => b.date.localeCompare(a.date));
-  const exp = expenses.items.filter((x) => x.date?.startsWith(mk)).sort((a, b) => b.date.localeCompare(a.date));
+  // расходы месяца: обычные + доли растянутых
+  const exp = expenses.items.map((x) => ({ ...x, share: expShare(x, mk) })).filter((x) => x.share > 0)
+    .sort((a, b) => b.date.localeCompare(a.date));
   const paidIncome = paidList.map((x) => ({ project: x.project, amount: paid[x.key].amount }));
-  const man = manual.items.filter((x) => x.date?.startsWith(mk)).sort((a, b) => b.date.localeCompare(a.date));
-  const I = sum(inc) + sum(paidIncome) + sum(man), E = sum(exp), P = I - E;
+  const man = manual.items.filter((x) => incMonth(x) === mk).sort((a, b) => b.date.localeCompare(a.date));
+  const I = sum(inc) + sum(paidIncome) + sum(man);
+  // регулярные: фикс или % от доходов месяца
+  const recNow = recurring.items.filter((r) => recActive(r, mk)).map((r) => ({ ...r, value: r.kind === "percent" ? I * r.amount / 100 : r.amount }));
+  const E = exp.reduce((a, x) => a + x.share, 0) + recNow.reduce((a, r) => a + r.value, 0), P = I - E;
   const byProject = Object.entries([...inc.map((p) => ({ project: p.projectName, amount: p.amount })), ...paidIncome, ...man.map((x) => ({ project: x.title, amount: x.amount }))]
     .reduce<Record<string, number>>((m, p) => ((m[p.project] = (m[p.project] || 0) + p.amount), m), {})).sort((a, b) => b[1] - a[1]);
-  const byCat = Object.entries(exp.reduce<Record<string, number>>((m, x) => ((m[x.category || "Прочее"] = (m[x.category || "Прочее"] || 0) + x.amount), m), {})).sort((a, b) => b[1] - a[1]);
-  const cats = [...new Set(expenses.items.map((x) => x.category).filter(Boolean))] as string[];
+  const byCat = Object.entries([...exp.map((x) => ({ c: x.category || "Прочее", v: x.share })), ...recNow.map((r) => ({ c: r.category || "Прочее", v: r.value }))]
+    .reduce<Record<string, number>>((m, x) => ((m[x.c] = (m[x.c] || 0) + x.v), m), {})).sort((a, b) => b[1] - a[1]);
+  const cats = [...new Set([...expenses.items, ...recurring.items].map((x) => x.category).filter(Boolean))] as string[];
   const hasPlan = plan.income.length || plan.expenses.length;
   const pI = sum(plan.income), pE = sum(plan.expenses);
 
   // 6 месяцев для графика
   const hist = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(month.getFullYear(), month.getMonth() - 5 + i, 1); const k = monthKey(d);
-    const a = sum(payments.items.filter((p) => p.date?.startsWith(k))) + (paidByMonth[k] || 0) + sum(manual.items.filter((x) => x.date?.startsWith(k))), b = sum(expenses.items.filter((x) => x.date?.startsWith(k)));
+    const a = sum(payments.items.filter((p) => p.date?.startsWith(k))) + (paidByMonth[k] || 0) + sum(manual.items.filter((x) => incMonth(x) === k));
+    const b = expenses.items.reduce((t, x) => t + expShare(x, k), 0)
+      + recurring.items.filter((r) => recActive(r, k)).reduce((t, r) => t + (r.kind === "percent" ? a * r.amount / 100 : r.amount), 0);
     return { label: MONTHS[d.getMonth()].slice(0, 3), i: a, e: b };
   });
   const max = Math.max(1, ...hist.flatMap((h) => [h.i, h.e]));
 
   async function addExpense(e: FormEvent) {
     e.preventDefault(); const n = parseAmount(f.amount); if (!f.title.trim() || !n) return;
-    await expenses.add({ title: f.title.trim(), amount: n, date: f.date, category: f.category.trim() });
-    setF({ ...f, title: "", amount: "" });
+    const months = Math.max(1, Math.min(60, parseInt(f.months) || 1));
+    await expenses.add({ title: f.title.trim(), amount: n, date: f.date, category: f.category.trim(), months });
+    setF({ ...f, title: "", amount: "", months: "1" });
   }
   const diff = (fact: number, pl: number, good: "up" | "down") => {
     const d = fact - pl; if (!pl) return null;
@@ -116,17 +127,43 @@ export default function PnL() {
 
         <div className="card wide2">
           <h3>➕ Доходы вручную</h3>
-          <div className="muted small">Для прошлых месяцев и разовых поступлений. Видны только в P&L.</div>
+          <div className="muted small">Для прошлых месяцев и разовых поступлений. Видны только в P&L. Предоплата: дата — когда пришли деньги, «за месяц» — за какой месяц услуга.</div>
           <form className="inline" onSubmit={async (e) => { e.preventDefault(); const n = parseAmount(fi.amount); if (!fi.title.trim() || !n) return;
-            await manual.add({ title: fi.title.trim(), amount: n, date: fi.date }); setFi({ ...fi, title: "", amount: "" }); }}>
+            await manual.add({ title: fi.title.trim(), amount: n, date: fi.date, period: fi.period || fi.date.slice(0, 7) }); setFi({ ...fi, title: "", amount: "" }); }}>
             <input placeholder="Клиент / за что" value={fi.title} onChange={(e) => setFi({ ...fi, title: e.target.value })} style={{ flex: 1, minWidth: 140 }} />
             <input inputMode="decimal" placeholder="₽" value={fi.amount} onChange={(e) => setFi({ ...fi, amount: e.target.value })} style={{ width: 100 }} />
-            <input type="date" value={fi.date} onChange={(e) => setFi({ ...fi, date: e.target.value })} />
+            <input type="date" title="Когда пришли деньги" value={fi.date} onChange={(e) => setFi({ ...fi, date: e.target.value, period: addMonths(e.target.value.slice(0, 7), 1) })} />
+            <label className="small muted" style={{ display: "flex", gap: 4, alignItems: "center" }}>за <input type="month" value={fi.period} onChange={(e) => setFi({ ...fi, period: e.target.value })} /></label>
             <button>+ Доход</button>
           </form>
           {man.map((x) => (
-            <div key={x.id} className="row small"><span>{dm(x.date)} · {x.title}</span>
+            <div key={x.id} className="row small"><span>{dm(x.date)} · {x.title}{x.period && x.period !== x.date.slice(0, 7) ? <span className="muted"> · предоплата</span> : null}</span>
               <span>{rub(x.amount)} <button className="ghost" onClick={() => confirm("Удалить доход?") && manual.remove(x.id)}>✕</button></span></div>))}
+          <h3 style={{ marginTop: 16 }}>🔁 Регулярные расходы</h3>
+          <div className="muted small">Подписки, зарплата сотруднику. Фикс в месяц или % от доходов месяца.</div>
+          {recurring.items.map((r) => {
+            const on = recActive(r, mk); const v = r.kind === "percent" ? I * r.amount / 100 : r.amount;
+            return (
+              <div key={r.id} className="row small" style={{ opacity: on ? 1 : 0.5 }}>
+                <span>{r.title} · {r.kind === "percent" ? `${r.amount}% от доходов` : `${rub(r.amount)}/мес`}
+                  <span className="muted"> · с {r.from}{r.to ? ` по ${r.to}` : ""}</span></span>
+                <span>{on ? rub(v) : "—"}
+                  {!r.to && <button className="ghost" title="Закончить на этом месяце" onClick={() => recurring.update(r.id, { to: mk })}>⏹</button>}
+                  <button className="ghost" onClick={() => confirm(`Удалить «${r.title}» из всех месяцев?`) && recurring.remove(r.id)}>✕</button></span>
+              </div>);
+          })}
+          <form className="inline" onSubmit={async (e) => { e.preventDefault(); const n = parseAmount(fr.amount); if (!fr.title.trim() || !n) return;
+            await recurring.add({ title: fr.title.trim(), kind: fr.kind, amount: n, category: fr.category.trim(), from: fr.from, ...(fr.to ? { to: fr.to } : {}) });
+            setFr({ ...fr, title: "", amount: "", to: "" }); }}>
+            <input placeholder="Например: Аномалия" value={fr.title} onChange={(e) => setFr({ ...fr, title: e.target.value })} style={{ flex: 1, minWidth: 130 }} />
+            <select value={fr.kind} onChange={(e) => setFr({ ...fr, kind: e.target.value as Recurring["kind"] })}>
+              <option value="fixed">₽ в месяц</option><option value="percent">% от доходов</option></select>
+            <input inputMode="decimal" placeholder={fr.kind === "percent" ? "%" : "₽"} value={fr.amount} onChange={(e) => setFr({ ...fr, amount: e.target.value })} style={{ width: 80 }} />
+            <input list="cats" placeholder="Категория" value={fr.category} onChange={(e) => setFr({ ...fr, category: e.target.value })} style={{ width: 120 }} />
+            <label className="small muted">с <input type="month" value={fr.from} onChange={(e) => setFr({ ...fr, from: e.target.value })} /></label>
+            <label className="small muted">по <input type="month" value={fr.to} onChange={(e) => setFr({ ...fr, to: e.target.value })} /></label>
+            <button>+</button>
+          </form>
           <h3 style={{ marginTop: 16 }}>🧾 Расходы</h3>
           <form className="inline" onSubmit={addExpense}>
             <input placeholder="За что" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} style={{ flex: 1, minWidth: 140 }} />
@@ -134,13 +171,16 @@ export default function PnL() {
             <input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} />
             <input list="cats" placeholder="Категория" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} style={{ width: 130 }} />
             <datalist id="cats">{cats.map((c) => <option key={c} value={c} />)}</datalist>
+            <label className="small muted" style={{ display: "flex", gap: 4, alignItems: "center" }} title="Например, 1С за полгода — 6">на
+              <input type="number" min={1} max={60} value={f.months} onChange={(e) => setF({ ...f, months: e.target.value })} style={{ width: 56 }} /> мес</label>
             <button>+ Расход</button>
           </form>
           {byCat.length > 1 && byCat.map(([c, v]) => <div key={c} className="row small"><span className="muted">{c}</span><span>{rub(v)}</span></div>)}
           {exp.map((x) => (
             <div key={x.id} className="row small" style={{ borderTop: "1px solid var(--border)", paddingTop: 4 }}>
-              <span>{dm(x.date)} · {x.title}{x.category ? <span className="tagc" style={{ marginLeft: 6 }}>{x.category}</span> : null}</span>
-              <span>{rub(x.amount)} <button className="ghost" onClick={() => confirm("Удалить расход?") && expenses.remove(x.id)}>✕</button></span>
+              <span>{dm(x.date)} · {x.title}{x.category ? <span className="tagc" style={{ marginLeft: 6 }}>{x.category}</span> : null}
+                {(x.months || 1) > 1 && <span className="muted"> · {rub(x.amount)} на {x.months} мес</span>}</span>
+              <span>{rub(x.share)} <button className="ghost" onClick={() => confirm("Удалить расход?") && expenses.remove(x.id)}>✕</button></span>
             </div>))}
           {!exp.length && <div className="muted small">Расходов в этом месяце нет</div>}
         </div>

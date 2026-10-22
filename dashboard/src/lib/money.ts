@@ -5,7 +5,22 @@ import { db } from "./firebase";
 import { useAuth } from "./auth";
 
 export interface Payment { projectId: string; projectName: string; amount: number; date: string; note?: string; }
-export interface Expense { title: string; amount: number; date: string; category?: string; }
+export interface Expense { title: string; amount: number; date: string; category?: string;
+  months?: number;   // расход: растянуть на N месяцев (подписка за полгода, разработка)
+  period?: string;   // доход: за какой месяц (предоплата 25.09 за октябрь → "2026-10")
+}
+// Регулярный расход: фикс ₽ в месяц или % от доходов месяца
+export interface Recurring { title: string; kind: "fixed" | "percent"; amount: number; category?: string; from: string; to?: string; }
+
+export const addMonths = (mk: string, n: number) => { const [y, m] = mk.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+// Доля расхода в месяце mk (с учётом растягивания)
+export function expShare(x: Expense, mk: string) {
+  const start = x.date?.slice(0, 7); const n = Math.max(1, x.months || 1);
+  if (!start || mk < start || mk > addMonths(start, n - 1)) return 0;
+  return x.amount / n;
+}
+export const incMonth = (x: Expense) => x.period || x.date?.slice(0, 7);
+export const recActive = (r: Recurring, mk: string) => r.from <= mk && (!r.to || mk <= r.to);
 export interface PlanLine { title: string; amount: number; }
 export interface Plan { income: PlanLine[]; expenses: PlanLine[]; }
 
@@ -23,7 +38,7 @@ export function usePlan(mk: string) {
 /* ---------- Абонентские услуги проекта ---------- */
 // users/{uid}/billing/{projectId}: { services: Service[] }
 // users/{uid}/paid/{YYYY-MM}: { [projectId_serviceId]: PaidMark }
-export interface Service { id: string; title: string; price: number; day: number; from?: string; }
+export interface Service { id: string; title: string; price: number; day: number; from?: string; prepay?: boolean; }
 export interface PaidMark { paid: boolean; amount: number; date: string; }
 
 import { collection } from "firebase/firestore";
@@ -56,7 +71,9 @@ export const dueOf = (mk: string, day: number) => {
 export function expected(mk: string, projects: { id: string; name: string }[], billing: Record<string, Service[]>) {
   return projects.flatMap((p) => (billing[p.id] || [])
     .filter((s) => !s.from || s.from <= mk)
-    .map((s) => ({ key: `${p.id}_${s.id}`, pid: p.id, project: p.name, service: s.title, price: s.price, due: dueOf(mk, s.day) })))
+    .map((s) => ({ key: `${p.id}_${s.id}`, pid: p.id, project: p.name, service: s.title, price: s.price,
+      // предоплата: за месяц mk платят в предыдущем месяце
+      due: dueOf(s.prepay ? addMonths(mk, -1) : mk, s.day) })))
     .sort((a, b) => a.due.localeCompare(b.due));
 }
 
