@@ -74,3 +74,5 @@ html,body{overscroll-behavior-y:contain}
 .tagc{font-size:11px;font-weight:600;border-radius:6px;padding:2px 7px;background:var(--bg);border:1px solid var(--border);white-space:nowrap}
 .tagc.warn{color:#b45309;border-color:#f3c99b}.tagc.late{color:var(--lost);border-color:var(--lost)}
 .chip.dl{border-left:3px solid #e8873a}
+.linkbtn{font-size:13px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);text-decoration:none;white-space:nowrap}
+.linkbtn:hover{border-color:var(--accent)}

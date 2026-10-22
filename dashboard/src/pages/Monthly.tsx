@@ -8,6 +8,7 @@ import { useClientProjects, useMarks } from "../lib/clients";
 import { monthKey } from "../lib/catalog";
 import Checklist from "../components/Checklist";
 import FlagPicker from "../components/FlagPicker";
+import { LinkButtons, LinkEditor } from "../components/ProjectLinks";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 
@@ -44,10 +45,12 @@ export default function Monthly() {
               {p.monthlyOpen ? "🔓 Чек-лист открыт сотруднику" : "🔒 Чек-лист закрыт"}</button>
             <button className={p.calendarOpen ? "" : "ghost"} onClick={() => upd({ calendarOpen: !p.calendarOpen })}>
               {p.calendarOpen ? "🔓 Сроки в календаре сотрудника" : "🔒 Сроки только у меня"}</button>
-            <button className="ghost" onClick={() => setEditFlags(!editFlags)}>⚙ Данные клиента</button>
+            <button className="ghost" onClick={() => setEditFlags(!editFlags)}>⚙ Данные и ссылки</button>
           </div>}
           {isOwner && editFlags && <div className="card" style={{ background: "var(--bg)", marginTop: 8 }}>
-            <FlagPicker flags={p.flags || {}} onChange={(f) => upd({ flags: f })} /></div>}
+            <FlagPicker flags={p.flags || {}} onChange={(f) => upd({ flags: f })} />
+            <LinkEditor key={p.id} links={p.links} onChange={(l) => upd({ links: l })} /></div>}
+          <LinkButtons links={p.links} />
           <Checklist p={p} mk={mk} marks={marks[p.id] || {}} setMark={(id, m) => setMark(p.id, id, m)} />
         </div>}
       </>}

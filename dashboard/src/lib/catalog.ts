@@ -99,6 +99,7 @@ export interface ClientProject {
   id: string; name: string; flags: Partial<Record<Flag, boolean>>;
   monthlyOpen: boolean;   // сотрудник видит чек-лист
   calendarOpen: boolean;  // сотрудник видит задачи с дедлайном в календаре
+  links?: { sheet?: string; folder?: string; chat?: string };
 }
 export interface Mark { done?: boolean; doneBy?: string; doneAt?: string; comment?: string; commentBy?: string; commentAt?: string; }
 

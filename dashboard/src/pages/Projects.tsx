@@ -8,6 +8,7 @@ import { useClientProjects, useMarks } from "../lib/clients";
 import { Flag, FLAG_LABEL, monthKey, shown, STAGES } from "../lib/catalog";
 import { visibleItems } from "../components/Checklist";
 import FlagPicker from "../components/FlagPicker";
+import { Links, LinkButtons, LinkEditor } from "../components/ProjectLinks";
 import { useCollection } from "../lib/store";
 import { Client, Project } from "../lib/types";
 
@@ -21,16 +22,17 @@ export default function Projects() {
   const [creating, setCreating] = useState(!!qs.get("new"));
   const [name, setName] = useState(qs.get("new") || "");
   const [flags, setFlags] = useState<Partial<Record<Flag, boolean>>>({});
+  const [links, setLinks] = useState<Links>({});
   const old = useCollection<Project>("projects");
   const clients = useCollection<Client>("clients");
 
   const col = wsId ? collection(db, "workspaces", wsId, "clients") : null;
   async function create(e: FormEvent) {
     e.preventDefault(); if (!col || !name.trim()) return;
-    const r = await addDoc(col, { name: name.trim(), flags, monthlyOpen: false, calendarOpen: false, createdAt: serverTimestamp() });
+    const r = await addDoc(col, { name: name.trim(), flags, links, monthlyOpen: false, calendarOpen: false, createdAt: serverTimestamp() });
     // создан из карточки клиента — связываем и переводим клиента «В работу»
     if (fromClient) await clients.update(fromClient, { projectId: r.id, status: "work" });
-    setName(""); setFlags({}); setCreating(false);
+    setName(""); setFlags({}); setLinks({}); setCreating(false);
     location.hash = "#/monthly?p=" + r.id;
   }
   const preview = STAGES.map((s) => ({ s, n: s.items.filter((it) => shown(it, flags)).length })).filter((x) => x.n);
@@ -47,6 +49,8 @@ export default function Projects() {
           <input placeholder="Клиент / название проекта" value={name} onChange={(e) => setName(e.target.value)} autoFocus style={{ width: "100%" }} />
           <div style={{ marginTop: 10 }}><b>Что есть у клиента?</b> <span className="muted small">Нажми — список задач подстроится</span></div>
           <FlagPicker flags={flags} onChange={setFlags} />
+          <div style={{ marginTop: 10 }}><b>Ссылки</b> <span className="muted small">по желанию, можно добавить позже</span></div>
+          <LinkEditor links={links} onChange={setLinks} />
           <div className="card" style={{ background: "var(--bg)", marginTop: 8 }}>
             <b>Ежемесячные задачи: {total}</b> <span className="muted small">· {withDue} со сроком попадут в календарь</span>
             {preview.map(({ s, n }) => (
@@ -72,6 +76,7 @@ export default function Projects() {
               <div className="row"><a href={"#/monthly?p=" + p.id}><b>{p.name}</b></a>
                 <button className="ghost" onClick={() => confirm(`Удалить проект «${p.name}»? Отметки по нему пропадут из вида.`) && deleteDoc(doc(col!, p.id))}>✕</button></div>
               <div className="tags">{(Object.keys(p.flags || {}) as Flag[]).filter((k) => p.flags[k]).map((k) => <span key={k} className="tagc">{FLAG_LABEL[k]}</span>)}</div>
+              <LinkButtons links={p.links} />
               <div className="progress"><div style={{ width: (items.length ? d / items.length * 100 : 0) + "%" }} /></div>
               <div className="muted small">Этот месяц: {d} из {items.length}</div>
               <div className="inline" style={{ marginTop: 8 }}>
