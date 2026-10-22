@@ -6,7 +6,6 @@ import { modules } from "./lib/modules";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
-import Planner from "./pages/Planner";
 import Notes from "./pages/Notes";
 import Tasks from "./pages/Tasks";
 import Monthly from "./pages/Monthly";
@@ -47,7 +46,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/login" element={<Login />} />
           <Route element={<Protected />}>
             <Route index element={<OwnerOnly><Home /></OwnerOnly>} />
-            <Route path="planner" element={<OwnerOnly><Planner /></OwnerOnly>} />
             <Route path="tasks" element={<MemberGate><Tasks /></MemberGate>} />
             <Route path="monthly" element={<MemberGate><Monthly /></MemberGate>} />
             <Route path="notes" element={<OwnerOnly><Notes /></OwnerOnly>} />
