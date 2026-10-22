@@ -13,7 +13,7 @@ export function useClientProjects() {
     if (!wsId) return;
     const col = collection(db, "workspaces", wsId, "clients");
     const put = (part: string) => (s: any) => setParts((p) => ({ ...p, [part]: s.docs.map((d: any) => ({ id: d.id, ...d.data() })) }));
-    const err = (e: any) => setError(e.code === "permission-denied" ? "Доступ закрыт владельцем" : e.message);
+    const err = (e: any) => setError(e.code === "permission-denied" ? (isOwner ? "Firebase не пускает: опубликуй свежие правила Firestore" : "Доступ закрыт владельцем") : e.message);
     // Сотрудник читает только открытые ему проекты — запросы должны совпадать с правилами
     const subs = isOwner ? [onSnapshot(col, put("all"), err)]
       : [onSnapshot(query(col, where("monthlyOpen", "==", true)), put("m"), err),

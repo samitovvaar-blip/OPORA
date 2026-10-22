@@ -41,7 +41,7 @@ export default function Tasks() {
       // старые задания без флага считаем открытыми — проставляем один раз
       if (isOwner) list.filter((a) => a.shared === undefined).forEach((a) => updateDoc(doc(col, a.id), { shared: true }));
       setItems(list);
-    }, (e) => setError(e.code === "permission-denied" ? "Доступ закрыт владельцем" : e.message));
+    }, (e) => setError(e.code === "permission-denied" ? (isOwner ? "Firebase не пускает: опубликуй свежие правила Firestore" : "Доступ закрыт владельцем") : e.message));
   }, [wsId, isOwner]);
 
   const days = useMemo(() => {

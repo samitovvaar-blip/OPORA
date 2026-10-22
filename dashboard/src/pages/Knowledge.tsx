@@ -27,7 +27,7 @@ export default function Knowledge() {
   const col = wsId ? collection(db, "workspaces", wsId, "kb") : null;
 
   useEffect(() => col ? onSnapshot(col, (s) => setList(s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Lesson, "id">) })).sort((a, b) => a.order - b.order)),
-    (e) => setErr(e.code === "permission-denied" ? "Доступ закрыт владельцем" : e.message)) : undefined, [wsId]);
+    (e) => setErr(e.code === "permission-denied" ? (isOwner ? "Firebase не пускает: опубликуй свежие правила Firestore" : "Доступ закрыт владельцем") : e.message)) : undefined, [wsId]);
 
   if (!isOwner && ws && !ws.open) return <><h1>База знаний</h1><div className="card">🔒 Доступ сейчас закрыт.</div></>;
 

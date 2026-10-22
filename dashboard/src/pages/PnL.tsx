@@ -32,6 +32,8 @@ export default function PnL() {
   const mk = monthKey(month);
   const next = new Date(month.getFullYear(), month.getMonth() + 1, 1); const nk = monthKey(next);
   const payments = useCollection<Payment>("payments");
+  const manual = useCollection<Expense>("incomes"); // ручные доходы — живут только в P&L
+  const [fi, setFi] = useState({ title: "", amount: "", date: today() });
   const expenses = useCollection<Expense>("expenses");
   const { plan } = usePlan(mk);
   const nextPlan = usePlan(nk);
@@ -48,8 +50,9 @@ export default function PnL() {
   const inc = payments.items.filter((p) => p.date?.startsWith(mk)).sort((a, b) => b.date.localeCompare(a.date));
   const exp = expenses.items.filter((x) => x.date?.startsWith(mk)).sort((a, b) => b.date.localeCompare(a.date));
   const paidIncome = paidList.map((x) => ({ project: x.project, amount: paid[x.key].amount }));
-  const I = sum(inc) + sum(paidIncome), E = sum(exp), P = I - E;
-  const byProject = Object.entries([...inc.map((p) => ({ project: p.projectName, amount: p.amount })), ...paidIncome]
+  const man = manual.items.filter((x) => x.date?.startsWith(mk)).sort((a, b) => b.date.localeCompare(a.date));
+  const I = sum(inc) + sum(paidIncome) + sum(man), E = sum(exp), P = I - E;
+  const byProject = Object.entries([...inc.map((p) => ({ project: p.projectName, amount: p.amount })), ...paidIncome, ...man.map((x) => ({ project: x.title, amount: x.amount }))]
     .reduce<Record<string, number>>((m, p) => ((m[p.project] = (m[p.project] || 0) + p.amount), m), {})).sort((a, b) => b[1] - a[1]);
   const byCat = Object.entries(exp.reduce<Record<string, number>>((m, x) => ((m[x.category || "Прочее"] = (m[x.category || "Прочее"] || 0) + x.amount), m), {})).sort((a, b) => b[1] - a[1]);
   const cats = [...new Set(expenses.items.map((x) => x.category).filter(Boolean))] as string[];
@@ -59,7 +62,7 @@ export default function PnL() {
   // 6 месяцев для графика
   const hist = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(month.getFullYear(), month.getMonth() - 5 + i, 1); const k = monthKey(d);
-    const a = sum(payments.items.filter((p) => p.date?.startsWith(k))) + (paidByMonth[k] || 0), b = sum(expenses.items.filter((x) => x.date?.startsWith(k)));
+    const a = sum(payments.items.filter((p) => p.date?.startsWith(k))) + (paidByMonth[k] || 0) + sum(manual.items.filter((x) => x.date?.startsWith(k))), b = sum(expenses.items.filter((x) => x.date?.startsWith(k)));
     return { label: MONTHS[d.getMonth()].slice(0, 3), i: a, e: b };
   });
   const max = Math.max(1, ...hist.flatMap((h) => [h.i, h.e]));
@@ -112,7 +115,19 @@ export default function PnL() {
         </div>
 
         <div className="card wide2">
-          <h3>🧾 Расходы</h3>
+          <h3>➕ Доходы вручную</h3>
+          <div className="muted small">Для прошлых месяцев и разовых поступлений. Видны только в P&L.</div>
+          <form className="inline" onSubmit={async (e) => { e.preventDefault(); const n = parseAmount(fi.amount); if (!fi.title.trim() || !n) return;
+            await manual.add({ title: fi.title.trim(), amount: n, date: fi.date }); setFi({ ...fi, title: "", amount: "" }); }}>
+            <input placeholder="Клиент / за что" value={fi.title} onChange={(e) => setFi({ ...fi, title: e.target.value })} style={{ flex: 1, minWidth: 140 }} />
+            <input inputMode="decimal" placeholder="₽" value={fi.amount} onChange={(e) => setFi({ ...fi, amount: e.target.value })} style={{ width: 100 }} />
+            <input type="date" value={fi.date} onChange={(e) => setFi({ ...fi, date: e.target.value })} />
+            <button>+ Доход</button>
+          </form>
+          {man.map((x) => (
+            <div key={x.id} className="row small"><span>{dm(x.date)} · {x.title}</span>
+              <span>{rub(x.amount)} <button className="ghost" onClick={() => confirm("Удалить доход?") && manual.remove(x.id)}>✕</button></span></div>))}
+          <h3 style={{ marginTop: 16 }}>🧾 Расходы</h3>
           <form className="inline" onSubmit={addExpense}>
             <input placeholder="За что" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} style={{ flex: 1, minWidth: 140 }} />
             <input inputMode="decimal" placeholder="₽" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} style={{ width: 100 }} />
