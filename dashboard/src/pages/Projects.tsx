@@ -80,7 +80,7 @@ export default function Projects() {
                 <button className="ghost" onClick={() => confirm(`Удалить проект «${p.name}»? Отметки по нему пропадут из вида.`) && deleteDoc(doc(col!, p.id))}>✕</button></div>
               <div className="tags">{(Object.keys(p.flags || {}) as Flag[]).filter((k) => p.flags[k]).map((k) => <span key={k} className="tagc">{FLAG_LABEL[k]}</span>)}</div>
               <LinkButtons links={p.links} />
-              <details style={{ marginTop: 8 }}><summary className="small">💰 Оплаты</summary>
+              <details style={{ marginTop: 8 }}><summary className="small">💰 Услуги и оплата</summary>
                 <Payments projectId={p.id} projectName={p.name} /></details>
               <div className="progress"><div style={{ width: (items.length ? d / items.length * 100 : 0) + "%" }} /></div>
               <div className="muted small">Этот месяц: {d} из {items.length}</div>

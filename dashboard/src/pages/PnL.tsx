@@ -2,7 +2,8 @@
 // Всё в личном Firestore (users/{uid}), сотрудник не видит.
 import { FormEvent, useState } from "react";
 import { today, useCollection } from "../lib/store";
-import { Expense, parseAmount, Payment, PlanLine, rub, usePlan } from "../lib/money";
+import { expected, Expense, parseAmount, Payment, PlanLine, rub, useBilling, usePaid, usePaidAll, usePlan } from "../lib/money";
+import { useClientProjects } from "../lib/clients";
 import { monthKey } from "../lib/catalog";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
@@ -35,11 +36,21 @@ export default function PnL() {
   const { plan } = usePlan(mk);
   const nextPlan = usePlan(nk);
   const [f, setF] = useState({ title: "", amount: "", date: today(), category: "" });
+  const { list: projects } = useClientProjects();
+  const { map: billing } = useBilling();
+  const { marks: paid, set: setPaid } = usePaid(mk);
+  const exp_ = expected(mk, projects, billing);
+  const paidList = exp_.filter((x) => paid[x.key]?.paid);
+  const waitSum = exp_.filter((x) => !paid[x.key]?.paid).reduce((a, x) => a + x.price, 0);
+  const nextExpected = expected(nk, projects, billing);
+  const paidByMonth = usePaidAll();
 
   const inc = payments.items.filter((p) => p.date?.startsWith(mk)).sort((a, b) => b.date.localeCompare(a.date));
   const exp = expenses.items.filter((x) => x.date?.startsWith(mk)).sort((a, b) => b.date.localeCompare(a.date));
-  const I = sum(inc), E = sum(exp), P = I - E;
-  const byProject = Object.entries(inc.reduce<Record<string, number>>((m, p) => ((m[p.projectName] = (m[p.projectName] || 0) + p.amount), m), {})).sort((a, b) => b[1] - a[1]);
+  const paidIncome = paidList.map((x) => ({ project: x.project, amount: paid[x.key].amount }));
+  const I = sum(inc) + sum(paidIncome), E = sum(exp), P = I - E;
+  const byProject = Object.entries([...inc.map((p) => ({ project: p.projectName, amount: p.amount })), ...paidIncome]
+    .reduce<Record<string, number>>((m, p) => ((m[p.project] = (m[p.project] || 0) + p.amount), m), {})).sort((a, b) => b[1] - a[1]);
   const byCat = Object.entries(exp.reduce<Record<string, number>>((m, x) => ((m[x.category || "Прочее"] = (m[x.category || "Прочее"] || 0) + x.amount), m), {})).sort((a, b) => b[1] - a[1]);
   const cats = [...new Set(expenses.items.map((x) => x.category).filter(Boolean))] as string[];
   const hasPlan = plan.income.length || plan.expenses.length;
@@ -48,7 +59,7 @@ export default function PnL() {
   // 6 месяцев для графика
   const hist = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(month.getFullYear(), month.getMonth() - 5 + i, 1); const k = monthKey(d);
-    const a = sum(payments.items.filter((p) => p.date?.startsWith(k))), b = sum(expenses.items.filter((x) => x.date?.startsWith(k)));
+    const a = sum(payments.items.filter((p) => p.date?.startsWith(k))) + (paidByMonth[k] || 0), b = sum(expenses.items.filter((x) => x.date?.startsWith(k)));
     return { label: MONTHS[d.getMonth()].slice(0, 3), i: a, e: b };
   });
   const max = Math.max(1, ...hist.flatMap((h) => [h.i, h.e]));
@@ -80,11 +91,24 @@ export default function PnL() {
         <div className="card stat"><div className="muted">Маржа</div><b>{I ? Math.round(P / I * 100) : 0}%</b></div>
 
         <div className="card wide2">
-          <h3>💰 Доходы по проектам</h3>
+          <h3>💳 Оплаты клиентов за месяц</h3>
+          {exp_.map((x) => {
+            const m = paid[x.key]; const late = !m?.paid && x.due < today();
+            return (
+              <label key={x.key} className={`row small task ${m?.paid ? "done" : ""}`} style={{ cursor: "pointer", gap: 8 }}>
+                <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input type="checkbox" checked={!!m?.paid} onChange={() => setPaid(x.key, m?.paid ? null : { paid: true, amount: x.price, date: today() })} />
+                  <span><b>{x.project}</b> · {x.service}</span></span>
+                <span className={late ? "error" : "muted"}>{rub(x.price)} · {m?.paid ? `✓ ${dm(m.date)}` : `до ${dm(x.due)}${late ? " ⚠" : ""}`}</span>
+              </label>);
+          })}
+          {!exp_.length && <div className="muted small">Нет услуг. Добавь их в <a href="#/projects">Проекты</a> → 💰 Услуги и оплата</div>}
+          {exp_.length > 0 && <div className="row small" style={{ marginTop: 6 }}><span className="muted">Ждём оплату</span><b>{rub(waitSum)}</b></div>}
+          <h3 style={{ marginTop: 16 }}>💰 Доходы по проектам</h3>
           {byProject.map(([n, v]) => <div key={n} className="row small"><span>{n}</span><b>{rub(v)}</b></div>)}
-          {inc.length > 0 && <details className="small" style={{ marginTop: 6 }}><summary className="muted">Все оплаты ({inc.length})</summary>
+          {inc.length > 0 && <details className="small" style={{ marginTop: 6 }}><summary className="muted">Разовые оплаты ({inc.length})</summary>
             {inc.map((p) => <div key={p.id} className="row"><span>{dm(p.date)} · {p.projectName}{p.note ? <span className="muted"> · {p.note}</span> : null}</span><span>{rub(p.amount)}</span></div>)}</details>}
-          {!inc.length && <div className="muted small">Оплат нет. Добавляются в карточке проекта: <a href="#/projects">Проекты</a> → 💰 Оплаты</div>}
+          {!byProject.length && <div className="muted small">Пока ничего не оплачено</div>}
         </div>
 
         <div className="card wide2">
@@ -128,10 +152,11 @@ export default function PnL() {
             <PlanEditor title="Доходы" lines={nextPlan.plan.income} onSave={(l) => nextPlan.save({ ...nextPlan.plan, income: l })} />
             <PlanEditor title="Расходы" lines={nextPlan.plan.expenses} onSave={(l) => nextPlan.save({ ...nextPlan.plan, expenses: l })} />
           </div>
+          {nextExpected.length > 0 && <div className="row small muted" style={{ marginTop: 6 }}><span>Ожидается по услугам клиентов</span><b>{rub(sum(nextExpected.map((x) => ({ amount: x.price }))))}</b></div>}
           <div className="row" style={{ marginTop: 8 }}><b>Плановая прибыль</b><b>{rub(sum(nextPlan.plan.income) - sum(nextPlan.plan.expenses))}</b></div>
-          {!nextPlan.plan.income.length && byProject.length > 0 &&
-            <button className="ghost" onClick={() => nextPlan.save({ ...nextPlan.plan, income: byProject.map(([title, amount]) => ({ title, amount })) })}>
-              ↺ Заполнить доходы как в этом месяце</button>}
+          {!nextPlan.plan.income.length && nextExpected.length > 0 &&
+            <button className="ghost" onClick={() => nextPlan.save({ ...nextPlan.plan, income: nextExpected.map((x) => ({ title: `${x.project} · ${x.service}`, amount: x.price })) })}>
+              ↺ Заполнить доходы из услуг клиентов</button>}
           {!nextPlan.plan.expenses.length && byCat.length > 0 &&
             <button className="ghost" onClick={() => nextPlan.save({ ...nextPlan.plan, expenses: byCat.map(([title, amount]) => ({ title, amount })) })}>
               ↺ Заполнить расходы как в этом месяце</button>}
