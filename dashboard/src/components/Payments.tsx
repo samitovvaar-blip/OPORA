@@ -22,7 +22,8 @@ export default function Payments({ projectId }: { projectId: string; projectName
     <div style={{ marginTop: 8 }}>
       {list.map((s) => (
         <div key={s.id} className="row small">
-          <span>{s.title} · <b>{rub(s.price)}</b> · {s.prepay ? `предоплата до ${s.day}-го за следующий месяц` : `до ${s.day}-го каждого месяца`}</span>
+          <span>{s.title} · <b>{rub(s.price)}</b> · {s.prepay ? `предоплата до ${s.day}-го за следующий месяц` : `до ${s.day}-го каждого месяца`}
+            <button className="ghost" title="Переключить предоплату" onClick={() => save(projectId, list.map((x) => x.id === s.id ? { ...x, prepay: !x.prepay } : x))}>{s.prepay ? "⇄ обычная" : "⇄ предоплата"}</button></span>
           <button className="ghost" onClick={() => confirm(`Удалить услугу «${s.title}»?`) && save(projectId, list.filter((x) => x.id !== s.id))}>✕</button>
         </div>))}
       {list.length > 0 && <div className="small muted">В месяц: <b>{rub(list.reduce((a, s) => a + s.price, 0))}</b></div>}

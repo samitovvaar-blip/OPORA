@@ -106,13 +106,14 @@ export default function PnL() {
 
         <div className="card wide2">
           <h3>💳 Оплаты клиентов за месяц</h3>
+          <div className="muted small">Источник: услуги в карточках <a href="#/projects">Проектов</a> (💰 Услуги и оплата). Убрать строку — удалить услугу в проекте.</div>
           {exp_.map((x) => {
             const m = paid[x.key]; const late = !m?.paid && x.due < today();
             return (
               <label key={x.key} className={`row small task ${m?.paid ? "done" : ""}`} style={{ cursor: "pointer", gap: 8 }}>
                 <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input type="checkbox" checked={!!m?.paid} onChange={() => setPaid(x.key, m?.paid ? null : { paid: true, amount: x.price, date: today() })} />
-                  <span><b>{x.project}</b> · {x.service}</span></span>
+                  <span><b>{x.project}</b> · {x.service} <a className="muted" href="#/projects" onClick={(e) => e.stopPropagation()}>изменить →</a></span></span>
                 <span className={late ? "error" : "muted"}>{rub(x.price)} · {m?.paid ? `✓ ${dm(m.date)}` : `до ${dm(x.due)}${late ? " ⚠" : ""}`}</span>
               </label>);
           })}
@@ -120,8 +121,9 @@ export default function PnL() {
           {exp_.length > 0 && <div className="row small" style={{ marginTop: 6 }}><span className="muted">Ждём оплату</span><b>{rub(waitSum)}</b></div>}
           <h3 style={{ marginTop: 16 }}>💰 Доходы по проектам</h3>
           {byProject.map(([n, v]) => <div key={n} className="row small"><span>{n}</span><b>{rub(v)}</b></div>)}
-          {inc.length > 0 && <details className="small" style={{ marginTop: 6 }}><summary className="muted">Разовые оплаты ({inc.length})</summary>
-            {inc.map((p) => <div key={p.id} className="row"><span>{dm(p.date)} · {p.projectName}{p.note ? <span className="muted"> · {p.note}</span> : null}</span><span>{rub(p.amount)}</span></div>)}</details>}
+          {inc.length > 0 && <details className="small" style={{ marginTop: 6 }}><summary className="muted">Разовые оплаты из старой версии ({inc.length}) — можно удалить</summary>
+            {inc.map((p) => <div key={p.id} className="row"><span>{dm(p.date)} · {p.projectName}{p.note ? <span className="muted"> · {p.note}</span> : null}</span>
+              <span>{rub(p.amount)} <button className="ghost" onClick={() => confirm("Удалить эту оплату?") && payments.remove(p.id)}>✕</button></span></div>)}</details>}
           {!byProject.length && <div className="muted small">Пока ничего не оплачено</div>}
         </div>
 
