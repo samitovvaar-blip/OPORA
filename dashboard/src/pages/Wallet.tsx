@@ -57,8 +57,8 @@ export default function Wallet() {
   const factSave = sum(saveM);
   const bank = sum(saves.items);
 
-  const hist = Array.from({ length: 6 }, (_, i) => {
-    const k = addMonths(mk, i - 5); const [, m] = k.split("-").map(Number);
+  const hist = Array.from({ length: 3 }, (_, i) => {
+    const k = addMonths(mk, i - 2); const [, m] = k.split("-").map(Number);
     const a = (withBiz ? biz(k).profit : 0) + sum(ins.items.filter((x) => x.date?.startsWith(k)));
     const c = sum(outs.items.filter((x) => x.date?.startsWith(k)));
     return { label: MONTHS[m - 1].slice(0, 3), i: Math.max(0, a), e: c, left: a - c };
@@ -148,7 +148,7 @@ export default function Wallet() {
         </div>
 
         <div className="card wide">
-          <h3>Последние 6 месяцев</h3>
+          <h3>Последние 3 месяца</h3>
           <div className="chart">
             {hist.map((h) => (
               <div key={h.label} className="chart-col" title={`Пришло ${rub(h.i)} · Потрачено ${rub(h.e)} · Осталось ${rub(h.left)}`}>

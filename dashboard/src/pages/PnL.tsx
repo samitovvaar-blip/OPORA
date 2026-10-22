@@ -67,9 +67,9 @@ export default function PnL() {
   const hasPlan = plan.income.length || plan.expenses.length;
   const pI = sum(plan.income), pE = sum(plan.expenses);
 
-  // 6 месяцев для графика
-  const hist = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(month.getFullYear(), month.getMonth() - 5 + i, 1); const k = monthKey(d);
+  // 3 месяца для графика
+  const hist = Array.from({ length: 3 }, (_, i) => {
+    const d = new Date(month.getFullYear(), month.getMonth() - 2 + i, 1); const k = monthKey(d);
     const a = sum(payments.items.filter((p) => p.date?.startsWith(k))) + (paidByMonth[k] || 0) + sum(manual.items.filter((x) => incMonth(x) === k));
     const b = expenses.items.reduce((t, x) => t + expShare(x, k), 0)
       + recurring.items.filter((r) => recActive(r, k)).reduce((t, r) => t + (r.kind === "percent" ? a * r.amount / 100 : r.amount), 0);
@@ -188,7 +188,7 @@ export default function PnL() {
         </div>
 
         <div className="card wide">
-          <h3>Последние 6 месяцев</h3>
+          <h3>Последние 3 месяца</h3>
           <div className="chart">
             {hist.map((h) => (
               <div key={h.label} className="chart-col" title={`Доход ${rub(h.i)} · Расход ${rub(h.e)} · Прибыль ${rub(h.i - h.e)}`}>
