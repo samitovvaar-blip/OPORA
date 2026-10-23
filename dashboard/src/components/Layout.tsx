@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { useAuth } from "../lib/auth";
@@ -7,48 +7,90 @@ import { useEffect, useState } from "react";
 import { useWorkspace } from "../lib/workspace";
 import PullToRefresh from "./PullToRefresh";
 
+interface Item { to: string; label: string; icon: string; staff?: boolean; }
+interface Group { id: string; title: string; items: Item[]; }
 
-const nav = [
-  { to: "/", label: "Главная", icon: "◧" },
-  { to: "/tasks", label: "Задания", icon: "▦" },
-  { to: "/monthly", label: "Ежемесячные", icon: "↻" },
-  { to: "/kb", label: "База знаний", icon: "🎓" },
-  { to: "/clients", label: "Клиенты", icon: "◉" },
-  { to: "/projects", label: "Проекты", icon: "◆" },
-  { to: "/products", label: "Продукты", icon: "★" },
-  { to: "/pnl", label: "P&L", icon: "₽" },
-  { to: "/wallet", label: "Личные деньги", icon: "👛" },
-  { to: "/report", label: "Отчёт", icon: "📊" },
-  { to: "/admin", label: "Админка", icon: "⚙" },
+// Меню по группам. staff — пункт виден сотруднику
+const groups = (): Group[] => [
+  { id: "mgmt", title: "Управление", items: [
+    { to: "/", label: "Главная", icon: "◧" },
+    { to: "/pnl", label: "P&L", icon: "₽" },
+    { to: "/report", label: "Отчёт", icon: "📊" },
+    { to: "/wallet", label: "Личные деньги", icon: "👛" },
+  ] },
+  { id: "mkt", title: "Маркетинг", items: [
+    ...modules.map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })),
+    { to: "/clients", label: "Клиенты", icon: "◉" },
+  ] },
+  { id: "ops", title: "Операционка", items: [
+    { to: "/projects", label: "Проекты", icon: "◆" },
+    { to: "/tasks", label: "Задания", icon: "▦", staff: true },
+    { to: "/monthly", label: "Ежемесячные", icon: "↻", staff: true },
+  ] },
+  { id: "ref", title: "Справочник", items: [
+    { to: "/products", label: "Продукты", icon: "★" },
+    { to: "/kb", label: "База знаний", icon: "🎓", staff: true },
+    { to: "/admin", label: "Админка", icon: "⚙" },
+  ] },
 ];
+// Нижняя панель на телефоне
+const MOBILE = ["/", "/clients", "/tasks", "/projects"];
+
+function load(): Record<string, boolean> { try { return JSON.parse(localStorage.getItem("nav.collapsed") || "{}"); } catch { return {}; } }
 
 export default function Layout() {
   const { user } = useAuth();
   const { isOwner } = useWorkspace();
+  const loc = useLocation();
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem("theme") || "light"; } catch { return "light"; } });
+  const [collapsed, setCollapsed] = useState(load);
+  const [more, setMore] = useState(false);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem("theme", theme); } catch {}
   }, [theme]);
+  useEffect(() => setMore(false), [loc.pathname]);
+  const toggle = (id: string) => {
+    const n = { ...collapsed, [id]: !collapsed[id] }; setCollapsed(n);
+    try { localStorage.setItem("nav.collapsed", JSON.stringify(n)); } catch {}
+  };
+
+  const visible = groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner || i.staff) })).filter((g) => g.items.length);
+  const flat = visible.flatMap((g) => g.items);
+  const mobile = isOwner ? flat.filter((i) => MOBILE.includes(i.to)) : flat;
+  const link = (n: Item) => (
+    <NavLink key={n.to} to={n.to} end={n.to === "/"} className="navlink"><span className="ni">{n.icon}</span>{n.label}</NavLink>
+  );
+  const foot = (
+    <div className="side-foot">
+      <button className="ghost" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "☀ Светлая" : "☾ Тёмная"}</button>
+      <div className="muted small">{user?.email}</div>
+      <button className="ghost" onClick={() => signOut(auth)}>Выйти</button>
+      <div className="muted small">версия {__BUILD__}</div>
+    </div>
+  );
+  const menu = visible.map((g) => {
+    const open = !collapsed[g.id] || g.items.some((i) => i.to === loc.pathname);
+    return (
+      <div key={g.id} className="ngroup">
+        <button className="ghead" onClick={() => toggle(g.id)}>{g.title}<span>{open ? "▾" : "▸"}</span></button>
+        {open && g.items.map(link)}
+      </div>);
+  });
 
   return (
     <div className="shell">
       <aside className="side">
         <div className="logo">OPORA</div>
-        {(isOwner ? [nav[0], ...modules.map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })), ...nav.slice(1)] : nav.filter((n) => ["/tasks", "/monthly", "/kb"].includes(n.to))).map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.to === "/"} className="navlink">
-            <span>{n.icon}</span>{n.label}
-          </NavLink>
-        ))}
-        <div className="side-foot">
-          <button className="ghost" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-            {theme === "dark" ? "☀ Светлая" : "☾ Тёмная"}
-          </button>
-          <div className="muted small">{user?.email}</div>
-          <button className="ghost" onClick={() => signOut(auth)}>Выйти</button>
-          <div className="muted small">версия {__BUILD__}</div>
-        </div>
+        {menu}
+        {foot}
       </aside>
+      <nav className="mnav">
+        {mobile.map(link)}
+        {isOwner && <button className={`navlink ${more ? "active" : ""}`} onClick={() => setMore(!more)}><span className="ni">☰</span>Ещё</button>}
+      </nav>
+      {more && <div className="msheet-back" onClick={() => setMore(false)}>
+        <div className="msheet" onClick={(e) => e.stopPropagation()}>{menu}{foot}</div></div>}
       <main className="main"><PullToRefresh /><Outlet /></main>
     </div>
   );
