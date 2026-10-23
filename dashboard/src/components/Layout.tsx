@@ -13,7 +13,7 @@ interface Group { id: string; title: string; items: Item[]; }
 // Меню по группам. staff — пункт виден сотруднику
 const groups = (): Group[] => [
   { id: "mgmt", title: "Управление", items: [
-    { to: "/", label: "Главная", icon: "◧" },
+    { to: "/", label: "Главная", icon: "◧", staff: true },
     { to: "/pnl", label: "P&L", icon: "₽" },
     { to: "/report", label: "Отчёт", icon: "📊" },
     { to: "/wallet", label: "Личные деньги", icon: "👛" },
@@ -66,7 +66,7 @@ export default function Layout() {
   // Всегда раскрытый список, группы — просто подписи
   const menu = visible.map((g) => (
     <div key={g.id} className="ngroup">
-      <div className="ghead">{g.title}</div>
+      {(isOwner || g.id !== "mgmt") && <div className="ghead">{g.title}</div>}
       {g.items.map(link)}
     </div>));
 

@@ -10,6 +10,7 @@ import PnL from "./pages/PnL";
 import Wallet from "./pages/Wallet";
 import Products from "./pages/Products";
 import Knowledge from "./pages/Knowledge";
+import StaffHome from "./pages/StaffHome";
 import Tasks from "./pages/Tasks";
 import Monthly from "./pages/Monthly";
 import Report from "./pages/Report";
@@ -30,7 +31,14 @@ function Protected() {
 function OwnerOnly({ children }: { children: JSX.Element }) {
   const { isOwner, ready } = useWorkspace();
   if (!ready) return <div className="muted">Загрузка…</div>;
-  return isOwner ? children : <Navigate to="/tasks" replace />;
+  return isOwner ? children : <Navigate to="/" replace />;
+}
+
+// Главная: у владельца своя, у сотрудника своя
+function HomeSwitch() {
+  const { isOwner, ready } = useWorkspace();
+  if (!ready) return <div className="muted">Загрузка…</div>;
+  return isOwner ? <Home /> : <MemberGate><StaffHome /></MemberGate>;
 }
 
 // Общие разделы: владелец или приглашённый сотрудник; остальные — «нет доступа»
@@ -49,7 +57,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route element={<Protected />}>
-            <Route index element={<OwnerOnly><Home /></OwnerOnly>} />
+            <Route index element={<HomeSwitch />} />
             <Route path="tasks" element={<MemberGate><Tasks /></MemberGate>} />
             <Route path="kb" element={<MemberGate><Knowledge /></MemberGate>} />
             <Route path="monthly" element={<MemberGate><Monthly /></MemberGate>} />
