@@ -30,7 +30,6 @@ const groups = (): Group[] => [
   { id: "ref", title: "Справочник", items: [
     { to: "/products", label: "Продукты", icon: "★" },
     { to: "/kb", label: "База знаний", icon: "🎓", staff: true },
-    { to: "/feedback", label: "Обратная связь", icon: "💬", staff: true },
     { to: "/admin", label: "Админка", icon: "⚙" },
   ] },
 ];
