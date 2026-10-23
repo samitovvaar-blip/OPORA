@@ -11,6 +11,7 @@ import Wallet from "./pages/Wallet";
 import Products from "./pages/Products";
 import Knowledge from "./pages/Knowledge";
 import StaffHome from "./pages/StaffHome";
+import Feedback from "./pages/Feedback";
 import Tasks from "./pages/Tasks";
 import Monthly from "./pages/Monthly";
 import Report from "./pages/Report";
@@ -60,6 +61,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route index element={<HomeSwitch />} />
             <Route path="tasks" element={<MemberGate><Tasks /></MemberGate>} />
             <Route path="kb" element={<MemberGate><Knowledge /></MemberGate>} />
+            <Route path="feedback" element={<MemberGate><Feedback /></MemberGate>} />
             <Route path="monthly" element={<MemberGate><Monthly /></MemberGate>} />
             <Route path="products" element={<OwnerOnly><Products /></OwnerOnly>} />
             <Route path="wallet" element={<OwnerOnly><Wallet /></OwnerOnly>} />

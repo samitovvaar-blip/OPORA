@@ -120,6 +120,7 @@ export default function StaffHome() {
           <h3>🎓 Новое в базе знаний</h3>
           {lessons.map((l) => <Link key={l.id} to="/kb" className="row small" style={{ color: "inherit", textDecoration: "none" }}><span>▶ {l.title}</span><span className="muted">{l.section || ""}</span></Link>)}
           {!lessons.length && <div className="muted small">Уроки скоро появятся</div>}
+          <div className="muted small" style={{ marginTop: 10 }}>Есть идея или что-то мешает? <Link to="/feedback">💬 Напиши</Link></div>
         </div>
       </div>
     </>

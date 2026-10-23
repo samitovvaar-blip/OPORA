@@ -43,6 +43,17 @@ service cloud.firestore {
       allow write: if isOwner(ws);
     }
 
+    // Обратная связь: сотрудник пишет и видит свои сообщения, владелец читает все и отвечает
+    match /workspaces/{ws}/feedback/{id} {
+      allow read: if isOwner(ws) || (isMember(ws) && resource.data.from == request.auth.token.email.lower());
+      allow create: if isMember(ws)
+        && request.resource.data.keys().hasOnly(["kind", "text", "from", "status", "at"])
+        && request.resource.data.from == request.auth.token.email.lower()
+        && request.resource.data.status == "new"
+        && request.resource.data.text is string && request.resource.data.text.size() <= 3000;
+      allow update, delete: if isOwner(ws);
+    }
+
     // База знаний: ведёт владелец, сотрудник смотрит
     match /workspaces/{ws}/kb/{id} {
       allow read: if isOwner(ws) || isMember(ws);
