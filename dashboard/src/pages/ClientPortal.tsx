@@ -30,6 +30,7 @@ export default function ClientPortal() {
   const [pnl, setPnl] = useState<Pnl | null>(null);
   const [pnlErr, setPnlErr] = useState("");
   const [mi, setMi] = useState<number | null>(null);
+  const [detail, setDetail] = useState(false);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const mk = monthKey(month);
   const { marks } = useMarks(cid ? [cid] : [], mk);
@@ -39,8 +40,8 @@ export default function ClientPortal() {
     (e) => setErr(e.code === "permission-denied" ? "Доступ к кабинету закрыт" : e.message)) : undefined, [wsId, cid]);
   useEffect(() => {
     if (!p?.pnlUrl) return;
-    setPnlErr(""); loadPnl(p.pnlUrl).then(setPnl).catch((e) => setPnlErr(e.message));
-  }, [p?.pnlUrl]);
+    setPnlErr(""); loadPnl(p.pnlUrl, p.closedMonths || []).then(setPnl).catch((e) => setPnlErr(e.message));
+  }, [p?.pnlUrl, (p?.closedMonths || []).join()]);
 
   // последний сданный месяц и предыдущий
   const filled = useMemo(() => pnl ? pnl.months.map((m, i) => ({ m, i })).filter(({ i }) => pnl.revenue[i] != null) : [], [pnl]);
@@ -110,12 +111,13 @@ export default function ClientPortal() {
       </>}
 
       {tab === "pnl" && pnl && <div className="card" style={{ overflowX: "auto" }}>
-        <h3>{pnl.title}</h3>
+        <div className="row"><h3 style={{ margin: 0 }}>Отчёт о прибылях и убытках</h3>
+          <label className="small"><input type="checkbox" checked={detail} onChange={(e) => setDetail(e.target.checked)} /> по статьям</label></div>
         <table className="pnl-table">
           <thead><tr><th />{filled.map(({ m, i }) => <th key={i}>{m.label}<div className={`small ${m.closed ? "ok" : "muted"}`}>{m.closed ? "✓ сдано" : "предв."}</div></th>)}</tr></thead>
-          <tbody>{pnl.rows.filter((r) => !r.section || /доход|расход/i.test(r.name)).map((r, k) => (
-            <tr key={k} className={r.total || /выручк|прибыль|переменн|постоянн/i.test(r.name) ? "pnl-key" : r.section ? "pnl-sec" : ""}>
-              <td>{r.total ? r.name : r.sub || r.name}</td>
+          <tbody>{pnl.rows.filter((r) => (!r.section || /доход|расход/i.test(r.name)) && (detail || r.total || r.section || (pnl.db ? !r.sub : /выручк|прибыль|переменн|постоянн|фондир/i.test(r.name)))).map((r, k) => (
+            <tr key={k} className={r.total || (pnl.db ? !r.sub && !r.section : /выручк|прибыль|переменн|постоянн/i.test(r.name)) ? "pnl-key" : r.section ? "pnl-sec" : ""}>
+              <td style={{ paddingLeft: r.sub && !r.total && r.sub !== "Процесс" ? 24 : undefined }}>{r.total || r.sub === "Процесс" ? r.name : r.sub || r.name}</td>
               {filled.map(({ i }) => <td key={i} className={(r.values[i] || 0) < 0 ? "error" : ""}>{r.values[i] != null ? rub(r.values[i]!) : ""}</td>)}
             </tr>))}</tbody>
         </table>

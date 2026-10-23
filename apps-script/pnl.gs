@@ -1,30 +1,67 @@
 /**
- * ОПОРА · выгрузка P&L из Google-таблицы в кабинет клиента.
- * Отдаёт ТОЛЬКО лист с отчётом (ОПиУ), а не базу операций.
+ * ОПОРА · ОПиУ для кабинета клиента прямо из базы операций (ДДС).
+ * Наружу уходят ТОЛЬКО суммы по месяцам и статьям выбранного направления —
+ * контрагенты, назначения платежей и счета остаются в таблице.
  *
- * Установка (один раз на таблицу клиента):
- * 1. Таблица → Расширения → Apps Script → вставить этот код целиком.
- * 2. Поменять KEY на любую длинную случайную строку.
- * 3. Развернуть → Новое развертывание → тип «Веб-приложение»:
- *    «Выполнять от имени» — я, «У кого есть доступ» — все.
- * 4. Скопировать URL веб-приложения и вставить в дашборд:
- *    Проекты → проект → ⚙ Данные и ссылки → «Кабинет клиента» → ссылка на P&L,
- *    в виде  https://script.google.com/macros/s/…/exec?key=ВАШ_KEY&sheet=Название листа
+ * Установка (один раз на таблицу):
+ * 1. Таблица → Расширения → Apps Script → вставить этот код целиком → 💾.
+ * 2. Поменять KEY ниже на свой длинный секрет.
+ * 3. Развернуть → Новое развертывание → ⚙ «Веб-приложение»:
+ *    «Выполнять от имени» — я, «У кого есть доступ» — все → Развернуть → разрешить доступ.
+ * 4. Скопировать URL и дописать параметры:
+ *    https://script.google.com/macros/s/…/exec?key=СЕКРЕТ&dir=Кубики
+ *    (несколько направлений: dir=Кубики,Часы · другой лист базы: &sheet=ДДС БОТ ОСНОВНЫЕ)
+ * 5. Вставить ссылку в дашборд: Проекты → клиент → ⚙ → «Кабинет клиента» → «Ссылка на P&L».
+ *
+ * После изменения кода: Развернуть → Управление развертываниями → ✏️ → Версия «Новая» → Развернуть.
  */
 var KEY = 'поменяй-меня-на-длинный-секрет';
+var DEFAULT_SHEETS = ['ДДС БОТ ОСНОВНЫЕ'];
 
 function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.key !== KEY) return out({ error: 'Неверный ключ' });
+  var dirs = String(p.dir || '').split(',').map(norm).filter(String);
+  if (!dirs.length) return out({ error: 'Не указано направление: добавь &dir=Кубики' });
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = p.sheet ? ss.getSheetByName(p.sheet) : ss.getSheets()[0];
-  if (!sh) return out({ error: 'Лист не найден: ' + p.sheet });
-  // Отчёт небольшой: берём видимые значения (как на экране)
-  var rows = Math.min(sh.getLastRow(), 400), cols = Math.min(sh.getLastColumn(), 80);
-  var values = sh.getRange(1, 1, rows, cols).getDisplayValues();
-  return out({ sheet: sh.getName(), title: ss.getName(), values: values, at: new Date().toISOString() });
+  var names = p.sheet ? String(p.sheet).split(',') : DEFAULT_SHEETS;
+
+  var sums = {}, months = {};
+  for (var s = 0; s < names.length; s++) {
+    var sh = ss.getSheetByName(names[s].trim());
+    if (!sh) return out({ error: 'Лист не найден: ' + names[s] });
+    var v = sh.getDataRange().getValues();
+    var h = v[0].map(norm);
+    var col = function (re) { for (var i = 0; i < h.length; i++) if (re.test(h[i])) return i; return -1; };
+    var cDir = col(/^направлен/), cProc = col(/^процесс/), cArt = col(/^стать/), cSum = col(/^сумма/),
+        cType = col(/приход/), cDate = col(/дата для отч/), cDate2 = col(/дата оп/);
+    if (cDir < 0 || cArt < 0 || cSum < 0) return out({ error: 'Не нашёл колонки «Направление», «Статьи», «Сумма» на листе ' + names[s] });
+    for (var r = 1; r < v.length; r++) {
+      var row = v[r];
+      if (dirs.indexOf(norm(row[cDir])) < 0) continue;
+      var proc = String(row[cProc] || '').trim(), art = String(row[cArt] || '').trim();
+      if (!art || /^\*\*/.test(proc) || /субсч/i.test(proc)) continue;      // переводы между счетами — не в ОПиУ
+      var d = toDate(cDate >= 0 ? row[cDate] : null) || toDate(cDate2 >= 0 ? row[cDate2] : null);
+      if (!d) continue;
+      var mk = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+      var amt = Math.abs(toNum(row[cSum]));
+      if (!amt) continue;
+      var out_ = cType >= 0 ? /расход/i.test(String(row[cType])) : toNum(row[cSum]) < 0;
+      var k = proc + '\u0001' + art;
+      sums[k] = sums[k] || {};
+      sums[k][mk] = (sums[k][mk] || 0) + (out_ ? -amt : amt);
+      months[mk] = true;
+    }
+  }
+  var rows = Object.keys(sums).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: sums[k] }; });
+  return out({ mode: 'db', title: ss.getName(), dirs: dirs, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
 }
 
-function out(o) {
-  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+function norm(s) { return String(s || '').trim().toLowerCase().replace(/ё/g, 'е'); }
+function toNum(x) { if (typeof x === 'number') return x; var n = Number(String(x).replace(/\s|р\.|₽/g, '').replace(',', '.')); return isNaN(n) ? 0 : n; }
+function toDate(x) {
+  if (x instanceof Date && !isNaN(x)) return x;
+  var m = String(x || '').match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null;
 }
+function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }

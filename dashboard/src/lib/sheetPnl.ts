@@ -2,7 +2,7 @@
 // строка с месяцами, над ней — статусы («СДАНО»), слева — статьи, «Итого» — по отделам.
 export interface PnlMonth { col: number; label: string; year?: string; status: string; closed: boolean; }
 export interface PnlRow { name: string; sub: string; total: boolean; section: boolean; values: (number | null)[]; }
-export interface Pnl { title: string; months: PnlMonth[]; rows: PnlRow[]; at?: string;
+export interface Pnl { db?: boolean; title: string; months: PnlMonth[]; rows: PnlRow[]; at?: string;
   revenue: (number | null)[]; profit: (number | null)[]; variable: (number | null)[]; fixed: (number | null)[]; depts: PnlRow[]; }
 
 const MONTHS = ["январ", "феврал", "март", "апрел", "май", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"];
@@ -51,9 +51,59 @@ export function parsePnl(values: string[][], title = ""): Pnl {
   };
 }
 
-export async function loadPnl(url: string): Promise<Pnl> {
+export async function loadPnl(url: string, closed: string[] = []): Promise<Pnl> {
   const r = await fetch(url);
   const j = await r.json().catch(() => { throw new Error("Таблица ответила не JSON — проверь ссылку и доступ «Все»"); });
   if (j.error) throw new Error(j.error);
+  // новый скрипт: суммы из базы операций; старый: готовый лист ОПиУ
+  if (j.mode === "db") return buildFromDb(j, closed);
   return { ...parsePnl(j.values, j.title || j.sheet), at: j.at };
+}
+
+/* ---------- Отчёт из базы операций (mode: "db") ---------- */
+const RU = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+const DEPTS: Record<string, string> = { "1": "1. Производственный отдел", "2": "2. Отдел продаж", "3": "3. Отдел маркетинга",
+  "4": "4. Админ-хоз отдел и Руководство", "5": "5. Финансовый отдел", "6": "6. Фондирование" };
+
+interface DbRow { process: string; article: string; values: Record<string, number>; }
+export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]; at?: string }, closed: string[] = []): Pnl {
+  const mks = j.months;
+  const months: PnlMonth[] = mks.map((mk, i) => {
+    const [y, m] = mk.split("-"); const isClosed = closed.includes(mk);
+    return { col: i, label: RU[Number(m) - 1], year: y, status: isClosed ? "СДАНО" : "", closed: isClosed };
+  });
+  const vec = (f: (mk: string) => number) => mks.map((mk) => { const v = f(mk); return Math.abs(v) < 0.005 ? null : Math.round(v * 100) / 100; });
+  const sumOf = (list: DbRow[]) => vec((mk) => list.reduce((a, r) => a + (r.values[mk] || 0), 0));
+  const deptOf = (proc: string) => (proc.match(/^(\d)/) || [])[1] || "";
+  const income = j.rows.filter((r) => !deptOf(r.process));
+  const byDept = (d: string) => j.rows.filter((r) => deptOf(r.process) === d);
+  const variable = j.rows.filter((r) => ["1", "2", "3"].includes(deptOf(r.process)));
+  const fixed = j.rows.filter((r) => ["4", "5"].includes(deptOf(r.process)));
+
+  const rows: PnlRow[] = [];
+  const add = (name: string, values: (number | null)[], o: Partial<PnlRow> = {}) => rows.push({ name, sub: "", total: false, section: false, values, ...o });
+  const articles = (list: DbRow[]) => [...new Set(list.map((r) => r.process))].sort().forEach((proc) => {
+    const inProc = list.filter((r) => r.process === proc);
+    if (deptOf(proc)) add(proc, sumOf(inProc), { sub: "Процесс" });
+    inProc.sort((a, b) => a.article.localeCompare(b.article, "ru")).forEach((r) => add(r.article, sumOf([r]), { sub: r.article }));
+  });
+
+  add("Доходы", mks.map(() => null), { section: true });
+  const revenue = sumOf(income);
+  add("ВЫРУЧКА ИТОГО", revenue);
+  articles(income);
+  add("Расходы", mks.map(() => null), { section: true });
+  const varSum = sumOf(variable);
+  add("ПЕРЕМЕННЫЕ РАСХОДЫ", varSum);
+  ["1", "2", "3"].forEach((d) => { const l = byDept(d); if (l.length) { add(DEPTS[d], sumOf(l), { sub: "Итого", total: true }); articles(l); } });
+  const fixSum = sumOf(fixed);
+  add("ПОСТОЯННЫЕ РАСХОДЫ", fixSum);
+  ["4", "5"].forEach((d) => { const l = byDept(d); if (l.length) { add(DEPTS[d], sumOf(l), { sub: "Итого", total: true }); articles(l); } });
+  const profit = revenue.map((v, i) => (v || 0) + (varSum[i] || 0) + (fixSum[i] || 0) || null);
+  add("ЧИСТАЯ ПРИБЫЛЬ", profit);
+  const fond = byDept("6");
+  if (fond.length) { add(DEPTS["6"] + " (после прибыли)", sumOf(fond)); articles(fond); }
+
+  return { db: true, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
+    depts: rows.filter((r) => r.total) };
 }

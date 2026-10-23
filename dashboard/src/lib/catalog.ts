@@ -101,7 +101,7 @@ export interface ClientProject {
   calendarOpen: boolean;  // сотрудник видит задачи с дедлайном в календаре
   links?: { sheet?: string; folder?: string; chat?: string };
   // Кабинет клиента
-  clientEmails?: string[]; clientOpen?: boolean; pnlUrl?: string;
+  clientEmails?: string[]; clientOpen?: boolean; pnlUrl?: string; closedMonths?: string[];
   clientPlan?: { mk: string; revenue?: number; expenses?: number; profit?: number; note?: string };
 }
 export interface Mark { done?: boolean; doneBy?: string; doneAt?: string; comment?: string; commentBy?: string; commentAt?: string; }

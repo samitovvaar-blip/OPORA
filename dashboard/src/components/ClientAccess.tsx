@@ -36,8 +36,16 @@ export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: stri
         <button>+ Клиент</button>
       </form>
       <label className="small" style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>📑 Ссылка на P&L из таблицы (Apps Script)
-        <input key={p.pnlUrl || ""} defaultValue={p.pnlUrl || ""} placeholder="https://script.google.com/macros/s/…/exec?key=…&sheet=…"
+        <input key={p.pnlUrl || ""} defaultValue={p.pnlUrl || ""} placeholder="https://script.google.com/macros/s/…/exec?key=СЕКРЕТ&dir=Кубики"
           onBlur={(e) => { const v = e.target.value.trim(); if (v !== (p.pnlUrl || "")) updateDoc(ref, { pnlUrl: v }); }} /></label>
+      <div className="small" style={{ marginTop: 10 }}><b>✓ Сдано клиенту</b> <span className="muted">— отметь месяц после созвона</span></div>
+      <div className="chips" style={{ margin: "4px 0" }}>
+        {[-3, -2, -1, 0].map((k) => { const mk = addMonths(monthKey(new Date()), k); const on = (p.closedMonths || []).includes(mk);
+          const [y, m] = mk.split("-").map(Number);
+          return <button key={mk} className={`chipbtn ${on ? "on" : ""}`}
+            onClick={() => updateDoc(ref, { closedMonths: on ? arrayRemove(mk) : arrayUnion(mk) })}>
+            {on ? "✓ " : ""}{["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"][m - 1]} {y}</button>; })}
+      </div>
       <div className="small" style={{ marginTop: 10 }}><b>🎯 План для клиента на следующий месяц</b></div>
       <div className="inline" style={{ margin: "4px 0" }}>
         {([["revenue", "Выручка"], ["expenses", "Расходы"], ["profit", "Прибыль"]] as const).map(([k, l]) =>
