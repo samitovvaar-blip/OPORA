@@ -11,6 +11,7 @@ import Wallet from "./pages/Wallet";
 import Products from "./pages/Products";
 import Knowledge from "./pages/Knowledge";
 import StaffHome from "./pages/StaffHome";
+import ClientPortal from "./pages/ClientPortal";
 import Tasks from "./pages/Tasks";
 import Monthly from "./pages/Monthly";
 import Report from "./pages/Report";
@@ -36,15 +37,24 @@ function OwnerOnly({ children }: { children: JSX.Element }) {
 
 // Главная: у владельца своя, у сотрудника своя
 function HomeSwitch() {
-  const { isOwner, ready } = useWorkspace();
+  const { isOwner, ready, clientOf } = useWorkspace();
   if (!ready) return <div className="muted">Загрузка…</div>;
+  if (clientOf) return <ClientPortal />;
   return isOwner ? <Home /> : <MemberGate><StaffHome /></MemberGate>;
+}
+
+// Кабинет клиента: клиенту — свой, владельцу — предпросмотр
+function ClientGate() {
+  const { isOwner, clientOf, ready } = useWorkspace();
+  if (!ready) return <div className="muted">Загрузка…</div>;
+  return isOwner || clientOf ? <ClientPortal /> : <Navigate to="/" replace />;
 }
 
 // Общие разделы: владелец или приглашённый сотрудник; остальные — «нет доступа»
 function MemberGate({ children }: { children: JSX.Element }) {
-  const { wsId, ready, isOwner } = useWorkspace();
+  const { wsId, ready, isOwner, clientOf } = useWorkspace();
   const { user } = useAuth();
+  if (clientOf) return <Navigate to="/" replace />;
   if (!ready) return <div className="muted">Загрузка…</div>;
   if (!isOwner && user && !user.emailVerified) return <VerifyEmail />;
   return wsId ? children : <><h1>Нет доступа</h1><div className="card">🔒 Владелец ещё не открыл вам доступ. Выйдите и попросите добавить вашу почту.</div></>;
@@ -58,6 +68,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/login" element={<Login />} />
           <Route element={<Protected />}>
             <Route index element={<HomeSwitch />} />
+            <Route path="client" element={<ClientGate />} />
             <Route path="tasks" element={<MemberGate><Tasks /></MemberGate>} />
             <Route path="kb" element={<MemberGate><Knowledge /></MemberGate>} />
             <Route path="monthly" element={<MemberGate><Monthly /></MemberGate>} />

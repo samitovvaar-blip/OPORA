@@ -39,7 +39,7 @@ const MOBILE = ["/", "/clients", "/tasks", "/projects"];
 
 export default function Layout() {
   const { user } = useAuth();
-  const { isOwner } = useWorkspace();
+  const { isOwner, clientOf } = useWorkspace();
   const loc = useLocation();
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem("theme") || "light"; } catch { return "light"; } });
   const [more, setMore] = useState(false);
@@ -49,7 +49,7 @@ export default function Layout() {
   }, [theme]);
   useEffect(() => setMore(false), [loc.pathname]);
 
-  const visible = groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly : i.staff) })).filter((g) => g.items.length);
+  const visible = clientOf ? [{ id: "client", title: "", items: [{ to: "/", label: "Мой кабинет", icon: "◎" }] }] : groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly : i.staff) })).filter((g) => g.items.length);
   const flat = visible.flatMap((g) => g.items);
   const mobile = isOwner ? flat.filter((i) => MOBILE.includes(i.to)) : flat;
   const link = (n: Item) => (
@@ -66,7 +66,7 @@ export default function Layout() {
   // Всегда раскрытый список, группы — просто подписи
   const menu = visible.map((g) => (
     <div key={g.id} className="ngroup">
-      {(isOwner || g.id !== "mgmt") && <div className="ghead">{g.title}</div>}
+      {g.title && (isOwner || g.id !== "mgmt") && <div className="ghead">{g.title}</div>}
       {g.items.map(link)}
     </div>));
 

@@ -100,6 +100,9 @@ export interface ClientProject {
   monthlyOpen: boolean;   // сотрудник видит чек-лист
   calendarOpen: boolean;  // сотрудник видит задачи с дедлайном в календаре
   links?: { sheet?: string; folder?: string; chat?: string };
+  // Кабинет клиента
+  clientEmails?: string[]; clientOpen?: boolean; pnlUrl?: string;
+  clientPlan?: { mk: string; revenue?: number; expenses?: number; profit?: number; note?: string };
 }
 export interface Mark { done?: boolean; doneBy?: string; doneAt?: string; comment?: string; commentBy?: string; commentAt?: string; }
 

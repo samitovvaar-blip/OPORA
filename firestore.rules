@@ -49,9 +49,20 @@ service cloud.firestore {
       allow write: if isOwner(ws);
     }
 
-    // Проекты-клиенты: ведёт владелец; сотрудник видит только открытые ему
+    // Клиент: где его кабинет (пишет владелец, читает сам клиент)
+    match /clientIndex/{email} {
+      allow read: if verified() && request.auth.token.email.lower() == email;
+      allow create: if request.auth != null && request.resource.data.ws == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.ws == request.auth.uid;
+    }
+    function isClient(data) {
+      return verified() && data.clientOpen == true
+        && request.auth.token.email.lower() in data.get("clientEmails", []);
+    }
+
+    // Проекты-клиенты: ведёт владелец; сотрудник видит только открытые ему, клиент — свой
     match /workspaces/{ws}/clients/{cid} {
-      allow read: if isOwner(ws) || (isMember(ws)
+      allow read: if isOwner(ws) || isClient(resource.data) || (isMember(ws)
         && (resource.data.monthlyOpen == true || resource.data.calendarOpen == true));
       allow write: if isOwner(ws);
 
@@ -61,7 +72,8 @@ service cloud.firestore {
           let c = get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data;
           return c.monthlyOpen == true || c.calendarOpen == true;
         }
-        allow read: if isOwner(ws) || (isMember(ws) && opened());
+        allow read: if isOwner(ws) || (isMember(ws) && opened())
+          || isClient(get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data);
         allow delete: if isOwner(ws);
         allow create, update: if isOwner(ws) || (isMember(ws) && opened()
           && request.resource.data.keys().hasOnly(["done", "doneBy", "doneAt", "comment", "commentBy", "commentAt"])

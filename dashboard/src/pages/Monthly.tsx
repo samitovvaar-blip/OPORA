@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { deleteDoc, doc, updateDoc } from "firebase/firestore";
 import Payments from "../components/Payments";
 import ClientReport from "../components/ClientReport";
+import ClientAccess from "../components/ClientAccess";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { useClientProjects, useMarks } from "../lib/clients";
@@ -54,7 +55,8 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
           </div>}
           {isOwner && editFlags && <div className="card" style={{ background: "var(--bg)", marginTop: 8 }}>
             <FlagPicker flags={p.flags || {}} onChange={(f) => upd({ flags: f })} />
-            <LinkEditor key={p.id} links={p.links} onChange={(l) => upd({ links: l })} /></div>}
+            <LinkEditor key={p.id} links={p.links} onChange={(l) => upd({ links: l })} />
+            <ClientAccess p={p} wsId={wsId!} /></div>}
           <LinkButtons links={p.links} />
           {isOwner && <details style={{ marginTop: 10 }}><summary className="small"><b>💰 Услуги и оплата</b></summary>
             <Payments projectId={p.id} projectName={p.name} /></details>}

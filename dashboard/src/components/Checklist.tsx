@@ -8,8 +8,8 @@ export function visibleItems(p: ClientProject) {
   return STAGES.flatMap((s) => s.items.filter((it) => shown(it, p.flags || {})));
 }
 
-export default function Checklist({ p, mk, marks, setMark }: {
-  p: ClientProject; mk: string; marks: Record<string, Mark>; setMark: (itemId: string, m: Mark) => Promise<void>;
+export default function Checklist({ p, mk, marks, setMark, readOnly = false }: {
+  p: ClientProject; mk: string; marks: Record<string, Mark>; setMark: (itemId: string, m: Mark) => Promise<void>; readOnly?: boolean;
 }) {
   const { user } = useAuth();
   const [openC, setOpenC] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export default function Checklist({ p, mk, marks, setMark }: {
       <div className="muted small">Выполнено {done} из {all.length} задач по клиенту</div>
       {STAGES.map((st) => {
         const items = st.items.filter((it) => shown(it, p.flags || {}));
-        if (!items.length) return null;
+        if (!items.length || (readOnly && st.fin)) return null;
         const head = st.fin && !finShown ? (finShown = true) : false;
         return (
           <div key={st.id}>
@@ -45,7 +45,7 @@ export default function Checklist({ p, mk, marks, setMark }: {
                   <div key={it.id} className="mrow">
                     <div className="row" style={{ alignItems: "flex-start" }}>
                       <label className={`task ${m.done ? "done" : ""}`} style={{ display: "flex", gap: 10, alignItems: "flex-start", flex: 1, cursor: "pointer" }}>
-                        <input type="checkbox" checked={!!m.done} onChange={() => toggle(it.id)} style={{ marginTop: 3 }} />
+                        <input type="checkbox" checked={!!m.done} disabled={readOnly} onChange={() => toggle(it.id)} style={{ marginTop: 3 }} />
                         <span><b style={{ fontWeight: 600 }}>{it.title}</b>
                           <div className="muted small">{it.hint}</div>
                           <div className="tags">
@@ -54,10 +54,10 @@ export default function Checklist({ p, mk, marks, setMark }: {
                             {due && <span className={`tagc ${late ? "late" : ""}`}>до {Number(due.slice(8))}.{due.slice(5, 7)}{late ? " ⚠" : ""}</span>}
                           </div></span>
                       </label>
-                      <button className="ghost" title="Комментарий" onClick={() => setOpenC(openC === it.id ? null : it.id)}>💬{m.comment ? "•" : ""}</button>
+                      {!readOnly && <button className="ghost" title="Комментарий" onClick={() => setOpenC(openC === it.id ? null : it.id)}>💬{m.comment ? "•" : ""}</button>}
                     </div>
-                    {m.done && <div className="muted small" style={{ paddingLeft: 28 }}>✓ {m.doneAt} · {m.doneBy}</div>}
-                    {m.comment && openC !== it.id && <div className="comment small" onClick={() => setOpenC(it.id)}>💬 {m.comment} <span className="muted">— {m.commentBy}, {m.commentAt}</span></div>}
+                    {m.done && <div className="muted small" style={{ paddingLeft: 28 }}>✓ {m.doneAt}{readOnly ? "" : " · " + m.doneBy}</div>}
+                    {m.comment && openC !== it.id && <div className="comment small" onClick={() => !readOnly && setOpenC(it.id)}>💬 {m.comment} {!readOnly && <span className="muted">— {m.commentBy}, {m.commentAt}</span>}</div>}
                     {openC === it.id && <textarea autoFocus placeholder="Например: отправила клиенту, ждём ответ" defaultValue={m.comment || ""}
                       onBlur={(e) => { const v = e.target.value.trim(); if (v !== (m.comment || "")) setMark(it.id, { comment: v, commentBy: user!.email || "", commentAt: stamp() }); setOpenC(null); }} />}
                   </div>
