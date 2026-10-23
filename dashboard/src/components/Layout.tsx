@@ -36,24 +36,18 @@ const groups = (): Group[] => [
 // Нижняя панель на телефоне
 const MOBILE = ["/", "/clients", "/tasks", "/projects"];
 
-function load(): Record<string, boolean> { try { return JSON.parse(localStorage.getItem("nav.collapsed") || "{}"); } catch { return {}; } }
 
 export default function Layout() {
   const { user } = useAuth();
   const { isOwner } = useWorkspace();
   const loc = useLocation();
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem("theme") || "light"; } catch { return "light"; } });
-  const [collapsed, setCollapsed] = useState(load);
   const [more, setMore] = useState(false);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem("theme", theme); } catch {}
   }, [theme]);
   useEffect(() => setMore(false), [loc.pathname]);
-  const toggle = (id: string) => {
-    const n = { ...collapsed, [id]: !collapsed[id] }; setCollapsed(n);
-    try { localStorage.setItem("nav.collapsed", JSON.stringify(n)); } catch {}
-  };
 
   const visible = groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner || i.staff) })).filter((g) => g.items.length);
   const flat = visible.flatMap((g) => g.items);
@@ -69,14 +63,12 @@ export default function Layout() {
       <div className="muted small">версия {__BUILD__}</div>
     </div>
   );
-  const menu = visible.map((g) => {
-    const open = !collapsed[g.id] || g.items.some((i) => i.to === loc.pathname);
-    return (
-      <div key={g.id} className="ngroup">
-        <button className="ghead" onClick={() => toggle(g.id)}>{g.title}<span>{open ? "▾" : "▸"}</span></button>
-        {open && g.items.map(link)}
-      </div>);
-  });
+  // Всегда раскрытый список, группы — просто подписи
+  const menu = visible.map((g) => (
+    <div key={g.id} className="ngroup">
+      <div className="ghead">{g.title}</div>
+      {g.items.map(link)}
+    </div>));
 
   return (
     <div className="shell">

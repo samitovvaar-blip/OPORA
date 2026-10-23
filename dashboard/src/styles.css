@@ -114,9 +114,8 @@ html,body{overscroll-behavior-y:contain}
 /* Меню по группам */
 .side{overflow-y:auto;position:sticky;top:0;height:100vh}
 .ngroup{margin-bottom:6px}
-.ghead{display:flex;justify-content:space-between;width:100%;background:none;color:var(--muted);font-size:11px;font-weight:700;
-  letter-spacing:.1em;text-transform:uppercase;padding:10px 12px 4px;border-radius:0}
-.ghead:hover{color:var(--text)}
+.ghead{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:12px 12px 4px}
+.ngroup+.ngroup{border-top:1px solid var(--border);margin-top:4px}
 .ni{width:20px;text-align:center}
 .mnav,.msheet-back{display:none}
 @media (max-width:760px){
