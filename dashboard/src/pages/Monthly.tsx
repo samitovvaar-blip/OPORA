@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { deleteDoc, doc, updateDoc } from "firebase/firestore";
 import Payments from "../components/Payments";
+import ClientReport from "../components/ClientReport";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { useClientProjects, useMarks } from "../lib/clients";
@@ -20,6 +21,7 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
   const [sel, setSel] = useState<string | null>(() => new URLSearchParams(location.hash.split("?")[1]).get("p"));
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [editFlags, setEditFlags] = useState(false);
+  const [report, setReport] = useState(false);
   const mk = monthKey(month);
   const p = list.find((x) => x.id === sel) || list[0];
   useEffect(() => { if (p && p.id !== sel) setSel(p.id); }, [p?.id]);
@@ -46,6 +48,7 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
               {p.monthlyOpen ? "🔓 Чек-лист открыт сотруднику" : "🔒 Чек-лист закрыт"}</button>
             <button className={p.calendarOpen ? "" : "ghost"} onClick={() => upd({ calendarOpen: !p.calendarOpen })}>
               {p.calendarOpen ? "🔓 Сроки в календаре сотрудника" : "🔒 Сроки только у меня"}</button>
+            <button onClick={() => setReport(true)}>📄 Отчёт клиенту</button>
             <button className="ghost" onClick={() => setEditFlags(!editFlags)}>⚙ Данные и ссылки</button>
             <button className="ghost" onClick={() => confirm(`Удалить проект «${p.name}»?`) && deleteDoc(doc(db, "workspaces", wsId!, "clients", p.id))}>✕ Удалить</button>
           </div>}
@@ -55,6 +58,7 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
           <LinkButtons links={p.links} />
           {isOwner && <details style={{ marginTop: 10 }}><summary className="small"><b>💰 Услуги и оплата</b></summary>
             <Payments projectId={p.id} projectName={p.name} /></details>}
+          {report && <ClientReport p={p} mk={mk} marks={marks[p.id] || {}} onClose={() => setReport(false)} />}
           <Checklist p={p} mk={mk} marks={marks[p.id] || {}} setMark={(id, m) => setMark(p.id, id, m)} />
         </div>}
       </>}

@@ -130,3 +130,6 @@ html,body{overscroll-behavior-y:contain}
     padding:12px 12px calc(80px + env(safe-area-inset-bottom))}
   .msheet .side-foot{margin-top:12px}
 }
+.rp-track{height:8px;border-radius:4px;background:#1b3459;overflow:hidden}.rp-track>div{height:100%;background:#7ee0a8}
+.bc-sec.wait{border:1.5px solid #e8873a}.rp-c{color:#b9c7dc}
+.rp-dates li::before{content:""!important}.rp-dates li{padding-left:0!important}.rp-dates b{color:#e8873a;margin-right:6px}

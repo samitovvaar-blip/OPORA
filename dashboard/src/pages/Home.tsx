@@ -6,6 +6,7 @@ import { isRecurring, occursOn } from "../lib/recurring";
 import { projectDeadlines, useAssignments, useClientProjects, useMarks } from "../lib/clients";
 import { monthKey, stamp } from "../lib/catalog";
 import { visibleItems } from "../components/Checklist";
+import Goals from "../components/Goals";
 import { useAuth } from "../lib/auth";
 import { api as leadsApi, session as leadsSession } from "../modules/leads/api";
 
@@ -44,6 +45,8 @@ export default function Home() {
         <Link to="/tasks" className="card stat"><div className="muted">Сроки по проектам</div><b className={dl.length ? "error" : ""}>{dl.length}</b><div className="muted small">на сегодня и просрочено</div></Link>
         <Link to="/leads" className="card stat"><div className="muted">Новые заявки с сайта</div><b>{newLeads ?? "—"}</b>{newLeads === null && <div className="muted small">войди в «Заявки»</div>}</Link>
         <Link to="/projects" className="card stat"><div className="muted">Проекты</div><b>{projects.length}</b></Link>
+
+        <Goals />
 
         <div className="card wide2">
           <h3>📋 Задания сегодня</h3>
