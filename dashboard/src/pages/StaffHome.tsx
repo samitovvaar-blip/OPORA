@@ -11,6 +11,7 @@ import { isRecurring, occursOn } from "../lib/recurring";
 import { projectDeadlines, useClientProjects, useMarks } from "../lib/clients";
 import { monthKey, stamp } from "../lib/catalog";
 import { visibleItems } from "../components/Checklist";
+import { nextPayday, Pay } from "../lib/pay";
 
 const fmt = (s: string) => `${Number(s.slice(8))}.${s.slice(5, 7)}`;
 
@@ -21,6 +22,9 @@ export default function StaffHome() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [lessons, setLessons] = useState<any[]>([]);
   const { list: projects } = useClientProjects();
+  const [pay, setPay] = useState<Pay | null>(null);
+  useEffect(() => wsId && user?.email ? onSnapshot(doc(db, "workspaces", wsId, "staff", user.email.toLowerCase()),
+    (s) => setPay((s.data() as Pay) || null), () => {}) : undefined, [wsId, user?.email]);
   const { marks, setMark } = useMarks(projects.map((p) => p.id), mk);
 
   useEffect(() => wsId ? onSnapshot(query(collection(db, "workspaces", wsId, "assignments"), where("shared", "==", true)),
@@ -57,7 +61,11 @@ export default function StaffHome() {
         <Link to="/tasks" className="card stat"><div className="muted">Просрочено</div><b className={dl.some((x) => x.date < d) || todayTasks.some((a) => !isRecurring(a) && a.date < d) ? "error" : ""}>
           {dl.filter((x) => x.date < d).length + todayTasks.filter((a) => !isRecurring(a) && a.date < d).length}</b></Link>
         <Link to="/monthly" className="card stat"><div className="muted">Проекты</div><b>{checklists.length}</b></Link>
-        <Link to="/kb" className="card stat"><div className="muted">Уроков в базе</div><b>🎓</b></Link>
+        {(() => { const nd = pay ? nextPayday(pay.paydays) : null;
+          const days = nd ? Math.round((+nd - +new Date(new Date().toDateString())) / 86400000) : null;
+          return <div className="card stat"><div className="muted">💸 Следующая ЗП</div>
+            <b>{nd ? nd.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "—"}</b>
+            <div className="muted small">{days === 0 ? "сегодня 🎉" : days != null ? `через ${days} дн.` : "дата не указана"}</div></div>; })()}
 
         <div className="card wide2">
           <h3>📋 Задания на сегодня</h3>
@@ -100,6 +108,12 @@ export default function StaffHome() {
               </Link>);
           })}
           {!checklists.length && <div className="muted small">Пока нет открытых проектов</div>}
+        </div>
+
+        <div className="card wide2">
+          <h3>💸 Моя оплата</h3>
+          <div>{pay?.system || <span className="muted small">Система оплаты пока не указана</span>}</div>
+          {pay?.paydays?.length ? <div className="muted small" style={{ marginTop: 6 }}>Выплаты: {pay.paydays.map((x) => x + "-го").join(" и ")} числа каждого месяца</div> : null}
         </div>
 
         <div className="card wide2">

@@ -37,6 +37,12 @@ service cloud.firestore {
       }
     }
 
+    // Оплата сотрудника: ведёт владелец, сотрудник видит только свою карточку
+    match /workspaces/{ws}/staff/{email} {
+      allow read: if isOwner(ws) || (isMember(ws) && request.auth.token.email.lower() == email);
+      allow write: if isOwner(ws);
+    }
+
     // База знаний: ведёт владелец, сотрудник смотрит
     match /workspaces/{ws}/kb/{id} {
       allow read: if isOwner(ws) || isMember(ws);
