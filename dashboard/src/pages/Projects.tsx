@@ -8,6 +8,7 @@ import { useClientProjects, useMarks } from "../lib/clients";
 import { Flag, FLAG_LABEL, monthKey, shown, STAGES } from "../lib/catalog";
 import { visibleItems } from "../components/Checklist";
 import FlagPicker from "../components/FlagPicker";
+import Monthly from "./Monthly";
 import Payments from "../components/Payments";
 import { Links, LinkButtons, LinkEditor } from "../components/ProjectLinks";
 import { useCollection } from "../lib/store";
@@ -36,7 +37,7 @@ export default function Projects() {
     // создан из карточки клиента — связываем и переводим клиента «В работу»
     if (fromClient) await clients.update(fromClient, { projectId: r.id, status: "work" });
     setName(""); setFlags({}); setLinks({}); setCreating(false);
-    location.hash = "#/monthly?p=" + r.id;
+    location.hash = "#/projects?p=" + r.id;
   }
   const preview = STAGES.map((s) => ({ s, n: s.items.filter((it) => shown(it, flags)).length })).filter((x) => x.n);
   const total = preview.reduce((a, x) => a + x.n, 0);
@@ -70,30 +71,7 @@ export default function Projects() {
         </form>
       )}
 
-      <div className="bento" style={{ marginTop: 16 }}>
-        {list.map((p) => {
-          const items = visibleItems(p); const m = marks[p.id] || {};
-          const d = items.filter((it) => m[it.id]?.done).length;
-          return (
-            <div key={p.id} className="card">
-              <div className="row"><a href={"#/monthly?p=" + p.id}><b>{p.name}</b></a>
-                <button className="ghost" onClick={() => confirm(`Удалить проект «${p.name}»? Отметки по нему пропадут из вида.`) && deleteDoc(doc(col!, p.id))}>✕</button></div>
-              <div className="tags">{(Object.keys(p.flags || {}) as Flag[]).filter((k) => p.flags[k]).map((k) => <span key={k} className="tagc">{FLAG_LABEL[k]}</span>)}</div>
-              <LinkButtons links={p.links} />
-              <details style={{ marginTop: 8 }}><summary className="small">💰 Услуги и оплата</summary>
-                <Payments projectId={p.id} projectName={p.name} /></details>
-              <div className="progress"><div style={{ width: (items.length ? d / items.length * 100 : 0) + "%" }} /></div>
-              <div className="muted small">Этот месяц: {d} из {items.length}</div>
-              <div className="inline" style={{ marginTop: 8 }}>
-                <button className={p.monthlyOpen ? "" : "ghost"} title="Сотрудник видит чек-лист"
-                  onClick={() => updateDoc(doc(col!, p.id), { monthlyOpen: !p.monthlyOpen })}>{p.monthlyOpen ? "🔓" : "🔒"} Чек-лист</button>
-                <button className={p.calendarOpen ? "" : "ghost"} title="Сотрудник видит сроки в календаре"
-                  onClick={() => updateDoc(doc(col!, p.id), { calendarOpen: !p.calendarOpen })}>{p.calendarOpen ? "🔓" : "🔒"} Календарь</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <div style={{ marginTop: 16 }}><Monthly embedded /></div>
 
       {old.items.length > 0 && <details style={{ marginTop: 24 }}><summary className="muted">Личные проекты (старые) — {old.items.length}</summary>
         <div className="bento" style={{ marginTop: 8 }}>{old.items.map((p) => (

@@ -1,7 +1,8 @@
 // Ежемесячные задачи по проектам-клиентам. Владелец видит все проекты,
 // сотрудник — только те, где владелец открыл чек-лист.
 import { useEffect, useState } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { deleteDoc, doc, updateDoc } from "firebase/firestore";
+import Payments from "../components/Payments";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { useClientProjects, useMarks } from "../lib/clients";
@@ -12,7 +13,7 @@ import { LinkButtons, LinkEditor } from "../components/ProjectLinks";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 
-export default function Monthly() {
+export default function Monthly({ embedded = false }: { embedded?: boolean }) {
   const { wsId, isOwner, ws } = useWorkspace();
   const { list: all, error } = useClientProjects();
   const list = isOwner ? all : all.filter((p) => p.monthlyOpen);
@@ -29,9 +30,9 @@ export default function Monthly() {
 
   return (
     <>
-      <h1>Ежемесячные задачи</h1>
+      {!embedded && <h1>Ежемесячные задачи</h1>}
       {error && <div className="error">{error}</div>}
-      {!list.length ? <div className="card">{isOwner ? <>Пока нет проектов. Создай первый в разделе <a href="#/projects">Проекты</a> — список задач подберётся сам.</> : "Пока нет открытых тебе проектов."}</div> : <>
+      {!list.length ? <div className="card">{isOwner ? <>Пока нет проектов. Создай первый кнопкой «+ Новый проект» — список задач подберётся сам.</> : "Пока нет открытых тебе проектов."}</div> : <>
         <div className="chips">{list.map((x) =>
           <button key={x.id} className={`chipbtn ${x.id === p?.id ? "on" : ""}`} onClick={() => setSel(x.id)}>{x.name}</button>)}</div>
         {p && <div className="card" style={{ maxWidth: 860 }}>
@@ -46,11 +47,14 @@ export default function Monthly() {
             <button className={p.calendarOpen ? "" : "ghost"} onClick={() => upd({ calendarOpen: !p.calendarOpen })}>
               {p.calendarOpen ? "🔓 Сроки в календаре сотрудника" : "🔒 Сроки только у меня"}</button>
             <button className="ghost" onClick={() => setEditFlags(!editFlags)}>⚙ Данные и ссылки</button>
+            <button className="ghost" onClick={() => confirm(`Удалить проект «${p.name}»?`) && deleteDoc(doc(db, "workspaces", wsId!, "clients", p.id))}>✕ Удалить</button>
           </div>}
           {isOwner && editFlags && <div className="card" style={{ background: "var(--bg)", marginTop: 8 }}>
             <FlagPicker flags={p.flags || {}} onChange={(f) => upd({ flags: f })} />
             <LinkEditor key={p.id} links={p.links} onChange={(l) => upd({ links: l })} /></div>}
           <LinkButtons links={p.links} />
+          {isOwner && <details style={{ marginTop: 10 }}><summary className="small"><b>💰 Услуги и оплата</b></summary>
+            <Payments projectId={p.id} projectName={p.name} /></details>}
           <Checklist p={p} mk={mk} marks={marks[p.id] || {}} setMark={(id, m) => setMark(p.id, id, m)} />
         </div>}
       </>}

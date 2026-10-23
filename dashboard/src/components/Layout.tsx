@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { useWorkspace } from "../lib/workspace";
 import PullToRefresh from "./PullToRefresh";
 
-interface Item { to: string; label: string; icon: string; staff?: boolean; }
+interface Item { to: string; label: string; icon: string; staff?: boolean; staffOnly?: boolean; }
 interface Group { id: string; title: string; items: Item[]; }
 
 // Меню по группам. staff — пункт виден сотруднику
@@ -25,7 +25,7 @@ const groups = (): Group[] => [
   { id: "ops", title: "Операционка", items: [
     { to: "/projects", label: "Проекты", icon: "◆" },
     { to: "/tasks", label: "Задания", icon: "▦", staff: true },
-    { to: "/monthly", label: "Ежемесячные", icon: "↻", staff: true },
+    { to: "/monthly", label: "Ежемесячные", icon: "↻", staff: true, staffOnly: true },
   ] },
   { id: "ref", title: "Справочник", items: [
     { to: "/products", label: "Продукты", icon: "★" },
@@ -49,7 +49,7 @@ export default function Layout() {
   }, [theme]);
   useEffect(() => setMore(false), [loc.pathname]);
 
-  const visible = groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner || i.staff) })).filter((g) => g.items.length);
+  const visible = groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly : i.staff) })).filter((g) => g.items.length);
   const flat = visible.flatMap((g) => g.items);
   const mobile = isOwner ? flat.filter((i) => MOBILE.includes(i.to)) : flat;
   const link = (n: Item) => (

@@ -77,7 +77,7 @@ export default function Home() {
             const items = visibleItems(p); const done = items.filter((it) => marks[p.id]?.[it.id]?.done).length;
             const waiting = items.filter((it) => marks[p.id]?.[it.id]?.comment && !marks[p.id]?.[it.id]?.done).length;
             return (
-              <Link key={p.id} to={"/monthly?p=" + p.id} className="row" style={{ color: "inherit", textDecoration: "none", gap: 12 }}>
+              <Link key={p.id} to={"/projects?p=" + p.id} className="row" style={{ color: "inherit", textDecoration: "none", gap: 12 }}>
                 <span style={{ minWidth: 120 }}>{p.name}</span>
                 <div className="progress" style={{ flex: 1, margin: 0 }}><div style={{ width: (items.length ? done / items.length * 100 : 0) + "%" }} /></div>
                 <span className="small muted" style={{ minWidth: 70, textAlign: "right" }}>{done}/{items.length}{waiting ? ` · 💬${waiting}` : ""}</span>

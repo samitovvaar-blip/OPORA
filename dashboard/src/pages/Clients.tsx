@@ -36,7 +36,7 @@ export default function Clients() {
       <div className="muted small">{[c.contact, c.service, c.source].filter(Boolean).join(" · ")}</div>
       <LinkButtons links={c.links} />
       {c.projectId
-        ? <a className="small" href={"#/monthly?p=" + c.projectId}>◆ Проект: ежемесячные задачи →</a>
+        ? <a className="small" href={"#/projects?p=" + c.projectId}>◆ Проект: ежемесячные задачи →</a>
         : <a className="small" href={`#/projects?new=${encodeURIComponent(c.name)}&client=${c.id}`}>+ Сделать проектом</a>}
       {open === c.id && <>
         <textarea placeholder="Заметки о клиенте" defaultValue={c.note} onBlur={(e) => update(c.id, { note: e.target.value })} />

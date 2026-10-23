@@ -64,7 +64,7 @@ export default function Report() {
         <div className="card wide">
           <h3>По проектам</h3>
           {rows.map(({ p, total, done }) => (
-            <a key={p.id} href={"#/monthly?p=" + p.id} className="row" style={{ color: "inherit", textDecoration: "none", gap: 12 }}>
+            <a key={p.id} href={"#/projects?p=" + p.id} className="row" style={{ color: "inherit", textDecoration: "none", gap: 12 }}>
               <span style={{ minWidth: 120 }}>{p.name}</span>
               <div className="progress" style={{ flex: 1, margin: 0 }}><div style={{ width: pct(done, total) + "%" }} /></div>
               <span className="small muted" style={{ minWidth: 90, textAlign: "right" }}>{done}/{total} · {pct(done, total)}%</span>

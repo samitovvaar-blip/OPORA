@@ -165,7 +165,7 @@ export default function Tasks() {
                 {isOwner && <span className="muted small"> {x.open ? "🔓" : "🔒"}</span>}</span>
             </label>
           ))}
-          {deadlines.some((x) => x.date === selDay) && <div className="muted small">Весь чек-лист — в <a href="#/monthly">Ежемесячных</a>. 🔓/🔒 видит ли сотрудник — переключается в проекте.</div>}
+          {deadlines.some((x) => x.date === selDay) && <div className="muted small">Весь чек-лист — в <a href={isOwner ? "#/projects" : "#/monthly"}>{isOwner ? "Проектах" : "Ежемесячных"}</a>. 🔓/🔒 видит ли сотрудник — переключается в проекте.</div>}
 
           {isOwner && (
             <form onSubmit={add} className="newtask">
