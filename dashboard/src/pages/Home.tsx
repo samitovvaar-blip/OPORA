@@ -1,89 +1,131 @@
-// Главная: всё нужное на сегодня на одном экране
+// Главная владельца: сверху вниз — от срочного к общему.
+// ① Внимание ② Сегодня ③ Деньги ④ Цели ⑤ Воронка ⑥ Проекты
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { today } from "../lib/store";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { useAuth } from "../lib/auth";
+import { today, useCollection } from "../lib/store";
 import { isRecurring, occursOn } from "../lib/recurring";
 import { projectDeadlines, useAssignments, useClientProjects, useMarks } from "../lib/clients";
 import { monthKey, stamp } from "../lib/catalog";
+import { addMonths, expected, rub, useBilling, useBusinessProfit, usePaid } from "../lib/money";
 import { visibleItems } from "../components/Checklist";
 import Goals from "../components/Goals";
-import { useAuth } from "../lib/auth";
 import { api as leadsApi, session as leadsSession } from "../modules/leads/api";
 
-// Новые заявки — только показываем на экране, в Firebase не сохраняем
+const fmt = (s: string) => `${Number(s.slice(8))}.${s.slice(5, 7)}`;
+
+// Новые заявки — только на экране, в Firebase не сохраняем
 function useNewLeads() {
   const [n, setN] = useState<number | null>(null);
-  useEffect(() => {
-    if (!leadsSession()) return;
-    leadsApi.listLeads().then((l) => setN(l.filter((x) => x.status === "new").length)).catch(() => setN(null));
-  }, []);
+  useEffect(() => { if (leadsSession()) leadsApi.listLeads().then((l) => setN(l.filter((x) => x.status === "new").length)).catch(() => setN(null)); }, []);
   return n;
 }
 
 export default function Home() {
   const { user } = useAuth();
-  const d = today();
-  const mk = monthKey(new Date());
+  const d = today(); const mk = monthKey(new Date()); const nk = addMonths(mk, 1);
   const { list: projects } = useClientProjects();
   const { marks, setMark } = useMarks(projects.map((p) => p.id), mk);
   const assignments = useAssignments();
   const newLeads = useNewLeads();
+  const { map: billing } = useBilling();
+  const paidNow = usePaid(mk), paidNext = usePaid(nk);
+  const biz = useBusinessProfit()(mk);
+  const saves = useCollection<{ amount: number; date: string }>("walletSave").items;
+  const [savePct, setSavePct] = useState(50);
+  const [funnel, setFunnel] = useState<any>({});
+  useEffect(() => onSnapshot(doc(db, "users", user!.uid, "meta", "wallet"), (x) => typeof x.data()?.savePct === "number" && setSavePct(x.data()!.savePct)), [user?.uid]);
+  useEffect(() => onSnapshot(doc(db, "users", user!.uid, "funnel", mk), (x) => setFunnel(x.data() || {})), [user?.uid, mk]);
 
-  const todayTasks = assignments.filter((a) => isRecurring(a) ? occursOn(a, d) && !(a.doneDates || []).includes(d)
-    : a.status !== "done" && a.date && a.date <= d).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
-  const dl = projectDeadlines(projects, marks, mk).filter((x) => !x.done && x.date <= d).sort((a, b) => a.date.localeCompare(b.date));
-  const soon = projectDeadlines(projects, marks, mk).filter((x) => !x.done && x.date > d).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+  // Сегодня: задания + сроки по проектам одним списком
+  const tasks = assignments.filter((a) => isRecurring(a) ? occursOn(a, d) && !(a.doneDates || []).includes(d) : a.status !== "done" && a.date && a.date <= d)
+    .map((a) => ({ key: "a" + a.id, kind: "task" as const, a, title: a.title, date: isRecurring(a) ? d : a.date, time: a.time || "", rec: isRecurring(a) }));
+  const dls = projectDeadlines(projects, marks, mk).filter((x) => !x.done && x.date <= d)
+    .map((x) => ({ key: "d" + x.key, kind: "dl" as const, x, title: x.title, date: x.date, time: "", rec: false }));
+  const todayList = [...tasks, ...dls].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+  const overdue = todayList.filter((t) => t.date < d).length;
+
+  // Внимание: неоплаты (срок прошёл), просрочки, «ждём ответ»
+  const unpaid = [
+    ...expected(mk, projects, billing).filter((x) => !paidNow.marks[x.key]?.paid),
+    ...expected(nk, projects, billing).filter((x) => !paidNext.marks[x.key]?.paid),
+  ].filter((x) => x.due < d);
+  const waiting = projects.reduce((a, p) => a + Object.values(marks[p.id] || {}).filter((m) => m.comment && !m.done).length, 0);
+  const waitPay = expected(mk, projects, billing).filter((x) => !paidNow.marks[x.key]?.paid).reduce((a, x) => a + x.price, 0);
+
+  const saveFact = saves.filter((x) => x.date?.startsWith(mk)).reduce((a, x) => a + x.amount, 0);
+  const savePlan = Math.round(biz.income * savePct / 100);
   const date = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
-  const fmt = (s: string) => `${Number(s.slice(8))}.${s.slice(5, 7)}`;
 
   return (
     <>
       <h1>Привет, Арина 👋</h1>
-      <div className="muted" style={{ marginTop: -12, marginBottom: 20 }}>{date}</div>
+      <div className="muted" style={{ marginTop: -12, marginBottom: 16 }}>{date}</div>
+
+      {(unpaid.length > 0 || overdue > 0 || waiting > 0) && (
+        <div className="attention">
+          {unpaid.length > 0 && <Link to="/pnl">⚠ Не оплатили: <b>{unpaid.length}</b> · {rub(unpaid.reduce((a, x) => a + x.price, 0))}</Link>}
+          {overdue > 0 && <Link to="/tasks">⚠ Просрочено: <b>{overdue}</b></Link>}
+          {waiting > 0 && <Link to="/projects">⏳ Ждём ответ: <b>{waiting}</b></Link>}
+        </div>)}
+      {unpaid.length > 0 && <div className="card" style={{ marginBottom: 14 }}>
+        {unpaid.map((x) => {
+          const p = projects.find((q) => q.id === x.pid);
+          const late = Math.round((+new Date(d) - +new Date(x.due)) / 86400000);
+          return <div key={x.key} className="row small"><span><b>{x.project}</b> · {x.service} · {rub(x.price)} <span className="error">· просрочка {late} дн.</span></span>
+            {p?.links?.chat ? <a className="linkbtn" href={p.links.chat} target="_blank" rel="noopener noreferrer">💬 Написать</a> : <span className="muted">нет чата</span>}</div>;
+        })}</div>}
+
       <div className="bento">
-        <Link to="/tasks" className="card stat"><div className="muted">Задания на сегодня</div><b>{todayTasks.length}</b></Link>
-        <Link to="/tasks" className="card stat"><div className="muted">Сроки по проектам</div><b className={dl.length ? "error" : ""}>{dl.length}</b><div className="muted small">на сегодня и просрочено</div></Link>
-        <Link to="/leads" className="card stat"><div className="muted">Новые заявки с сайта</div><b>{newLeads ?? "—"}</b>{newLeads === null && <div className="muted small">войди в «Заявки»</div>}</Link>
-        <Link to="/projects" className="card stat"><div className="muted">Проекты</div><b>{projects.length}</b></Link>
+        <div className="card wide2">
+          <h3>📋 Сегодня <span className="muted small">{todayList.length}</span></h3>
+          {todayList.map((t) => (
+            <label key={t.key} className="row task" style={{ cursor: t.kind === "dl" ? "pointer" : undefined }}>
+              <span style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                {t.kind === "dl"
+                  ? <input type="checkbox" onChange={() => setMark(t.x.pid, t.x.itemId, { done: true, doneBy: user!.email || "", doneAt: stamp() })} />
+                  : <Link to="/tasks" style={{ textDecoration: "none" }}>▦</Link>}
+                <span>{t.kind === "dl" && <span className="tagc">{t.x.project}</span>} {t.rec ? "🔁 " : ""}{t.title}</span></span>
+              <span className={`small ${t.date < d ? "error" : "muted"}`}>{t.date < d ? "⚠ " + fmt(t.date) : t.time}</span>
+            </label>))}
+          {!todayList.length && <div className="muted small">Свободный день ✨</div>}
+        </div>
+
+        <div className="card wide2">
+          <div className="row"><h3 style={{ margin: 0 }}>💰 Деньги месяца</h3><Link className="small" to="/pnl">P&L →</Link></div>
+          <div className="row" style={{ marginTop: 8 }}><span>Доход</span><b className="ok">{rub(biz.income)}</b></div>
+          <div className="row"><span>Расходы</span><span>{rub(biz.expenses)}</span></div>
+          <div className="row"><span>Чистая прибыль</span><b className={biz.profit < 0 ? "error" : "ok"}>{rub(biz.profit)}</b></div>
+          <div className="row small"><span className="muted">Ждём оплату</span><span>{rub(waitPay)}</span></div>
+          <div className="row small" style={{ marginTop: 6 }}><Link to="/wallet">🐷 Копилка</Link><span>{rub(saveFact)} <span className="muted">/ {rub(savePlan)}</span></span></div>
+          <div className="progress" style={{ margin: "4px 0" }}><div style={{ width: (savePlan ? Math.min(100, saveFact / savePlan * 100) : 0) + "%" }} /></div>
+        </div>
 
         <Goals />
 
         <div className="card wide2">
-          <h3>📋 Задания сегодня</h3>
-          {todayTasks.map((a) => (
-            <Link key={a.id} to="/tasks" className="row task" style={{ color: "inherit", textDecoration: "none" }}>
-              <span>{isRecurring(a) ? "🔁 " : ""}{a.title}</span>
-              <span className={`small ${!isRecurring(a) && a.date < d ? "error" : "muted"}`}>{a.time || (a.date < d ? fmt(a.date) : "")}</span>
-            </Link>))}
-          {!todayTasks.length && <div className="muted small">Свободный день ✨</div>}
+          <div className="row"><h3 style={{ margin: 0 }}>📈 Воронка</h3><Link className="small" to="/clients">Клиенты →</Link></div>
+          <div className="funnel-mini">
+            <div><b>{funnel.leads || 0}</b><span>лиды</span></div>→
+            <div><b>{funnel.qualified || 0}</b><span>квал.</span></div>→
+            <div><b>{funnel.sales || 0}</b><span>продажи</span></div>
+            <div><b>{funnel.amount ? rub(funnel.amount) : "—"}</b><span>сумма</span></div>
+          </div>
+          <div className="row small"><Link to="/leads">✉ Новых заявок с сайта</Link><b>{newLeads ?? "—"}</b></div>
         </div>
 
         <div className="card wide2">
-          <h3>◆ Сроки по проектам</h3>
-          {dl.map((x) => (
-            <label key={x.key} className="row task" style={{ cursor: "pointer" }}>
-              <span style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                <input type="checkbox" onChange={() => setMark(x.pid, x.itemId, { done: true, doneBy: user!.email || "", doneAt: stamp() })} />
-                <span><span className="tagc">{x.project}</span> {x.title}</span></span>
-              <span className={`small ${x.date < d ? "error" : "muted"}`}>{x.date < d ? "⚠ " : ""}{fmt(x.date)}</span>
-            </label>))}
-          {!dl.length && <div className="muted small">Ничего не горит ✅</div>}
-          {soon.length > 0 && <>
-            <div className="muted small" style={{ marginTop: 10 }}>Ближайшие:</div>
-            {soon.map((x) => <div key={x.key} className="row small"><span><span className="tagc">{x.project}</span> {x.title}</span><span className="muted">{fmt(x.date)}</span></div>)}
-          </>}
-        </div>
-
-        <div className="card wide">
-          <h3>Проекты в этом месяце</h3>
+          <div className="row"><h3 style={{ margin: 0 }}>◆ Проекты</h3><Link className="small" to="/projects">все →</Link></div>
           {projects.map((p) => {
             const items = visibleItems(p); const done = items.filter((it) => marks[p.id]?.[it.id]?.done).length;
-            const waiting = items.filter((it) => marks[p.id]?.[it.id]?.comment && !marks[p.id]?.[it.id]?.done).length;
+            const w = items.filter((it) => marks[p.id]?.[it.id]?.comment && !marks[p.id]?.[it.id]?.done).length;
             return (
-              <Link key={p.id} to={"/projects?p=" + p.id} className="row" style={{ color: "inherit", textDecoration: "none", gap: 12 }}>
-                <span style={{ minWidth: 120 }}>{p.name}</span>
+              <Link key={p.id} to={"/projects?p=" + p.id} className="row" style={{ color: "inherit", textDecoration: "none", gap: 10 }}>
+                <span style={{ minWidth: 100 }}>{p.name}</span>
                 <div className="progress" style={{ flex: 1, margin: 0 }}><div style={{ width: (items.length ? done / items.length * 100 : 0) + "%" }} /></div>
-                <span className="small muted" style={{ minWidth: 70, textAlign: "right" }}>{done}/{items.length}{waiting ? ` · 💬${waiting}` : ""}</span>
+                <span className="small muted" style={{ minWidth: 60, textAlign: "right" }}>{done}/{items.length}{w ? ` 💬${w}` : ""}</span>
               </Link>);
           })}
           {!projects.length && <div className="muted small">Пока нет проектов</div>}
