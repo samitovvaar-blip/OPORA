@@ -26,19 +26,25 @@ function doGet(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var names = p.sheet ? String(p.sheet).split(',') : DEFAULT_SHEETS;
 
-  var sums = {}, months = {};
+  var sums = {}, months = {}, seen = 0, total = 0;
   for (var s = 0; s < names.length; s++) {
     var sh = ss.getSheetByName(names[s].trim());
     if (!sh) return out({ error: 'Лист не найден: ' + names[s] });
     var v = sh.getDataRange().getValues();
     var h = v[0].map(norm);
     var col = function (re) { for (var i = 0; i < h.length; i++) if (re.test(h[i])) return i; return -1; };
-    var cDir = col(/^направлен/), cProc = col(/^процесс/), cArt = col(/^стать/), cSum = col(/^сумма/),
+    // «Направление» может быть в нескольких колонках (одна пустая) — проверяем все
+    var cDirs = []; for (var i = 0; i < h.length; i++) if (/^направлен/.test(h[i])) cDirs.push(i);
+    var cDir = cDirs.length ? cDirs[0] : -1, cProc = col(/^процесс/), cArt = col(/^стать/), cSum = col(/^сумма/),
         cType = col(/приход/), cDate = col(/дата для отч/), cDate2 = col(/дата оп/);
     if (cDir < 0 || cArt < 0 || cSum < 0) return out({ error: 'Не нашёл колонки «Направление», «Статьи», «Сумма» на листе ' + names[s] });
+    total += v.length - 1;
     for (var r = 1; r < v.length; r++) {
       var row = v[r];
-      if (dirs.indexOf(norm(row[cDir])) < 0) continue;
+      var hit = false;
+      for (var c = 0; c < cDirs.length; c++) if (dirs.indexOf(norm(row[cDirs[c]])) >= 0) { hit = true; break; }
+      if (!hit) continue;
+      seen++;
       var proc = String(row[cProc] || '').trim(), art = String(row[cArt] || '').trim();
       if (!art || /^\*\*/.test(proc) || /субсч/i.test(proc)) continue;      // переводы между счетами — не в ОПиУ
       var d = toDate(cDate >= 0 ? row[cDate] : null) || toDate(cDate2 >= 0 ? row[cDate2] : null);
@@ -54,7 +60,7 @@ function doGet(e) {
     }
   }
   var rows = Object.keys(sums).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: sums[k] }; });
-  return out({ mode: 'db', title: ss.getName(), dirs: dirs, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
+  return out({ mode: 'db', title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
 }
 
 function norm(s) { return String(s || '').trim().toLowerCase().replace(/ё/g, 'е'); }
