@@ -75,7 +75,9 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   const vec = (f: (mk: string) => number) => mks.map((mk) => { const v = f(mk); return Math.abs(v) < 0.005 ? null : Math.round(v * 100) / 100; });
   const sumOf = (list: DbRow[]) => vec((mk) => list.reduce((a, r) => a + (r.values[mk] || 0), 0));
   const deptOf = (proc: string) => (proc.match(/^(\d)/) || [])[1] || "";
-  const income = j.rows.filter((r) => !deptOf(r.process));
+  // Доход — только процесс «Доходы». Прочее без номера («Расходы: Вывел на личный счёт» и т.п.)
+  // — это движение денег собственника, в ОПиУ не входит.
+  const income = j.rows.filter((r) => /^доход/i.test(r.process.trim()));
   const byDept = (d: string) => j.rows.filter((r) => deptOf(r.process) === d);
   const variable = j.rows.filter((r) => ["1", "2", "3"].includes(deptOf(r.process)));
   const fixed = j.rows.filter((r) => ["4", "5"].includes(deptOf(r.process)));
