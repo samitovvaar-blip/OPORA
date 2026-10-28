@@ -106,7 +106,7 @@ export interface ClientProject {
   kpi?: Record<string, { units?: number; newClients?: number; orders?: number }>;
   clientPlan?: { mk: string; revenue?: number; expenses?: number; profit?: number; note?: string };
 }
-export interface Mark { done?: boolean; doneBy?: string; doneAt?: string; comment?: string; commentBy?: string; commentAt?: string; }
+export interface Mark { done?: boolean; doneBy?: string; doneAt?: string; comment?: string; commentBy?: string; commentAt?: string; reply?: string; replyAt?: string; replyBy?: string; }
 
 export const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 export const dueDate = (mk: string, day: number) => {

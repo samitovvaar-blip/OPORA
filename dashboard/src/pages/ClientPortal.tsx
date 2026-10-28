@@ -5,10 +5,11 @@ import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { useMarks } from "../lib/clients";
-import { ClientProject, monthKey } from "../lib/catalog";
+import { ClientProject, monthKey, stamp } from "../lib/catalog";
 import { rub } from "../lib/money";
 import { buildDds, loadPnl, Pnl } from "../lib/sheetPnl";
-import Checklist from "../components/Checklist";
+import Checklist, { visibleItems } from "../components/Checklist";
+import { useAuth } from "../lib/auth";
 import { LinkButtons } from "../components/ProjectLinks";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
@@ -25,6 +26,7 @@ const DEPT_NAMES = ["1. Производственный отдел", "2. Отд
 
 export default function ClientPortal() {
   const { wsId, clientOf, isOwner } = useWorkspace();
+  const { user } = useAuth();
   const cid = isOwner ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
   const [p, setP] = useState<ClientProject | null>(null);
   const [err, setErr] = useState("");
@@ -37,7 +39,7 @@ export default function ClientPortal() {
   const [accSel, setAccSel] = useState<string[] | null>(null);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const mk = monthKey(month);
-  const { marks } = useMarks(cid ? [cid] : [], mk);
+  const { marks, setMark } = useMarks(cid ? [cid] : [], mk);
 
   useEffect(() => wsId && cid ? onSnapshot(doc(db, "workspaces", wsId, "clients", cid),
     (s) => setP(s.exists() ? ({ id: s.id, ...s.data() } as ClientProject) : null),
@@ -228,6 +230,21 @@ export default function ClientPortal() {
           <b>{MONTHS[month.getMonth()]} {month.getFullYear()}</b>
           <button className="ghost" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
         </div>
+        {(() => {
+          const ms = marks[p.id] || {}, ask = visibleItems(p).filter((it) => ms[it.id]?.comment && !ms[it.id]?.done);
+          if (!ask.length) return null;
+          return <div className="card" style={{ background: "var(--bg)", margin: "10px 0" }}>
+            <h3 style={{ marginTop: 0 }}>⏳ Ждём от вас</h3>
+            {ask.map((it) => { const m = ms[it.id];
+              return <div key={it.id} style={{ margin: "10px 0" }}>
+                <b className="small">{it.title}</b>
+                <div className="comment small">💬 {m.comment}</div>
+                <textarea placeholder="Ваш ответ — например: отправила документы на почту" defaultValue={m.reply || ""} key={it.id + (m.replyAt || "")} disabled={isOwner}
+                  onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== (m.reply || "")) setMark(p.id, it.id, { reply: v, replyAt: stamp(), replyBy: user?.email || "" }); }} />
+                {m.reply && <div className="muted small">✓ ответ отправлен {m.replyAt}</div>}
+              </div>; })}
+          </div>;
+        })()}
         <Checklist p={p} mk={mk} marks={marks[p.id] || {}} setMark={async () => {}} readOnly />
       </div>}
 

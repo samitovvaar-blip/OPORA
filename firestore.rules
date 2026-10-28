@@ -78,6 +78,12 @@ service cloud.firestore {
         allow create, update: if isOwner(ws) || (isMember(ws) && opened()
           && request.resource.data.keys().hasOnly(["done", "doneBy", "doneAt", "comment", "commentBy", "commentAt"])
           && (!("comment" in request.resource.data) || (request.resource.data.comment is string && request.resource.data.comment.size() <= 1000)));
+        // Клиент отвечает на вопрос по пункту (только поля ответа)
+        allow create: if isClient(get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data)
+          && request.resource.data.keys().hasOnly(["reply", "replyAt", "replyBy"]) && request.resource.data.reply is string && request.resource.data.reply.size() <= 1000;
+        allow update: if isClient(get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["reply", "replyAt", "replyBy"])
+          && request.resource.data.reply is string && request.resource.data.reply.size() <= 1000;
       }
     }
 

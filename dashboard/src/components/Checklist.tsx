@@ -58,6 +58,7 @@ export default function Checklist({ p, mk, marks, setMark, readOnly = false }: {
                     </div>
                     {m.done && <div className="muted small" style={{ paddingLeft: 28 }}>✓ {m.doneAt}{readOnly ? "" : " · " + m.doneBy}</div>}
                     {m.comment && openC !== it.id && <div className="comment small" onClick={() => !readOnly && setOpenC(it.id)}>💬 {m.comment} {!readOnly && <span className="muted">— {m.commentBy}, {m.commentAt}</span>}</div>}
+                    {m.reply && <div className="comment small" style={{ borderLeftColor: "var(--accent)" }}>↩ {readOnly ? "Ваш ответ" : "Ответ клиента"}: {m.reply} <span className="muted">· {m.replyAt}</span></div>}
                     {openC === it.id && <textarea autoFocus placeholder="Например: отправила клиенту, ждём ответ" defaultValue={m.comment || ""}
                       onBlur={(e) => { const v = e.target.value.trim(); if (v !== (m.comment || "")) setMark(it.id, { comment: v, commentBy: user!.email || "", commentAt: stamp() }); setOpenC(null); }} />}
                   </div>
