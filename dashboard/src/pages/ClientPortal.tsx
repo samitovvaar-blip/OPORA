@@ -393,14 +393,13 @@ export default function ClientPortal() {
           <table className="pnl-table" style={{ marginTop: 10 }}>
             <thead><tr><th /><th className="small">План</th><th className="small">Факт</th><th className="small">%</th></tr></thead>
             <tbody>
-              <Line l="Выручка" plan={pRev} fact={fRev} bold />
-              <Line l="Расходы итого" plan={pExp} fact={fExp} inverse bold />
-              {DK.map((k, n) => <Line key={k} l={DEPT_NAMES[n]} plan={pDepts[n]} fact={fDept(k)} inverse sub />)}
+              <Line l="Доходы" plan={pRev} fact={fRev} bold />
+              <Line l="Расходы" plan={pExp} fact={fExp} inverse bold />
               <Line l="Чистая прибыль" plan={pProf} fact={fProf} bold />
               <tr><td>Рентабельность</td><td>{pct(pProf, pRev) != null ? pct(pProf, pRev) + "%" : "—"}</td><td>{pct(fProf, fRev) != null ? pct(fProf, fRev) + "%" : "—"}</td><td /></tr>
             </tbody>
           </table>
-          {isOwner && <div className="muted small">План выручки — из «📥 Данные от ОП». Расходы отделов — из платёжного календаря ниже.</div>}
+          {isOwner && <div className="muted small">План доходов — из «📥 Данные от ОП». План расходов — сумма платежей в платёжном календаре ниже.</div>}
           <h3 style={{ marginBottom: 6 }}>📝 Фокус месяца</h3>
           {isOwner ? <textarea rows={4} placeholder="Цели и задачи на месяц: что делаем, на что обратить внимание" key={"n" + pmk} defaultValue={pl.note || ""} onBlur={(e) => e.target.value !== (pl.note || "") && save("note", e.target.value)} />
             : <div className="comment" style={{ whiteSpace: "pre-wrap" }}>{pl.note || "—"}</div>}
