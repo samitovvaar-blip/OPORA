@@ -5,6 +5,7 @@ export interface PnlRow { name: string; sub: string; total: boolean; section: bo
 export interface Dds { months: PnlMonth[]; rows: PnlRow[]; inflow: (number | null)[]; outflow: (number | null)[]; net: (number | null)[]; }
 export interface Pnl { db?: boolean; dds?: Dds; title: string; months: PnlMonth[]; rows: PnlRow[]; at?: string;
   revenue: (number | null)[]; profit: (number | null)[]; variable: (number | null)[]; fixed: (number | null)[]; depts: PnlRow[];
+  ddsRaw?: { months: string[]; rows: DbRow[] }; balances?: Balances | null;
   metrics?: Record<string, (number | null)[]>; }
 
 const MONTHS = ["январ", "феврал", "март", "апрел", "май", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"];
@@ -67,9 +68,18 @@ const RU = ["Январь","Февраль","Март","Апрель","Май","
 const DEPTS: Record<string, string> = { "1": "1. Производственный отдел", "2": "2. Отдел продаж", "3": "3. Отдел маркетинга",
   "4": "4. Админ-хоз отдел и Руководство", "5": "5. Финансовый отдел", "6": "6. Фондирование" };
 
-interface DbRow { process: string; article: string; values: Record<string, number>; }
+export interface DbRow { process: string; article: string; account?: string; values: Record<string, number>; }
+export interface Balance { group: string; account: string; start: number; checked: boolean; checkedAt: string; balance: number; who: string; }
+export interface Balances { start: string; accounts: Balance[]; }
 // ДДС: поступления и выплаты по «Дате операции», сгруппированы по процессам
-export function buildDds(d: { months: string[]; rows: DbRow[] }): Dds {
+export function buildDds(d0: { months: string[]; rows: DbRow[] }, accounts?: string[]): Dds {
+  // фильтр по счетам и склейка одинаковых процесс+статья с разных счетов
+  const m = new Map<string, DbRow>();
+  d0.rows.filter((r) => !accounts || accounts.includes(r.account || "")).forEach((r) => {
+    const k = r.process + "\u0001" + r.article, x = m.get(k) || { process: r.process, article: r.article, values: {} };
+    Object.entries(r.values).forEach(([mk, v]) => { x.values[mk] = (x.values[mk] || 0) + v; }); m.set(k, x);
+  });
+  const d = { months: d0.months, rows: [...m.values()] };
   const mks = d.months;
   const months: PnlMonth[] = mks.map((mk, i) => { const [y, m] = mk.split("-"); return { mk, col: i, label: RU[Number(m) - 1], year: y, status: "", closed: false }; });
   const vec = (f: (mk: string) => number) => mks.map((mk) => { const v = f(mk); return Math.abs(v) < 0.005 ? null : Math.round(v * 100) / 100; });
@@ -93,7 +103,7 @@ export function buildDds(d: { months: string[]; rows: DbRow[] }): Dds {
   return { months, rows, inflow, outflow, net: netFlow };
 }
 
-export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]; at?: string; dds?: { months: string[]; rows: DbRow[] } }, closed: string[] = []): Pnl {
+export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]; at?: string; dds?: { months: string[]; rows: DbRow[] }; balances?: Balances | null }, closed: string[] = []): Pnl {
   const mks = j.months;
   const months: PnlMonth[] = mks.map((mk, i) => {
     const [y, m] = mk.split("-"); const isClosed = closed.includes(mk);
@@ -148,6 +158,6 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
     salary: by(/зарплат|з\/п|\bзп\b|фот|оклад|преми|мотивац|аванс сотр/i, /налог/i),
     d1: sumOf(byDept("1")), d2: sumOf(byDept("2")), d3: sumOf(byDept("3")), d4: sumOf(byDept("4")), d5: sumOf(byDept("5")) };
 
-  return { metrics, db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
+  return { metrics, ddsRaw: j.dds, balances: j.balances, db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
     depts: rows.filter((r) => r.total) };
 }

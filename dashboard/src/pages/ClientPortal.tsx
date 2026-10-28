@@ -7,7 +7,7 @@ import { useWorkspace } from "../lib/workspace";
 import { useMarks } from "../lib/clients";
 import { ClientProject, monthKey } from "../lib/catalog";
 import { rub } from "../lib/money";
-import { loadPnl, Pnl } from "../lib/sheetPnl";
+import { buildDds, loadPnl, Pnl } from "../lib/sheetPnl";
 import Checklist from "../components/Checklist";
 import { LinkButtons } from "../components/ProjectLinks";
 
@@ -34,6 +34,7 @@ export default function ClientPortal() {
   const [mi, setMi] = useState<number | null>(null);
   const [detail, setDetail] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [accSel, setAccSel] = useState<string[] | null>(null);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const mk = monthKey(month);
   const { marks } = useMarks(cid ? [cid] : [], mk);
@@ -61,7 +62,6 @@ export default function ClientPortal() {
   const prevRev = v(pnl?.revenue || [], prevIdx), prevProf = v(pnl?.profit || [], prevIdx);
   const series = filled.map(({ m, i }) => ({ label: m.label.slice(0, 3), rev: pnl!.revenue[i] || 0, prof: pnl!.profit[i] || 0, closed: m.closed }));
   const max = Math.max(1, ...series.map((s) => s.rev));
-  const ddsM = cur != null && pnl?.dds ? pnl.dds.months.find((m) => m.label === pnl.months[cur].label && m.year === pnl.months[cur].year) : undefined;
   const waiting = Object.entries(marks[p.id] || {}).filter(([, m]) => m.comment && !m.done).length;
 
   return (
@@ -164,10 +164,15 @@ export default function ClientPortal() {
       </div>}
 
       {tab === "dds" && pnl && cur != null && (pnl.dds ? (() => {
-        const D = pnl.dds, mk = pnl.months[cur].mk || "", st = p.ddsStart;
-        // остаток: стартовый + все движения с месяца старта до выбранного
+        const B = pnl.balances, mk = pnl.months[cur].mk || "", st = p.ddsStart;
+        const accs = B?.accounts || [], sel = accSel ?? accs.filter((a) => /^1\./.test(a.group)).map((a) => a.account);
+        const D = B && pnl.ddsRaw ? buildDds(pnl.ddsRaw, sel) : pnl.dds;
+        const ddsM = D.months.find((m) => m.label === pnl.months[cur].label && m.year === pnl.months[cur].year);
         const netOf = (m: { col: number }) => D.net[m.col] || 0;
-        const startBal = st && st.mk <= mk ? D.months.filter((m) => m.mk! >= st.mk && m.mk! < mk).reduce((x, m) => x + netOf(m), st.amount) : null;
+        // остаток на начало: остатки из «БАЛАНСЫ СЕЙЧАС» на дату ввода + все движения после неё до выбранного месяца
+        const bm = B?.start.match(/(\d+)\.(\d+)\.(\d{4})/), bMk = bm ? `${bm[3]}-${bm[2].padStart(2, "0")}` : "";
+        const startBal = B && bMk ? D.months.filter((m) => m.mk! > bMk && m.mk! < mk).reduce((x, m) => x + netOf(m), accs.filter((a) => sel.includes(a.account)).reduce((x, a) => x + a.start, 0))
+          : st && st.mk <= mk ? D.months.filter((m) => m.mk! >= st.mk && m.mk! < mk).reduce((x, m) => x + netOf(m), st.amount) : null;
         const c = ddsM?.col, inflow = c != null ? D.inflow[c] || 0 : 0, outflow = c != null ? D.outflow[c] || 0 : 0;
         const endBal = startBal != null ? startBal + inflow + outflow : null;
         // приходы/расходы: процесс → статьи
@@ -191,18 +196,29 @@ export default function ClientPortal() {
         return <div className="card" style={{ overflowX: "auto", maxWidth: 720 }}>
           <h3 style={{ marginTop: 0 }}>Движение денежных средств · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
           <div className="muted small" style={{ marginBottom: 8 }}>По дате операции. Переводы между своими счетами не учитываются. Нажми на строку, чтобы раскрыть.</div>
+          {accs.length > 0 && <div className="chips" style={{ marginBottom: 8 }}>{accs.map((a) => { const on = sel.includes(a.account);
+            return <button key={a.account} className={`chipbtn ${on ? "on" : ""}`} title={a.group}
+              onClick={() => setAccSel(on ? sel.filter((x) => x !== a.account) : [...sel, a.account])}>{a.account.replace(/\s*\d{20}\s*/, " ").slice(0, 34)}</button>; })}</div>}
           <table className="pnl-table"><tbody>
             <tr className="pnl-sec"><td>Остаток на начало месяца</td><Money v={startBal} /></tr>
             <Block k="in" title="ФАКТ ПРИХОД" total={inflow} />
             <Block k="out" title="ФАКТ РАСХОД" total={outflow} />
             <tr className="pnl-sec"><td>Остаток на конец месяца</td><Money v={endBal} /></tr>
           </tbody></table>
-          {isOwner && <div className="row small" style={{ marginTop: 10 }}>
+          {accs.length > 0 && <>
+            <h3 style={{ marginTop: 18 }}>Остатки на счетах · сверка с выпиской</h3>
+            <table className="pnl-table"><tbody>{accs.map((a, k) => <Fragment key={a.account}>
+              {(k === 0 || accs[k - 1].group !== a.group) && <tr className="pnl-sec"><td colSpan={3}>{a.group}</td></tr>}
+              <tr><td>{a.account}</td><Money v={a.balance} />
+                <td className={`small ${a.checked ? "ok" : "muted"}`}>{a.checked ? "✓ сверено" : "не сверено"}{a.checkedAt ? " " + a.checkedAt.slice(0, 10) : ""}</td></tr>
+            </Fragment>)}</tbody></table>
+          </>}
+          {isOwner && !B && <div className="row small" style={{ marginTop: 10 }}>
             <span>Стартовый остаток на начало <select defaultValue={st?.mk || D.months[0]?.mk} id="dds-st-mk">{D.months.map((m) => <option key={m.mk} value={m.mk}>{m.label} {m.year}</option>)}</select></span>
             <input type="number" step="0.01" style={{ width: 140 }} defaultValue={st?.amount ?? ""} key={"st" + (st?.amount ?? "")}
               onBlur={(e) => e.target.value !== "" && updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { ddsStart: { mk: (document.getElementById("dds-st-mk") as HTMLSelectElement).value, amount: Number(e.target.value) } })} />
           </div>}
-          {isOwner && startBal == null && <div className="muted small">Впиши остаток на начало первого месяца (как в твоём ДДС) — дальше остатки посчитаются сами.</div>}
+          {isOwner && !B && startBal == null && <div className="muted small">Впиши остаток на начало первого месяца (как в твоём ДДС) — дальше остатки посчитаются сами.</div>}
         </div>;
       })() : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
 

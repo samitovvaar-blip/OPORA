@@ -18,6 +18,7 @@
 var KEY = 'var KEY = 'opora-af18tlqro6wg5bup';';
 var DEFAULT_SHEETS = ['ДДС БОТ ОСНОВНЫЕ'];
 var DIRECTORY = 'Справочник-общее';   // группы статей → статьи (A → B)
+var BALANCES = 'БАЛАНСЫ СЕЙЧАС';      // остатки по счетам и дата сверки с выпиской
 
 function doGet(e) {
   var p = (e && e.parameter) || {};
@@ -40,7 +41,7 @@ function doGet(e) {
     // «Направление» может быть в нескольких колонках (одна пустая) — проверяем все
     var cDirs = []; for (var i = 0; i < h.length; i++) if (/^направлен/.test(h[i])) cDirs.push(i);
     var cDir = cDirs.length ? cDirs[0] : -1, cProc = col(/^процесс/), cArt = col(/^стать/), cSum = col(/^сумма/),
-        cType = col(/приход/), cDate = col(/дата для отч/), cDate2 = col(/дата оп/);
+        cType = col(/приход/), cDate = col(/дата для отч/), cDate2 = col(/дата оп/), cAcc = col(/^сч[её]т/);
     if (cDir < 0 || cArt < 0 || cSum < 0) return out({ error: 'Не нашёл колонки «Направление», «Статьи», «Сумма» на листе ' + names[s] });
     total += v.length - 1;
     for (var r = 1; r < v.length; r++) {
@@ -62,7 +63,7 @@ function doGet(e) {
       var dOp = toDate(cDate2 >= 0 ? row[cDate2] : null) || toDate(cDate >= 0 ? row[cDate] : null);
       if (art && amtD && dOp && !/между сч|внутрен/i.test(art) && !/субсч/i.test(proc)) {
         var mkD = dOp.getFullYear() + '-' + ('0' + (dOp.getMonth() + 1)).slice(-2);
-        var kD = proc + '\u0001' + art;
+        var kD = proc + '\u0001' + art + '\u0001' + (cAcc >= 0 ? String(row[cAcc] || '').trim() : '');
         dds[kD] = dds[kD] || {};
         dds[kD][mkD] = (dds[kD][mkD] || 0) + (outD ? -amtD : amtD);
         ddsMonths[mkD] = true;
@@ -83,8 +84,26 @@ function doGet(e) {
     }
   }
   var rows = Object.keys(sums).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: sums[k] }; });
-  var ddsRows = Object.keys(dds).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: dds[k] }; });
-  return out({ mode: 'db', typos: typos, directory: Object.keys(groupsOf).length, dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
+  var ddsRows = Object.keys(dds).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], account: x[2], values: dds[k] }; });
+  return out({ mode: 'db', balances: readBalances(ss), typos: typos, directory: Object.keys(groupsOf).length, dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
+}
+
+// Лист «БАЛАНСЫ СЕЙЧАС»: A — остаток на дату ввода, B — сверено, C — дата сверки, D — остаток сейчас, E — счёт, F — кто проверял
+function readBalances(ss) {
+  var sh = ss.getSheetByName(BALANCES);
+  if (!sh) return null;
+  var v = sh.getDataRange().getDisplayValues(), raw = sh.getDataRange().getValues(), list = [], group = '', start = '';
+  for (var r = 0; r < v.length; r++) {
+    var line = v[r].join(' ');
+    var m = line.match(/ввод остатков на\s*(\d{1,2}\.\d{1,2}\.\d{4})/i); if (m) start = m[1];
+    var acc = String(v[r][4] || '').trim();
+    if (!acc && /Баланс/i.test(line)) { group = (line.match(/(\d\.\s*)?Баланс[а-яё ]+/i) || [''])[0].trim(); continue; }
+    if (/^[34]\./.test(group)) break;   // заказы/товары — не деньги на счетах
+    if (!acc || !group) continue;
+    list.push({ group: group, account: acc, start: toNum(raw[r][0]), checked: raw[r][1] === true,
+      checkedAt: String(v[r][2] || ''), balance: toNum(raw[r][3]), who: String(v[r][5] || '') });
+  }
+  return { start: start, accounts: list };
 }
 
 // Справочник: в колонке A группа пишется один раз — дальше вниз действует она же
