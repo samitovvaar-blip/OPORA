@@ -2,7 +2,7 @@
 // строка с месяцами, над ней — статусы («СДАНО»), слева — статьи, «Итого» — по отделам.
 export interface PnlMonth { mk?: string; col: number; label: string; year?: string; status: string; closed: boolean; }
 export interface PnlRow { name: string; sub: string; total: boolean; section: boolean; values: (number | null)[]; }
-export interface Dds { months: PnlMonth[]; rows: PnlRow[]; inflow: (number | null)[]; outflow: (number | null)[]; net: (number | null)[]; }
+export interface Dds { months: PnlMonth[]; rows: PnlRow[]; inflow: (number | null)[]; outflow: (number | null)[]; other?: (number | null)[]; net: (number | null)[]; }
 export interface Pnl { db?: boolean; dds?: Dds; title: string; months: PnlMonth[]; rows: PnlRow[]; at?: string;
   revenue: (number | null)[]; profit: (number | null)[]; variable: (number | null)[]; fixed: (number | null)[]; depts: PnlRow[];
   ddsRaw?: { months: string[]; rows: DbRow[] }; balances?: Balances | null;
@@ -83,8 +83,6 @@ export function buildDds(d0: { months: string[]; rows: DbRow[] }, accounts?: str
   const mks = d.months;
   const months: PnlMonth[] = mks.map((mk, i) => { const [y, m] = mk.split("-"); return { mk, col: i, label: RU[Number(m) - 1], year: y, status: "", closed: false }; });
   const vec = (f: (mk: string) => number) => mks.map((mk) => { const v = f(mk); return Math.abs(v) < 0.005 ? null : Math.round(v * 100) / 100; });
-  const net = (r: DbRow) => mks.reduce((a, mk) => a + (r.values[mk] || 0), 0);
-  const ins = d.rows.filter((r) => net(r) > 0), outs = d.rows.filter((r) => net(r) <= 0);
   const sum = (l: DbRow[]) => vec((mk) => l.reduce((a, r) => a + (r.values[mk] || 0), 0));
   const rows: PnlRow[] = [];
   const add = (name: string, values: (number | null)[], o: Partial<PnlRow> = {}) => rows.push({ name, sub: "", total: false, section: false, values, ...o });
@@ -93,14 +91,19 @@ export function buildDds(d0: { months: string[]; rows: DbRow[] }, accounts?: str
     add(proc || "Без процесса", sum(l), { sub: "Процесс" });
     l.sort((a, b) => a.article.localeCompare(b.article, "ru")).forEach((r) => add(r.article, sum([r]), { sub: r.article }));
   });
-  // факт прихода/расхода — по знаку каждой суммы за месяц
-  const inflow = vec((mk) => d.rows.reduce((a, r) => a + Math.max(0, r.values[mk] || 0), 0));
-  const outflow = vec((mk) => d.rows.reduce((a, r) => a + Math.min(0, r.values[mk] || 0), 0));
+  // Приход — только процесс «Доходы». Все остальные процессы — расход (их плюсы, напр. выручка СДЭК, уменьшают расход).
+  // Отдельно внизу: фонды, «Для ДДС», «Не выяснено», переводы между счетами.
+  const isOther = (r: DbRow) => /^\s*\*\*|для ддс|не выяснен|между сч|внутрен|субсч|фонд|^\s*6\./i.test(r.process + " | " + r.article);
+  const ins = d.rows.filter((r) => !isOther(r) && /^\s*доход/i.test(r.process));
+  const outs = d.rows.filter((r) => !isOther(r) && !/^\s*доход/i.test(r.process));
+  const others = d.rows.filter(isOther);
+  const inflow = sum(ins), outflow = sum(outs), other = sum(others);
   add("Поступления", mks.map(() => null), { section: true }); add("ПОСТУПЛЕНИЯ ИТОГО", inflow); group(ins);
   add("Выплаты", mks.map(() => null), { section: true }); add("ВЫПЛАТЫ ИТОГО", outflow); group(outs);
-  const netFlow = mks.map((_, i) => ((inflow[i] || 0) + (outflow[i] || 0)) || null);
+  add("Прочее", mks.map(() => null), { section: true }); add("ПРОЧЕЕ ИТОГО", other); group(others);
+  const netFlow = mks.map((_, i) => ((inflow[i] || 0) + (outflow[i] || 0) + (other[i] || 0)) || null);
   add("ЧИСТЫЙ ДЕНЕЖНЫЙ ПОТОК", netFlow);
-  return { months, rows, inflow, outflow, net: netFlow };
+  return { months, rows, inflow, outflow, other, net: netFlow };
 }
 
 export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]; at?: string; dds?: { months: string[]; rows: DbRow[] }; balances?: Balances | null }, closed: string[] = []): Pnl {

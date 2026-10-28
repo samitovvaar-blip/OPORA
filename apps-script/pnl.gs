@@ -59,9 +59,9 @@ function doGet(e) {
         typos.push({ sheet: names[s], row: r + 1, op: fmtD(dOp0), report: fmtD(dRep), article: art });
       var amtD = Math.abs(toNum(row[cSum]));
       var outD = cType >= 0 ? /расход/i.test(String(row[cType])) : toNum(row[cSum]) < 0;
-      // ДДС: все движения по дате операции, кроме внутренних переводов между своими счетами
+      // ДДС: все движения по дате операции (переводы между счетами, «Для ДДС», фонды — дашборд покажет отдельной таблицей)
       var dOp = toDate(cDate2 >= 0 ? row[cDate2] : null) || toDate(cDate >= 0 ? row[cDate] : null);
-      if (art && amtD && dOp && !/между сч|внутрен/i.test(art) && !/субсч/i.test(proc)) {
+      if (art && amtD && dOp) {
         var mkD = dOp.getFullYear() + '-' + ('0' + (dOp.getMonth() + 1)).slice(-2);
         var kD = proc + '\u0001' + art + '\u0001' + (cAcc >= 0 ? String(row[cAcc] || '').trim() : '');
         dds[kD] = dds[kD] || {};

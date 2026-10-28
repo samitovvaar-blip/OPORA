@@ -177,20 +177,20 @@ export default function ClientPortal() {
         const bm = B?.start.match(/(\d+)\.(\d+)\.(\d{4})/), bMk = bm ? `${bm[3]}-${bm[2].padStart(2, "0")}` : "";
         const startBal = B && bMk ? D.months.filter((m) => m.mk! > bMk && m.mk! < mk).reduce((x, m) => x + netOf(m), accs.filter((a) => sel.includes(a.account)).reduce((x, a) => x + a.start, 0))
           : st && st.mk <= mk ? D.months.filter((m) => m.mk! >= st.mk && m.mk! < mk).reduce((x, m) => x + netOf(m), st.amount) : null;
-        const c = ddsM?.col, inflow = c != null ? D.inflow[c] || 0 : 0, outflow = c != null ? D.outflow[c] || 0 : 0;
-        const endBal = startBal != null ? startBal + inflow + outflow : null;
+        const c = ddsM?.col, inflow = c != null ? D.inflow[c] || 0 : 0, outflow = c != null ? D.outflow[c] || 0 : 0, other = c != null ? D.other?.[c] || 0 : 0;
+        const endBal = startBal != null ? startBal + inflow + outflow + other : null;
         // приходы/расходы: процесс → статьи
-        const groups: Record<string, { name: string; v: number; arts: { name: string; v: number }[] }[]> = { in: [], out: [] };
+        const groups: Record<string, { name: string; v: number; arts: { name: string; v: number }[] }[]> = { in: [], out: [], other: [] };
         let sec = "in";
         D.rows.forEach((r) => {
-          if (r.section) { sec = /выплат/i.test(r.name) ? "out" : "in"; return; }
+          if (r.section) { sec = /выплат/i.test(r.name) ? "out" : /проч/i.test(r.name) ? "other" : "in"; return; }
           const v = c != null ? r.values[c] || 0 : 0;
           if (r.sub === "Процесс") groups[sec].push({ name: r.name, v, arts: [] });
           else if (r.sub && groups[sec].length && v) groups[sec][groups[sec].length - 1].arts.push({ name: r.name, v });
         });
         const tog = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
         const Money = ({ v }: { v: number | null }) => <td className={(v || 0) < 0 ? "error" : ""}>{v != null ? rub(v) : "—"}</td>;
-        const Block = ({ k, title, total }: { k: "in" | "out"; title: string; total: number }) => <>
+        const Block = ({ k, title, total }: { k: "in" | "out" | "other"; title: string; total: number }) => <>
           <tr className="pnl-key" style={{ cursor: "pointer" }} onClick={() => tog(k)}><td>{open[k] ? "▾" : "▸"} {title}</td><Money v={total} /></tr>
           {open[k] && groups[k].filter((g) => g.v).map((g) => <Fragment key={g.name}>
             <tr style={{ cursor: "pointer" }} onClick={() => tog(k + g.name)}><td style={{ paddingLeft: 20 }}>{open[k + g.name] ? "▾" : "▸"} {g.name}</td><Money v={g.v} /></tr>
@@ -207,8 +207,14 @@ export default function ClientPortal() {
             <tr className="pnl-sec"><td>Остаток на начало месяца</td><Money v={startBal} /></tr>
             <Block k="in" title="ФАКТ ПРИХОД" total={inflow} />
             <Block k="out" title="ФАКТ РАСХОД" total={outflow} />
+            {other !== 0 && <tr className="small muted"><td>Прочие движения (таблица ниже)</td><Money v={other} /></tr>}
             <tr className="pnl-sec"><td>Остаток на конец месяца</td><Money v={endBal} /></tr>
           </tbody></table>
+          {groups.other.some((g) => g.v) && <>
+            <h3 style={{ marginTop: 18 }}>Прочие движения</h3>
+            <div className="muted small" style={{ marginBottom: 6 }}>Фонды, «Для ДДС», «Не выяснено», переводы между счетами — не приход и не расход бизнеса.</div>
+            <table className="pnl-table"><tbody><Block k="other" title="ПРОЧЕЕ ИТОГО" total={other} /></tbody></table>
+          </>}
           {accs.length > 0 && <>
             <h3 style={{ marginTop: 18 }}>Остатки на счетах · сверка с выпиской</h3>
             <table className="pnl-table"><tbody>{accs.map((a, k) => <Fragment key={a.account}>
