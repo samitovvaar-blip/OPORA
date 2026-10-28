@@ -17,6 +17,7 @@
  */
 var KEY = 'поменяй-меня-на-длинный-секрет';
 var DEFAULT_SHEETS = ['ДДС БОТ ОСНОВНЫЕ'];
+var DIRECTORY = 'Справочник-общее';   // группы статей → статьи (A → B)
 
 function doGet(e) {
   var p = (e && e.parameter) || {};
@@ -26,6 +27,8 @@ function doGet(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var names = p.sheet ? String(p.sheet).split(',') : DEFAULT_SHEETS;
 
+  var groupsOf = readDirectory(ss);   // статья → [группы] из справочника
+  var typos = [];                      // строки, где год даты операции не совпадает с датой для отчёта
   var sums = {}, months = {}, seen = 0, total = 0;
   var dds = {}, ddsMonths = {};   // ДДС: по «Дате операции», все движения денег
   for (var s = 0; s < names.length; s++) {
@@ -47,6 +50,12 @@ function doGet(e) {
       if (!hit) continue;
       seen++;
       var proc = String(row[cProc] || '').trim(), art = String(row[cArt] || '').trim();
+      // Группа статьи — по справочнику (как в отчёте ОПиУ). Если статья в нескольких группах — берём ту, что в базе.
+      var gs = groupsOf[norm(art)];
+      if (gs && gs.length && gs.map(norm).indexOf(norm(proc)) < 0) proc = gs[0];
+      var dRep = toDate(cDate >= 0 ? row[cDate] : null), dOp0 = toDate(cDate2 >= 0 ? row[cDate2] : null);
+      if (dRep && dOp0 && Math.abs(dRep.getFullYear() - dOp0.getFullYear()) >= 1 && typos.length < 100)
+        typos.push({ sheet: names[s], row: r + 1, op: fmtD(dOp0), report: fmtD(dRep), article: art });
       var amtD = Math.abs(toNum(row[cSum]));
       var outD = cType >= 0 ? /расход/i.test(String(row[cType])) : toNum(row[cSum]) < 0;
       // ДДС: все движения по дате операции, кроме внутренних переводов между своими счетами
@@ -73,9 +82,24 @@ function doGet(e) {
   }
   var rows = Object.keys(sums).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: sums[k] }; });
   var ddsRows = Object.keys(dds).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: dds[k] }; });
-  return out({ mode: 'db', dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
+  return out({ mode: 'db', typos: typos, directory: Object.keys(groupsOf).length, dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
 }
 
+// Справочник: в колонке A группа пишется один раз — дальше вниз действует она же
+function readDirectory(ss) {
+  var map = {}, sh = ss.getSheetByName(DIRECTORY);
+  if (!sh) return map;
+  var v = sh.getRange(1, 1, sh.getLastRow(), 2).getDisplayValues(), group = '';
+  for (var r = 1; r < v.length; r++) {
+    var g = String(v[r][0] || '').trim(), a = String(v[r][1] || '').trim();
+    if (g) group = g;
+    if (!a || !group) continue;
+    var k = norm(a); map[k] = map[k] || [];
+    if (map[k].indexOf(group) < 0) map[k].push(group);
+  }
+  return map;
+}
+function fmtD(d) { return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); }
 function norm(s) { return String(s || '').trim().toLowerCase().replace(/ё/g, 'е'); }
 function toNum(x) { if (typeof x === 'number') return x; var n = Number(String(x).replace(/\s|р\.|₽/g, '').replace(',', '.')); return isNaN(n) ? 0 : n; }
 function toDate(x) {
