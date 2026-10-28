@@ -38,6 +38,7 @@ export default function ClientPortal() {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState("");
   const [showArch, setShowArch] = useState(false);
+  const [planMonth, setPlanMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1); });
   const [accSel, setAccSel] = useState<string[] | null>(null);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const mk = monthKey(month);
@@ -358,15 +359,39 @@ export default function ClientPortal() {
         })()}
       </div>}
 
-      {tab === "plan" && <div className="card" style={{ maxWidth: 640 }}>
-        {p.clientPlan ? <>
-          <h3>План на {(() => { const [y, m] = p.clientPlan!.mk.split("-").map(Number); return `${MONTHS[m - 1].toLowerCase()} ${y}`; })()}</h3>
-          {p.clientPlan.revenue != null && <div className="row"><span>Выручка</span><b>{rub(p.clientPlan.revenue)}</b></div>}
-          {p.clientPlan.expenses != null && <div className="row"><span>Расходы</span><b>{rub(p.clientPlan.expenses)}</b></div>}
-          {p.clientPlan.profit != null && <div className="row"><span>Чистая прибыль</span><b className="ok">{rub(p.clientPlan.profit)}</b></div>}
-          {p.clientPlan.note && <div style={{ whiteSpace: "pre-wrap", marginTop: 10 }}>{p.clientPlan.note}</div>}
-        </> : <div className="muted">План на следующий месяц появится здесь.</div>}
-      </div>}
+      {tab === "plan" && (() => {
+        const pmk = monthKey(planMonth), pl = p.plans?.[pmk] || {}, ref = doc(db, "workspaces", wsId!, "clients", p.id);
+        const i = pnl?.months.findIndex((m) => m.mk === pmk) ?? -1;
+        const fRev = i >= 0 ? pnl!.revenue[i] : null, fProf = i >= 0 ? pnl!.profit[i] : null;
+        const fExp = fRev != null && fProf != null ? Math.abs(fRev - fProf) : null;
+        const pRev = p.planSales?.[pmk] ?? null, pExp = pl.expenses ?? null, pProf = pl.profit ?? (pRev != null && pExp != null ? pRev - pExp : null);
+        const save = (k: string, v: string) => updateDoc(ref, { [`plans.${pmk}.${k}`]: v === "" ? deleteField() : k === "note" ? v : Number(v) });
+        const Line = ({ l, plan, fact, k, inverse }: { l: string; plan: number | null; fact: number | null; k?: string; inverse?: boolean }) => {
+          const pc = plan && fact != null ? Math.round(fact / plan * 100) : null, good = pc != null && (inverse ? pc <= 100 : pc >= 100);
+          return <div style={{ margin: "14px 0" }}>
+            <div className="row"><b>{l}</b><span className="small muted">{pc != null ? <span className={good ? "ok" : "error"}>{pc}%</span> : ""}</span></div>
+            <div className="row small"><span>План: {isOwner && k ? <input type="number" style={{ width: 130 }} key={k + pmk + (plan ?? "")} defaultValue={plan ?? ""} onBlur={(e) => e.target.value !== String(plan ?? "") && save(k, e.target.value)} /> : <b>{plan != null ? rub(plan) : "—"}</b>}</span>
+              <span>Факт: <b>{fact != null ? rub(fact) : "—"}</b></span></div>
+            {pc != null && <div className="progress" style={{ margin: "4px 0 0" }}><div style={{ width: Math.min(100, pc) + "%", background: good ? undefined : "#e8873a" }} /></div>}
+          </div>;
+        };
+        return <div className="card" style={{ maxWidth: 640 }}>
+          <div className="row">
+            <button className="ghost" onClick={() => setPlanMonth(new Date(planMonth.getFullYear(), planMonth.getMonth() - 1, 1))}>‹</button>
+            <b>🎯 План на {MONTHS[planMonth.getMonth()].toLowerCase()} {planMonth.getFullYear()}</b>
+            <button className="ghost" onClick={() => setPlanMonth(new Date(planMonth.getFullYear(), planMonth.getMonth() + 1, 1))}>›</button>
+          </div>
+          <Line l="Выручка" plan={pRev} fact={fRev} />
+          {isOwner && <div className="muted small" style={{ marginTop: -8 }}>План выручки — из «📥 Данные от ОП» (план продаж).</div>}
+          <Line l="Расходы" plan={pExp} fact={fExp} k="expenses" inverse />
+          <Line l="Чистая прибыль" plan={pProf} fact={fProf} k="profit" />
+          <div className="row" style={{ margin: "8px 0" }}><span>Рентабельность</span>
+            <span className="small">план <b>{pct(pProf, pRev) != null ? pct(pProf, pRev) + "%" : "—"}</b> · факт <b>{pct(fProf, fRev) != null ? pct(fProf, fRev) + "%" : "—"}</b></span></div>
+          <h3 style={{ marginBottom: 6 }}>📝 Фокус месяца</h3>
+          {isOwner ? <textarea rows={4} placeholder="Цели и задачи на месяц: что делаем, на что обратить внимание" key={"n" + pmk} defaultValue={pl.note || ""} onBlur={(e) => e.target.value !== (pl.note || "") && save("note", e.target.value)} />
+            : <div className="comment" style={{ whiteSpace: "pre-wrap" }}>{pl.note || "—"}</div>}
+        </div>;
+      })()}
     </>
   );
 }
