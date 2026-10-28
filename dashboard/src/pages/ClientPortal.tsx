@@ -269,20 +269,21 @@ export default function ClientPortal() {
                   onBlur={(e) => e.target.value !== String(get(mk) ?? "") && save(k, mk, e.target.value)} /></td>)}</tr>; })}</tbody>
           </table>
 
-          <h3 style={{ marginTop: 22 }}>🎯 План / факт отдела продаж</h3>
-          <div className="muted small" style={{ marginBottom: 8 }}>Вносишь только план. Факт берётся из «Выручка (факт продаж ОП)» выше.</div>
+          {([["planSales", "🎯 План / факт отдела продаж", "Факт продаж ОП", "sales"], ["planPrepay", "🧾 План / факт предоплат", "Факт предоплат", "prepay"]] as const).map(([pk, title, fl, fk]) => <Fragment key={pk}>
+          <h3 style={{ marginTop: 22 }}>{title}</h3>
+          <div className="muted small" style={{ marginBottom: 8 }}>Вносишь только план. Факт берётся из таблицы выше.</div>
           <table className="pnl-table">
-            <thead><tr><th>Месяц</th><th className="small">План продаж, ₽</th><th className="small">Факт продаж ОП, ₽</th><th className="small">Отклонение</th><th className="small">Выполнение</th></tr></thead>
+            <thead><tr><th>Месяц</th><th className="small">План, ₽</th><th className="small">{fl}, ₽</th><th className="small">Отклонение</th><th className="small">Выполнение</th></tr></thead>
             <tbody>{mks.map((mk) => { const [y, m] = mk.split("-").map(Number);
-              const pl = p.planSales?.[mk], fa = p.sales?.[mk], pc = pl && fa != null ? Math.round(fa / pl * 100) : null;
+              const pl = p[pk]?.[mk], fa = p[fk]?.[mk], pc = pl && fa != null ? Math.round(fa / pl * 100) : null;
               return <tr key={mk}><td>{MONTHS[m - 1]} {y}</td>
-                <td><input type="number" step="any" style={{ width: 130 }} key={"pl" + mk + (pl ?? "")} defaultValue={pl ?? ""}
-                  onBlur={(e) => e.target.value !== String(pl ?? "") && save("planSales", mk, e.target.value)} /></td>
+                <td><input type="number" step="any" style={{ width: 130 }} key={pk + mk + (pl ?? "")} defaultValue={pl ?? ""}
+                  onBlur={(e) => e.target.value !== String(pl ?? "") && save(pk, mk, e.target.value)} /></td>
                 <td>{fa != null ? rub(fa) : "—"}</td>
                 <td className={pc == null ? "muted" : fa! >= pl! ? "ok" : "error"}>{pc == null ? "—" : (fa! - pl! >= 0 ? "+" : "") + rub(fa! - pl!)}</td>
                 <td className={pc == null ? "muted" : pc >= 100 ? "ok" : "error"}>{pc == null ? "—" : pc + "%"}</td>
               </tr>; })}</tbody>
-          </table>
+          </table></Fragment>)}
         </div>;
       })()}
 

@@ -106,6 +106,7 @@ export interface ClientProject {
   calls?: { id: string; at: string; text: string; archived?: boolean }[];
   sales?: Record<string, number>;
   planSales?: Record<string, number>;
+  planPrepay?: Record<string, number>;
   prepay?: Record<string, number>;
   ddsStart?: { mk: string; amount: number };
   kpi?: Record<string, { units?: number; newClients?: number; orders?: number }>;
