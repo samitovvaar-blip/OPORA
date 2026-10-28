@@ -98,18 +98,8 @@ export default function ClientPortal() {
           <div className="card stat"><div className="muted">Чистая прибыль</div><b className={prof != null && prof < 0 ? "error" : "ok"}>{prof != null ? rub(prof) : "—"}</b><Delta v={delta(prof, prevProf)} /></div>
           <div className="card stat"><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
 
-          <div className="card wide">
-            <h3>Выручка и прибыль по месяцам</h3>
-            <div className="chart">{series.map((s, k) => (
-              <div key={k} className="chart-col" title={`Выручка ${rub(s.rev)} · Прибыль ${rub(s.prof)}`}>
-                <div className="chart-bars"><div className="bar-i" style={{ height: s.rev / max * 100 + "%", opacity: s.closed ? 1 : .5 }} /><div className="bar-e" style={{ height: Math.max(0, s.prof) / max * 100 + "%", background: "var(--accent)" }} /></div>
-                <div className="small muted">{s.label}</div>
-                <div className="small">{pct(s.prof, s.rev) != null ? pct(s.prof, s.rev) + "%" : ""}</div>
-              </div>))}</div>
-            <div className="small muted"><span className="dot i" /> выручка <span className="dot" style={{ background: "var(--accent)" }} /> прибыль · внизу рентабельность · бледные — не сданы</div>
-          </div>
-
-          {pnl.depts.length > 0 && <div className="card wide">
+          <div className="wide" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12, alignItems: "start" }}>
+          {pnl.depts.length > 0 && <div className="card">
             <h3>Структура расходов · {pnl.months[cur].label}</h3>
             {pnl.depts.map((d) => {
               const val = Math.abs(d.values[cur] || 0); const share = rev ? val / rev * 100 : 0;
@@ -128,7 +118,7 @@ export default function ClientPortal() {
             const Row = ({ l, v, c }: { l: string; v: string; c?: string }) => <div className="row small" style={{ margin: "4px 0" }}><span style={{ color: c }}>{l}</span><b>{v}</b></div>;
             const Num = ({ f, l }: { f: "units" | "newClients" | "orders"; l: string }) => <div className="row small" style={{ margin: "4px 0" }}><span>{l}</span>
               <b>{kp[f] ?? "—"}</b></div>;
-            return <div className="card wide">
+            return <div className="card">
               <h3>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
               <div className="muted small" style={{ marginBottom: 4 }}>1. Доля от выручки</div>
               <Row l="Дивиденды" v={sh("dividends")} c="#b02a2a" />
@@ -150,6 +140,18 @@ export default function ClientPortal() {
               {isOwner && <div className="muted small">Количества и выручка ОП — во вкладке «📥 Данные от ОП».</div>}
             </div>;
           })()}
+          </div>
+          <div className="card wide" style={{ gridColumn: "1 / -1" }}>
+            <h3>Выручка и прибыль по месяцам</h3>
+            <div className="chart">{series.map((s, k) => (
+              <div key={k} className="chart-col" title={`Выручка ${rub(s.rev)} · Прибыль ${rub(s.prof)}`}>
+                <div className="chart-bars"><div className="bar-i" style={{ height: s.rev / max * 100 + "%", opacity: s.closed ? 1 : .5 }} /><div className="bar-e" style={{ height: Math.max(0, s.prof) / max * 100 + "%", background: "var(--accent)" }} /></div>
+                <div className="small muted">{s.label}</div>
+                <div className="small">{pct(s.prof, s.rev) != null ? pct(s.prof, s.rev) + "%" : ""}</div>
+              </div>))}</div>
+            <div className="small muted"><span className="dot i" /> выручка <span className="dot" style={{ background: "var(--accent)" }} /> прибыль · внизу рентабельность · бледные — не сданы</div>
+          </div>
+
         </div>
       </>}
 
