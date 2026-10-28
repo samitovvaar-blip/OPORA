@@ -102,6 +102,7 @@ export interface ClientProject {
   links?: { sheet?: string; folder?: string; chat?: string };
   // Кабинет клиента
   clientEmails?: string[]; clientOpen?: boolean; pnlUrl?: string; closedMonths?: string[];
+  kpi?: Record<string, { units?: number; newClients?: number; orders?: number }>;
   clientPlan?: { mk: string; revenue?: number; expenses?: number; profit?: number; note?: string };
 }
 export interface Mark { done?: boolean; doneBy?: string; doneAt?: string; comment?: string; commentBy?: string; commentAt?: string; }

@@ -67,7 +67,9 @@ function doGet(e) {
         dds[kD][mkD] = (dds[kD][mkD] || 0) + (outD ? -amtD : amtD);
         ddsMonths[mkD] = true;
       }
-      if (!art || /^\*\*/.test(proc) || /субсч/i.test(proc)) continue;      // переводы между счетами — не в ОПиУ
+      // Оплата налогов идёт в ОПиУ (финансовый отдел), даже если проведена через субсчёт
+      var tax = /налог/i.test(art) && !/фонд/i.test(art + proc);
+      if (!art || (!tax && (/^\*\*/.test(proc) || /субсч/i.test(proc)))) continue;      // переводы между счетами — не в ОПиУ
       var d = toDate(cDate >= 0 ? row[cDate] : null) || toDate(cDate2 >= 0 ? row[cDate2] : null);
       if (!d) continue;
       var mk = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);

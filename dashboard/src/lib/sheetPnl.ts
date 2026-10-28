@@ -1,10 +1,11 @@
 // Разбор листа P&L из Google-таблицы (формат «ПНЛ по направлению»):
 // строка с месяцами, над ней — статусы («СДАНО»), слева — статьи, «Итого» — по отделам.
-export interface PnlMonth { col: number; label: string; year?: string; status: string; closed: boolean; }
+export interface PnlMonth { mk?: string; col: number; label: string; year?: string; status: string; closed: boolean; }
 export interface PnlRow { name: string; sub: string; total: boolean; section: boolean; values: (number | null)[]; }
 export interface Dds { months: PnlMonth[]; rows: PnlRow[]; inflow: (number | null)[]; outflow: (number | null)[]; net: (number | null)[]; }
 export interface Pnl { db?: boolean; dds?: Dds; title: string; months: PnlMonth[]; rows: PnlRow[]; at?: string;
-  revenue: (number | null)[]; profit: (number | null)[]; variable: (number | null)[]; fixed: (number | null)[]; depts: PnlRow[]; }
+  revenue: (number | null)[]; profit: (number | null)[]; variable: (number | null)[]; fixed: (number | null)[]; depts: PnlRow[];
+  metrics?: Record<string, (number | null)[]>; }
 
 const MONTHS = ["январ", "феврал", "март", "апрел", "май", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"];
 const isMonth = (s: string) => MONTHS.some((m) => s.toLowerCase().trim().startsWith(m));
@@ -70,7 +71,7 @@ interface DbRow { process: string; article: string; values: Record<string, numbe
 // ДДС: поступления и выплаты по «Дате операции», сгруппированы по процессам
 export function buildDds(d: { months: string[]; rows: DbRow[] }): Dds {
   const mks = d.months;
-  const months: PnlMonth[] = mks.map((mk, i) => { const [y, m] = mk.split("-"); return { col: i, label: RU[Number(m) - 1], year: y, status: "", closed: false }; });
+  const months: PnlMonth[] = mks.map((mk, i) => { const [y, m] = mk.split("-"); return { mk, col: i, label: RU[Number(m) - 1], year: y, status: "", closed: false }; });
   const vec = (f: (mk: string) => number) => mks.map((mk) => { const v = f(mk); return Math.abs(v) < 0.005 ? null : Math.round(v * 100) / 100; });
   const net = (r: DbRow) => mks.reduce((a, mk) => a + (r.values[mk] || 0), 0);
   const ins = d.rows.filter((r) => net(r) > 0), outs = d.rows.filter((r) => net(r) <= 0);
@@ -94,11 +95,15 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   const mks = j.months;
   const months: PnlMonth[] = mks.map((mk, i) => {
     const [y, m] = mk.split("-"); const isClosed = closed.includes(mk);
-    return { col: i, label: RU[Number(m) - 1], year: y, status: isClosed ? "СДАНО" : "", closed: isClosed };
+    return { mk, col: i, label: RU[Number(m) - 1], year: y, status: isClosed ? "СДАНО" : "", closed: isClosed };
   });
   const vec = (f: (mk: string) => number) => mks.map((mk) => { const v = f(mk); return Math.abs(v) < 0.005 ? null : Math.round(v * 100) / 100; });
   const sumOf = (list: DbRow[]) => vec((mk) => list.reduce((a, r) => a + (r.values[mk] || 0), 0));
-  const deptOf = (proc: string) => (proc.match(/^(\d)/) || [])[1] || "";
+  const isTax = (r: DbRow) => /налог/i.test(r.article) && !/фонд/i.test(r.article + r.process);
+  // Оплата налогов — всегда в финансовый отдел (как в ОПиУ), даже если процесс в базе не указан
+  const deptOf0 = (proc: string) => (proc.match(/^(\d)/) || [])[1] || "";
+  j = { ...j, rows: j.rows.map((r) => isTax(r) && deptOf0(r.process) !== "5" ? { ...r, process: "5.1. Процесс: Налоги, кредиты и займы" } : r) };
+  const deptOf = deptOf0;
   // Доход — только процесс «Доходы». Прочее без номера («Расходы: Вывел на личный счёт» и т.п.)
   // — это движение денег собственника, в ОПиУ не входит.
   const income = j.rows.filter((r) => /^доход/i.test(r.process.trim()));
@@ -130,6 +135,14 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   const fond = byDept("6");
   if (fond.length) { add(DEPTS["6"] + " (после прибыли)", sumOf(fond)); articles(fond); }
 
-  return { db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
+  // Ключевые метрики (как в блоке «Ключевые метрики бизнеса» ОПиУ)
+  const opex = j.rows.filter((r) => ["1", "2", "3", "4", "5"].includes(deptOf(r.process)));
+  const by = (re: RegExp, not?: RegExp) => sumOf(opex.filter((r) => re.test(r.article) && !(not && not.test(r.article))));
+  const metrics: Record<string, (number | null)[]> = {
+    dividends: by(/дивиден/i), taxes: sumOf(j.rows.filter(isTax)), outsource: by(/аутсорс|наилю/i), refunds: by(/возврат/i),
+    salary: by(/зарплат|з\/п|\bзп\b|фот|оклад|преми|мотивац|аванс сотр/i, /налог/i),
+    d1: sumOf(byDept("1")), d2: sumOf(byDept("2")), d3: sumOf(byDept("3")), d4: sumOf(byDept("4")), d5: sumOf(byDept("5")) };
+
+  return { metrics, db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
     depts: rows.filter((r) => r.total) };
 }

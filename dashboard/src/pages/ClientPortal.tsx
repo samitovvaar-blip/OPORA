@@ -1,7 +1,7 @@
 // Кабинет клиента: ход работы, ОПиУ из таблицы, дашборд показателей, план.
 // Клиент видит только свой проект. Владелец открывает предпросмотр: #/client?p=<id>
 import { useEffect, useMemo, useState } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { useMarks } from "../lib/clients";
@@ -20,6 +20,8 @@ function Delta({ v, inverse = false }: { v: number | null; inverse?: boolean }) 
   const good = inverse ? v <= 0 : v >= 0;
   return <span className={`small ${good ? "ok" : "error"}`}> {v >= 0 ? "▲" : "▼"} {Math.abs(v)}%</span>;
 }
+
+const DEPT_NAMES = ["1. Производственный отдел", "2. Отдел продаж", "3. Отдел маркетинга", "4. Админ-хоз отдел и Руководство", "5. Финансовый отдел"];
 
 export default function ClientPortal() {
   const { wsId, clientOf, isOwner } = useWorkspace();
@@ -109,6 +111,39 @@ export default function ClientPortal() {
                 <div className="progress" style={{ margin: 0 }}><div style={{ width: Math.min(100, share) + "%", background: "#e8873a" }} /></div></div>;
             })}
           </div>}
+
+          {pnl.metrics && (() => {
+            const M = pnl.metrics, at = (k: string) => M[k]?.[cur] ?? null;
+            const sh = (k: string) => { const x = at(k); return x != null && rev ? (x / rev * 100).toFixed(2) + "%" : "—"; };
+            const mk = pnl.months[cur].mk || "", kp = p.kpi?.[mk] || {};
+            const cost = Math.abs(at("d1") || 0), mkt = Math.abs(at("d3") || 0);
+            const per = (a: number, b?: number) => b ? rub(Math.round(a / b)) : "—";
+            const setK = (f: string, val: string) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`kpi.${mk}.${f}`]: val === "" ? null : Number(val) });
+            const Row = ({ l, v, c }: { l: string; v: string; c?: string }) => <div className="row small" style={{ margin: "4px 0" }}><span style={{ color: c }}>{l}</span><b>{v}</b></div>;
+            const Num = ({ f, l }: { f: "units" | "newClients" | "orders"; l: string }) => <div className="row small" style={{ margin: "4px 0" }}><span>{l}</span>
+              {isOwner ? <input type="number" style={{ width: 110 }} defaultValue={kp[f] ?? ""} key={mk + f} onBlur={(e) => setK(f, e.target.value)} /> : <b>{kp[f] ?? "—"}</b>}</div>;
+            return <div className="card wide">
+              <h3>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
+              <div className="muted small" style={{ marginBottom: 4 }}>1. Доля от выручки</div>
+              <Row l="Дивиденды" v={sh("dividends")} c="#b02a2a" />
+              <Row l="Налоги" v={sh("taxes")} c="#8a3ab9" />
+              <Row l="Производство аутсорс" v={sh("outsource")} c="#2a5bd7" />
+              <Row l="Возвраты клиентам" v={sh("refunds")} c="#e8873a" />
+              <Row l="Зарплаты" v={sh("salary")} c="#3a9a5b" />
+              <Row l="ФОТ общая" v={at("salary") != null ? rub(at("salary")!) : "—"} />
+              <div style={{ height: 6 }} />
+              {(["d1", "d2", "d3", "d4", "d5"] as const).map((k, n) => <Row key={k} l={DEPT_NAMES[n]} v={sh(k)} />)}
+              <div className="muted small" style={{ margin: "10px 0 4px" }}>2. Себестоимость и клиенты</div>
+              <Row l="Себестоимость продаж" v={cost ? rub(cost) : "—"} />
+              <Num f="units" l="Количество проданных кубиков" />
+              <Row l="Себестоимость на единицу" v={per(cost, kp.units)} />
+              <Num f="newClients" l="Новых клиентов (доставлено)" />
+              <Num f="orders" l="Заказов всего (доставлено)" />
+              <Row l="Средний чек" v={per(rev || 0, kp.orders)} />
+              <Row l="Цена привлечения клиента (CAC)" v={per(mkt, kp.newClients)} />
+              {isOwner && <div className="muted small">Количества вводишь ты (клиент видит только цифры) — остальное считается из таблицы.</div>}
+            </div>;
+          })()}
         </div>
       </>}
 
