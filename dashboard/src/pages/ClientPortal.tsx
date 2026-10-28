@@ -230,6 +230,31 @@ export default function ClientPortal() {
             <div className="muted small" style={{ marginBottom: 6 }}>Фонды, «Для ДДС», «Не выяснено», переводы между счетами — не приход и не расход бизнеса.</div>
             <table className="pnl-table"><tbody><Block k="other" title="ПРОЧЕЕ ИТОГО" total={other} /></tbody></table>
           </>}
+          {(() => {
+            // Фонды: каждый фонд — отдельный счёт, минуса быть не может
+            const funds = accs.filter((a) => /фонд/i.test(a.group));
+            if (!funds.length || !pnl.ddsRaw) return null;
+            const flows = (acc: string, f: (m: string) => boolean, sign: number) => pnl.ddsRaw!.rows.filter((r) => r.account === acc)
+              .reduce((x, r) => x + Object.entries(r.values).filter(([m, v]) => f(m) && (sign === 0 || Math.sign(v) === sign)).reduce((y, [, v]) => y + v, 0), 0);
+            const list = funds.map((a) => {
+              const start = a.start + flows(a.account, (m) => m > bMk && m < mk, 0);
+              const inc = flows(a.account, (m) => m === mk, 1), out = flows(a.account, (m) => m === mk, -1);
+              return { a, start, inc, out, end: start + inc + out };
+            });
+            return <>
+              <h3 style={{ marginTop: 18 }}>🏦 Фонды · {pnl.months[cur].label}</h3>
+              <div className="muted small" style={{ marginBottom: 6 }}>Пополнение — переводы с основного счёта. Потрачено — расходы из фонда (они уже в ОПиУ по своим статьям).</div>
+              <table className="pnl-table">
+                <thead><tr><th>Фонд</th><th className="small">На начало</th><th className="small">Пополнено</th><th className="small">Потрачено</th><th className="small">На конец</th></tr></thead>
+                <tbody>{list.map(({ a, start, inc, out, end }) => <tr key={a.account}>
+                  <td>{a.account.replace(/\s*\d{20}.*$/, "")}</td><Money v={start} /><td className="ok">{inc ? "+" + rub(inc) : "—"}</td><Money v={out || null} />
+                  <td className={end < -0.5 ? "error" : ""}><b>{rub(end)}</b>{end < -0.5 && <div className="small">⚠️ минус — ошибка в базе</div>}</td>
+                </tr>)}
+                <tr className="pnl-key"><td>Итого в фондах</td>{(["start", "inc", "out", "end"] as const).map((k) => <Money key={k} v={list.reduce((x, f) => x + f[k], 0)} />)}</tr>
+                </tbody>
+              </table>
+            </>;
+          })()}
           {accs.length > 0 && <>
             <h3 style={{ marginTop: 18 }}>Остатки на счетах · сверка с выпиской</h3>
             <table className="pnl-table"><tbody>{accs.map((a, k) => <Fragment key={a.account}>

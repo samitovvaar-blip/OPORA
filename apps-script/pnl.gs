@@ -16,7 +16,7 @@
  * После изменения кода: Развернуть → Управление развертываниями → ✏️ → Версия «Новая» → Развернуть.
  */
 var KEY = 'var KEY = 'opora-af18tlqro6wg5bup';';
-var DEFAULT_SHEETS = ['ДДС БОТ ОСНОВНЫЕ'];
+var DEFAULT_SHEETS = ['ДДС БОТ ОСНОВНЫЕ', 'ДДС БОТ ФОНДЫ'];   // основная база + база фондов (траты из фондов — расход в ОПиУ)
 var DIRECTORY = 'Справочник-общее';   // группы статей → статьи (A → B)
 var BALANCES = 'БАЛАНСЫ СЕЙЧАС';      // остатки по счетам и дата сверки с выпиской
 
@@ -70,7 +70,7 @@ function doGet(e) {
       }
       // Оплата налогов идёт в ОПиУ (финансовый отдел), даже если проведена через субсчёт
       var tax = /налог/i.test(art) && !/фонд/i.test(art + proc);
-      if (!art || (!tax && (/^\*\*/.test(proc) || /субсч/i.test(proc)))) continue;      // переводы между счетами — не в ОПиУ
+      if (!art || (!tax && (/^\*\*/.test(proc) || /субсч/i.test(proc) || /между сч|внутрен/i.test(art)))) continue;   // переводы между своими счетами (в т.ч. в фонды) — не расход
       var d = toDate(cDate >= 0 ? row[cDate] : null) || toDate(cDate2 >= 0 ? row[cDate2] : null);
       if (!d) continue;
       var mk = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
