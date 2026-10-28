@@ -36,6 +36,8 @@ export default function ClientPortal() {
   const [mi, setMi] = useState<number | null>(null);
   const [detail, setDetail] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [note, setNote] = useState("");
+  const [showArch, setShowArch] = useState(false);
   const [accSel, setAccSel] = useState<string[] | null>(null);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const mk = monthKey(month);
@@ -232,11 +234,16 @@ export default function ClientPortal() {
         </div>
         {(() => {
           const ms = marks[p.id] || {}, all = visibleItems(p), done = all.filter((it) => ms[it.id]?.done).length;
-          const ws = p.workStatus?.[mk] || {};
+          const ws = p.workStatus?.[mk] || {}, ref = doc(db, "workspaces", wsId!, "clients", p.id), calls = p.calls || [];
           const save = (patch: object) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`workStatus.${mk}`]: { ...ws, ...patch } });
-          const Flag = ({ f, l }: { f: "reportsDone" | "taxesPaid"; l: string }) => <div className="row" style={{ margin: "8px 0" }}><span>{l}</span>
-            {isOwner ? <button className={`chipbtn ${ws[f] ? "on" : ""}`} onClick={() => save({ [f]: !ws[f] })}>{ws[f] ? "✓ да" : "нет"}</button>
-              : <b className={ws[f] ? "ok" : "muted"}>{ws[f] ? "✓ да" : "ещё нет"}</b>}</div>;
+          // за какой месяц сдана отчётность / оплачены налоги (по умолчанию — прошлый)
+          const opts = [-1, -2, -3, 0].map((k) => { const d = new Date(month.getFullYear(), month.getMonth() + k, 1); return monthKey(d); });
+          const mName = (k?: string) => { if (!k) return ""; const [y, m] = k.split("-").map(Number); return `${MONTHS[m - 1].toLowerCase()} ${y}`; };
+          const Flag = ({ f, l }: { f: "reportsDone" | "taxesPaid"; l: string }) => { const fk = (f + "For") as "reportsDoneFor" | "taxesPaidFor", per = ws[fk] || opts[0];
+            return <div className="row" style={{ margin: "8px 0" }}><span>{l} за {isOwner
+              ? <select value={per} onChange={(e) => save({ [fk]: e.target.value })}>{opts.map((o) => <option key={o} value={o}>{mName(o)}</option>)}</select> : mName(per)}</span>
+            {isOwner ? <button className={`chipbtn ${ws[f] ? "on" : ""}`} onClick={() => save({ [f]: !ws[f], [fk]: per })}>{ws[f] ? "✓ да" : "нет"}</button>
+              : <b className={ws[f] ? "ok" : "muted"}>{ws[f] ? "✓ да" : "ещё нет"}</b>}</div>; };
           return <>
             <div className="progress" style={{ marginTop: 10 }}><div style={{ width: (all.length ? done / all.length * 100 : 0) + "%" }} /></div>
             <div className="muted small">Работа за месяц выполнена на {all.length ? Math.round(done / all.length * 100) : 0}%</div>
@@ -245,10 +252,22 @@ export default function ClientPortal() {
                 : <b>{ws.loadedTo ? new Date(ws.loadedTo).toLocaleDateString("ru-RU") : "—"}</b>}</div>
             <Flag f="reportsDone" l="📑 Отчётность сдана" />
             <Flag f="taxesPaid" l="🧾 Налоги оплачены" />
-            <h3 style={{ marginBottom: 6 }}>📞 Итог прошлого созвона</h3>
-            {isOwner ? <textarea rows={5} placeholder="Что обсудили, какие вопросы открыты, что ждём от клиента" defaultValue={ws.callNote || ""} key={mk}
-                onBlur={(e) => e.target.value !== (ws.callNote || "") && save({ callNote: e.target.value })} />
-              : <div className="comment" style={{ whiteSpace: "pre-wrap" }}>{ws.callNote || "Пока нет записей"}</div>}
+            <h3 style={{ marginBottom: 6 }}>📞 Итоги созвонов</h3>
+            {isOwner && <div style={{ marginBottom: 10 }}>
+              <textarea rows={4} placeholder="Что обсудили, какие вопросы открыты, что ждём от клиента" value={note} onChange={(e) => setNote(e.target.value)} />
+              <button disabled={!note.trim()} onClick={() => { updateDoc(ref, { calls: [{ id: String(Date.now()), at: new Date().toISOString(), text: note.trim() }, ...calls] }); setNote(""); }}>💾 Сохранить итог</button>
+            </div>}
+            {calls.filter((c) => !c.archived).length === 0 && <div className="muted small">Пока нет записей</div>}
+            {calls.filter((c) => showArch || !c.archived).filter((c) => isOwner || !c.archived).map((c) => (
+              <div key={c.id} className="comment" style={{ whiteSpace: "pre-wrap", marginBottom: 8, opacity: c.archived ? .55 : 1 }}>
+                <div className="row small muted"><span>🗓 {new Date(c.at).toLocaleDateString("ru-RU")}{c.archived ? " · в архиве" : ""}</span>
+                  {isOwner && <span>
+                    <button className="ghost" title={c.archived ? "Вернуть" : "В архив"} onClick={() => updateDoc(ref, { calls: calls.map((x) => x.id === c.id ? { ...x, archived: !x.archived } : x) })}>{c.archived ? "↩" : "🗄"}</button>
+                    <button className="ghost" title="Удалить" onClick={() => confirm("Удалить запись?") && updateDoc(ref, { calls: calls.filter((x) => x.id !== c.id) })}>🗑</button>
+                  </span>}</div>
+                {c.text}
+              </div>))}
+            {isOwner && calls.some((c) => c.archived) && <button className="ghost small" onClick={() => setShowArch(!showArch)}>{showArch ? "Скрыть архив" : `🗄 Архив (${calls.filter((c) => c.archived).length})`}</button>}
           </>;
         })()}
       </div>}
