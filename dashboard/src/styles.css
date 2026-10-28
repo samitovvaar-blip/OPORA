@@ -142,3 +142,7 @@ html,body{overscroll-behavior-y:contain}
 .pnl-table{min-width:600px;font-size:13px}.pnl-table td,.pnl-table th{padding:6px 8px;white-space:nowrap;text-align:right}
 .pnl-table td:first-child,.pnl-table th:first-child{text-align:left;white-space:normal;min-width:200px}
 .pnl-key td{font-weight:700;background:var(--bg)}.pnl-sec td{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:11px}
+
+.dash-grid .span2 { grid-column: span 2; margin: 0; }
+.dash-grid .stat { margin: 0; }
+@media (max-width: 720px) { .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }

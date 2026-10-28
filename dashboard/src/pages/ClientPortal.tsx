@@ -92,14 +92,14 @@ export default function ClientPortal() {
       </div>}
 
       {tab === "dash" && pnl && cur != null && <>
-        <div className="bento" style={{ marginTop: 10 }}>
-          <div className="wide" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, alignItems: "start" }}>
+        <div className="dash-grid" style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "start" }}>
+          <div style={{ display: "contents" }}>
           <div className="card stat"><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
-          <div className="card stat"><div className="muted">Чистая прибыль</div><b className={prof != null && prof < 0 ? "error" : "ok"}>{prof != null ? rub(prof) : "—"}</b><Delta v={delta(prof, prevProf)} /></div>
           <div className="card stat"><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
+          <div className="card stat"><div className="muted">Чистая прибыль</div><b className={prof != null && prof < 0 ? "error" : "ok"}>{prof != null ? rub(prof) : "—"}</b><Delta v={delta(prof, prevProf)} /></div>
           <div className="card stat"><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
 
-          {pnl.depts.length > 0 && <div className="card">
+          {pnl.depts.length > 0 && <div className="card span2">
             <h3 style={{ marginTop: 0 }}>Структура расходов · {pnl.months[cur].label}</h3>
             <div className="row small" style={{ marginBottom: 6 }}><b>Расходы итого</b><b>{exp != null ? rub(exp) : "—"} <span className="muted">· {exp != null && rev ? (exp / rev * 100).toFixed(1) : "—"}% выручки</span></b></div>
             {pnl.depts.map((d) => {
@@ -119,7 +119,7 @@ export default function ClientPortal() {
             const Row = ({ l, v, c }: { l: string; v: string; c?: string }) => <div className="row small" style={{ margin: "1px 0", padding: "2px 0" }}><span style={{ color: c }}>{l}</span><b>{v}</b></div>;
             const Num = ({ f, l }: { f: "units" | "newClients" | "orders"; l: string }) => <div className="row small" style={{ margin: "1px 0", padding: "2px 0" }}><span>{l}</span>
               <b>{kp[f] ?? "—"}</b></div>;
-            return <><div className="card">
+            return <><div className="card span2">
               <h3 style={{ marginTop: 0 }}>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
               <div className="muted small" style={{ marginBottom: 4 }}>1. Доля от выручки</div>
               <Row l="Дивиденды" v={sh("dividends")} c="#b02a2a" />
@@ -128,11 +128,9 @@ export default function ClientPortal() {
               <Row l="Возвраты клиентам" v={sh("refunds")} c="#e8873a" />
               <Row l="Зарплаты" v={sh("salary")} c="#3a9a5b" />
               <Row l="ФОТ общая" v={at("salary") != null ? rub(at("salary")!) : "—"} />
-              <div style={{ height: 6 }} />
-              {(["d1", "d2", "d3", "d4", "d5"] as const).map((k, n) => <Row key={k} l={DEPT_NAMES[n]} v={sh(k)} />)}
             </div>
-            <div className="card" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", columnGap: 24 }}>
-              <h3 style={{ gridColumn: "1 / -1", margin: "0 0 4px" }}>Себестоимость и клиенты · {pnl.months[cur].label}</h3>
+            <div className="card span2">
+              <h3 style={{ marginTop: 0 }}>Себестоимость и клиенты · {pnl.months[cur].label}</h3>
               <Row l="Себестоимость продаж" v={cost ? rub(cost) : "—"} />
               <Num f="units" l="Количество проданных кубиков" />
               <Row l="Себестоимость на единицу" v={per(cost, kp.units)} />
@@ -144,7 +142,7 @@ export default function ClientPortal() {
             </div></>;
           })()}
           </div>
-          <div className="card wide" style={{ gridColumn: "1 / -1" }}>
+          <div className="card span2">
             <h3>Выручка и прибыль по месяцам</h3>
             <div className="chart">{series.map((s, k) => (
               <div key={k} className="chart-col" title={`Выручка ${rub(s.rev)} · Прибыль ${rub(s.prof)}`}>
