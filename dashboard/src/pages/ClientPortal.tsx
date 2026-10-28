@@ -58,6 +58,7 @@ export default function ClientPortal() {
   const prevRev = v(pnl?.revenue || [], prevIdx), prevProf = v(pnl?.profit || [], prevIdx);
   const series = filled.map(({ m, i }) => ({ label: m.label.slice(0, 3), rev: pnl!.revenue[i] || 0, prof: pnl!.profit[i] || 0, closed: m.closed }));
   const max = Math.max(1, ...series.map((s) => s.rev));
+  const ddsM = cur != null && pnl?.dds ? pnl.dds.months.find((m) => m.label === pnl.months[cur].label && m.year === pnl.months[cur].year) : undefined;
   const waiting = Object.entries(marks[p.id] || {}).filter(([, m]) => m.comment && !m.done).length;
 
   return (
@@ -75,12 +76,13 @@ export default function ClientPortal() {
       {(tab === "dash" || tab === "pnl" || tab === "dds") && pnlErr && <div className="card error">Не удалось загрузить отчёт: {pnlErr}</div>}
       {(tab === "dash" || tab === "pnl" || tab === "dds") && p.pnlUrl && !pnl && !pnlErr && <div className="muted">Загружаю отчёт из таблицы…</div>}
 
+      {(tab === "dash" || tab === "pnl" || tab === "dds") && pnl && cur != null && <div className="row small" style={{ maxWidth: 520, marginTop: 10 }}>
+        <span>Месяц: <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
+          {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select></span>
+        <span className={pnl.months[cur].closed ? "ok" : "muted"}>{pnl.months[cur].closed ? "✓ " + pnl.months[cur].status : "предварительно"}</span>
+      </div>}
+
       {tab === "dash" && pnl && cur != null && <>
-        <div className="row small" style={{ maxWidth: 520 }}>
-          <span>Месяц: <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
-            {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select></span>
-          <span className={pnl.months[cur].closed ? "ok" : "muted"}>{pnl.months[cur].closed ? "✓ " + pnl.months[cur].status : "предварительно"}</span>
-        </div>
         <div className="bento" style={{ marginTop: 10 }}>
           <div className="card stat"><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
           <div className="card stat"><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
@@ -110,32 +112,34 @@ export default function ClientPortal() {
         </div>
       </>}
 
-      {tab === "pnl" && pnl && <div className="card" style={{ overflowX: "auto" }}>
+      {tab === "pnl" && pnl && cur != null && <div className="card" style={{ overflowX: "auto" }}>
         <div className="row"><h3 style={{ margin: 0 }}>Отчёт о прибылях и убытках</h3>
           <label className="small"><input type="checkbox" checked={detail} onChange={(e) => setDetail(e.target.checked)} /> по статьям</label></div>
         <table className="pnl-table">
-          <thead><tr><th />{filled.map(({ m, i }) => <th key={i}>{m.label}<div className={`small ${m.closed ? "ok" : "muted"}`}>{m.closed ? "✓ сдано" : "предв."}</div></th>)}</tr></thead>
+          <thead><tr><th />{<th>{pnl.months[cur].label} {pnl.months[cur].year}</th>}<th className="small muted">% выручки</th></tr></thead>
           <tbody>{pnl.rows.filter((r) => (!r.section || /доход|расход/i.test(r.name)) && (detail || r.total || r.section || (pnl.db ? !r.sub : /выручк|прибыль|переменн|постоянн|фондир/i.test(r.name)))).map((r, k) => (
             <tr key={k} className={r.total || (pnl.db ? !r.sub && !r.section : /выручк|прибыль|переменн|постоянн/i.test(r.name)) ? "pnl-key" : r.section ? "pnl-sec" : ""}>
               <td style={{ paddingLeft: r.sub && !r.total && r.sub !== "Процесс" ? 24 : undefined }}>{r.total || r.sub === "Процесс" ? r.name : r.sub || r.name}</td>
-              {filled.map(({ i }) => <td key={i} className={(r.values[i] || 0) < 0 ? "error" : ""}>{r.values[i] != null ? rub(r.values[i]!) : ""}</td>)}
+              <td className={(r.values[cur] || 0) < 0 ? "error" : ""}>{r.values[cur] != null ? rub(r.values[cur]!) : ""}</td>
+              <td className="small muted">{r.values[cur] != null && rev ? (Math.abs(r.values[cur]!) / rev * 100).toFixed(1) + "%" : ""}</td>
             </tr>))}</tbody>
         </table>
         {pnl.at && <div className="muted small" style={{ marginTop: 6 }}>Данные из таблицы на {new Date(pnl.at).toLocaleString("ru-RU")}</div>}
       </div>}
 
-      {tab === "dds" && pnl && (pnl.dds ? <div className="card" style={{ overflowX: "auto" }}>
+      {tab === "dds" && pnl && cur != null && (pnl.dds ? <div className="card" style={{ overflowX: "auto" }}>
         <div className="row"><h3 style={{ margin: 0 }}>Движение денежных средств</h3>
           <label className="small"><input type="checkbox" checked={detail} onChange={(e) => setDetail(e.target.checked)} /> по статьям</label></div>
         <div className="muted small" style={{ margin: "4px 0 8px" }}>По дате операции: сколько денег реально пришло и ушло. Переводы между своими счетами не учитываются.</div>
-        <table className="pnl-table">
-          <thead><tr><th />{pnl.dds.months.map((m) => <th key={m.col}>{m.label}<div className="small muted">{m.year}</div></th>)}</tr></thead>
+        {!ddsM && <div className="muted">За {pnl.months[cur].label} {pnl.months[cur].year} движений по счетам нет.</div>}
+        {ddsM && <table className="pnl-table">
+          <thead><tr><th /><th>{ddsM.label} {ddsM.year}</th></tr></thead>
           <tbody>{pnl.dds.rows.filter((r) => detail || r.section || !r.sub || r.sub === "Процесс").map((r, k) => (
             <tr key={k} className={!r.sub && !r.section ? "pnl-key" : r.section ? "pnl-sec" : ""}>
               <td style={{ paddingLeft: r.sub && r.sub !== "Процесс" ? 24 : undefined }}>{r.name}</td>
-              {pnl.dds!.months.map((m) => <td key={m.col} className={(r.values[m.col] || 0) < 0 ? "error" : ""}>{r.values[m.col] != null ? rub(r.values[m.col]!) : ""}</td>)}
+              <td className={(r.values[ddsM.col] || 0) < 0 ? "error" : ""}>{r.values[ddsM.col] != null ? rub(r.values[ddsM.col]!) : ""}</td>
             </tr>))}</tbody>
-        </table>
+        </table>}
       </div> : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
 
       {tab === "work" && <div className="card" style={{ maxWidth: 860 }}>
