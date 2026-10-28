@@ -48,8 +48,8 @@ export default function ClientPortal() {
     (e) => setErr(e.code === "permission-denied" ? "Доступ к кабинету закрыт" : e.message)) : undefined, [wsId, cid]);
   useEffect(() => {
     if (!p?.pnlUrl) return;
-    setPnlErr(""); loadPnl(p.pnlUrl, p.closedMonths || []).then((x) => setPnl(applySales(x, p.sales, p.prepay))).catch((e) => setPnlErr(e.message));
-  }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify([p?.sales, p?.prepay])]);
+    setPnlErr(""); loadPnl(p.pnlUrl, p.closedMonths || []).then((x) => setPnl(applySales(x, p.sales))).catch((e) => setPnlErr(e.message));
+  }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify(p?.sales || {})]);
 
   // последний сданный месяц и предыдущий
   const filled = useMemo(() => pnl ? pnl.months.map((m, i) => ({ m, i })).filter(({ i }) => pnl.revenue[i] != null) : [], [pnl]);
@@ -251,7 +251,7 @@ export default function ClientPortal() {
         const ref = doc(db, "workspaces", wsId!, "clients", p.id);
         const mks = [...new Set([...(pnl?.months.map((m) => m.mk!).filter(Boolean) || []), ...[1, 0, -1, -2].map((k) => monthKey(new Date(new Date().getFullYear(), new Date().getMonth() + k, 1)))])].sort().reverse();
         const cols: [string, string, (mk: string) => number | undefined][] = [
-          ["sales", "Выручка (факт продаж ОП), ₽", (mk) => p.sales?.[mk]], ["prepay", "Факт предоплат, ₽", (mk) => p.prepay?.[mk]],
+          ["sales", "Выручка (факт продаж ОП), ₽", (mk) => p.sales?.[mk]],
           ["kpi.units", "Продано кубиков", (mk) => p.kpi?.[mk]?.units], ["kpi.newClients", "Новых клиентов (доставлено)", (mk) => p.kpi?.[mk]?.newClients],
           ["kpi.orders", "Заказов всего (доставлено)", (mk) => p.kpi?.[mk]?.orders]];
         const save = (path: string, mk: string, v: string) => {
@@ -269,7 +269,7 @@ export default function ClientPortal() {
                   onBlur={(e) => e.target.value !== String(get(mk) ?? "") && save(k, mk, e.target.value)} /></td>)}</tr>; })}</tbody>
           </table>
 
-          {([["planSales", "🎯 План / факт отдела продаж", "Факт продаж ОП", "sales"], ["planPrepay", "🧾 План / факт предоплат", "Факт предоплат", "prepay"]] as const).map(([pk, title, fl, fk]) => <Fragment key={pk}>
+          {([["planSales", "🎯 План / факт отдела продаж", "Факт продаж ОП", "sales"]] as const).map(([pk, title, fl, fk]) => <Fragment key={pk}>
           <h3 style={{ marginTop: 22 }}>{title}</h3>
           <div className="muted small" style={{ marginBottom: 8 }}>Вносишь только план. Факт берётся из таблицы выше.</div>
           <table className="pnl-table">

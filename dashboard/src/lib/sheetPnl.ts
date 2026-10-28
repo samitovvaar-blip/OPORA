@@ -166,7 +166,7 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
 }
 
 // Выручка = факт продаж от отдела продаж (вносится вручную). Поступления по банку остаются строкой для сверки.
-export function applySales(p: Pnl, sales?: Record<string, number>, prepay?: Record<string, number>): Pnl {
+export function applySales(p: Pnl, sales?: Record<string, number>): Pnl {
   if (!p.db || !sales) return p;
   const revenue = [...p.revenue], profit = [...p.profit], bank = [...p.revenue];
   p.months.forEach((m, i) => {
@@ -175,14 +175,8 @@ export function applySales(p: Pnl, sales?: Record<string, number>, prepay?: Reco
     revenue[i] = s; profit[i] = (p.profit[i] || 0) - (bank[i] || 0) + s;
   });
   const rows: PnlRow[] = [];
-  let extra: PnlRow[] = [];
   p.rows.forEach((r) => {
-    // предоплаты и проверку — после статей поступлений, перед расходами
-    if (extra.length && !r.sub) { rows.push(...extra); extra = []; }
-    if (r.name === "ВЫРУЧКА ИТОГО") { rows.push({ ...r, name: "ВЫРУЧКА (факт продаж ОП)", values: revenue }); rows.push({ ...r, name: "Поступления по банку (для сверки)", values: bank });
-      const pre = p.months.map((m) => (m.mk && prepay?.[m.mk] != null ? prepay[m.mk] : null));
-      extra = [{ ...r, name: "Факт предоплат", values: pre },
-        { ...r, name: "Проверка: продажи ОП − банк − предоплаты", values: p.months.map((m, i) => m.mk && sales[m.mk] != null && pre[i] != null ? Math.round((sales[m.mk] - (bank[i] || 0) - pre[i]!) * 100) / 100 : null) }]; }
+    if (r.name === "ВЫРУЧКА ИТОГО") { rows.push({ ...r, name: "ВЫРУЧКА (факт продаж ОП)", values: revenue }); rows.push({ ...r, name: "Поступления по банку (для сверки)", values: bank }); }
     else if (r.name === "ЧИСТАЯ ПРИБЫЛЬ") rows.push({ ...r, values: profit });
     else rows.push(r);
   });
