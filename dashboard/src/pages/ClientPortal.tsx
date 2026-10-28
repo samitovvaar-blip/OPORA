@@ -374,14 +374,15 @@ export default function ClientPortal() {
         const pRev = p.planSales?.[pmk] ?? null, pExp = anyP ? pDepts.reduce((a: number, x) => a + (x || 0), 0) : null;
         const pProf = pRev != null && pExp != null ? pRev - pExp : null;
         const save = (k: string, v: string) => updateDoc(ref, { [`plans.${pmk}.${k}`]: v === "" ? deleteField() : k === "note" ? v : Number(v) });
-        const Line = ({ l, plan, fact, k, inverse }: { l: string; plan: number | null; fact: number | null; k?: string; inverse?: boolean }) => {
+        // строка таблицы план/факт; inverse — для расходов (хорошо, когда факт не больше плана)
+        const Line = ({ l, plan, fact, k, inverse, sub, bold }: { l: string; plan: number | null; fact: number | null; k?: string; inverse?: boolean; sub?: boolean; bold?: boolean }) => {
           const pc = plan && fact != null ? Math.round(fact / plan * 100) : null, good = pc != null && (inverse ? pc <= 100 : pc >= 100);
-          return <div style={{ margin: "14px 0" }}>
-            <div className="row"><b>{l}</b><span className="small muted">{pc != null ? <span className={good ? "ok" : "error"}>{pc}%</span> : ""}</span></div>
-            <div className="row small"><span>План: {isOwner && k ? <input type="number" style={{ width: 130 }} key={k + pmk + (plan ?? "")} defaultValue={plan ?? ""} onBlur={(e) => e.target.value !== String(plan ?? "") && save(k, e.target.value)} /> : <b>{plan != null ? rub(plan) : "—"}</b>}</span>
-              <span>Факт: <b>{fact != null ? rub(fact) : "—"}</b></span></div>
-            {pc != null && <div className="progress" style={{ margin: "4px 0 0" }}><div style={{ width: Math.min(100, pc) + "%", background: good ? undefined : "#e8873a" }} /></div>}
-          </div>;
+          return <tr className={bold ? "pnl-key" : sub ? "small" : ""}>
+            <td style={{ paddingLeft: sub ? 22 : undefined }}>{l}</td>
+            <td>{isOwner && k ? <input type="number" style={{ width: 120 }} key={k + pmk + (plan ?? "")} defaultValue={plan ?? ""} onBlur={(e) => e.target.value !== String(plan ?? "") && save(k, e.target.value)} /> : plan != null ? rub(plan) : "—"}</td>
+            <td>{fact != null ? rub(fact) : "—"}</td>
+            <td className={pc == null ? "muted" : good ? "ok" : "error"}>{pc != null ? pc + "%" : "—"}</td>
+          </tr>;
         };
         return <><div className="card" style={{ maxWidth: 640 }}>
           <div className="row">
@@ -389,15 +390,17 @@ export default function ClientPortal() {
             <b>🎯 План на {MONTHS[planMonth.getMonth()].toLowerCase()} {planMonth.getFullYear()}</b>
             <button className="ghost" onClick={() => setPlanMonth(new Date(planMonth.getFullYear(), planMonth.getMonth() + 1, 1))}>›</button>
           </div>
-          <Line l="Выручка" plan={pRev} fact={fRev} />
-          {isOwner && <div className="muted small" style={{ marginTop: -8 }}>План выручки — из «📥 Данные от ОП» (план продаж).</div>}
-          <Line l="Расходы итого" plan={pExp} fact={fExp} inverse />
-          <div style={{ paddingLeft: 14, borderLeft: "2px solid var(--border, #333)" }}>
-            {DK.map((k, n) => <Line key={k} l={DEPT_NAMES[n]} plan={pDepts[n]} fact={fDept(k)} k={k} inverse />)}
-          </div>
-          <Line l="Чистая прибыль" plan={pProf} fact={fProf} />
-          <div className="row" style={{ margin: "8px 0" }}><span>Рентабельность</span>
-            <span className="small">план <b>{pct(pProf, pRev) != null ? pct(pProf, pRev) + "%" : "—"}</b> · факт <b>{pct(fProf, fRev) != null ? pct(fProf, fRev) + "%" : "—"}</b></span></div>
+          <table className="pnl-table" style={{ marginTop: 10 }}>
+            <thead><tr><th /><th className="small">План</th><th className="small">Факт</th><th className="small">%</th></tr></thead>
+            <tbody>
+              <Line l="Выручка" plan={pRev} fact={fRev} bold />
+              <Line l="Расходы итого" plan={pExp} fact={fExp} inverse bold />
+              {DK.map((k, n) => <Line key={k} l={DEPT_NAMES[n]} plan={pDepts[n]} fact={fDept(k)} k={k} inverse sub />)}
+              <Line l="Чистая прибыль" plan={pProf} fact={fProf} bold />
+              <tr><td>Рентабельность</td><td>{pct(pProf, pRev) != null ? pct(pProf, pRev) + "%" : "—"}</td><td>{pct(fProf, fRev) != null ? pct(fProf, fRev) + "%" : "—"}</td><td /></tr>
+            </tbody>
+          </table>
+          {isOwner && <div className="muted small">План выручки — из «📥 Данные от ОП». Расходы отделов — из платёжного календаря ниже или вписываешь сама.</div>}
           <h3 style={{ marginBottom: 6 }}>📝 Фокус месяца</h3>
           {isOwner ? <textarea rows={4} placeholder="Цели и задачи на месяц: что делаем, на что обратить внимание" key={"n" + pmk} defaultValue={pl.note || ""} onBlur={(e) => e.target.value !== (pl.note || "") && save("note", e.target.value)} />
             : <div className="comment" style={{ whiteSpace: "pre-wrap" }}>{pl.note || "—"}</div>}
