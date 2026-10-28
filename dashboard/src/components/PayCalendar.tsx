@@ -11,6 +11,14 @@ const DEPTS = ["1. Производство", "2. Продажи", "3. Марк�
 const WD = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const KIND: Record<PayItem["kind"], string> = { once: "разово", daily: "каждый день", weekly: "раз в неделю", spread: "равномерно за месяц" };
 
+// сколько платёж стоит за месяц
+export function monthSum(it: PayItem, mk: string) {
+  const [y, m] = mk.split("-").map(Number), days = new Date(y, m, 0).getDate();
+  if (it.kind === "daily") return it.amount * days;
+  if (it.kind === "weekly") return it.amount * Array.from({ length: days }, (_, k) => (new Date(y, m - 1, k + 1).getDay() + 6) % 7).filter((w) => w === (it.weekday ?? 0)).length;
+  return it.amount;
+}
+
 export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, isOwner }: {
   p: ClientProject; wsId: string; mk: string; planRevenue: number | null; startBalance: number | null; isOwner: boolean;
 }) {
@@ -28,13 +36,15 @@ export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, is
   const inc = cal.revenue ?? planRevenue ?? 0, incDay = inc / days;
   let bal = cal.start ?? startBalance ?? 0;
   const rows = Array.from({ length: days }, (_, k) => {
-    const d = k + 1, out = items.reduce((a, it) => a + onDay(it, d), 0);
-    bal += incDay - out;
-    return { d, out, net: incDay - out, bal };
+    // оплаченные заранее платежи остаток не уменьшают; приходы из списка — добавляют
+    const d = k + 1, out = items.filter((it) => !it.paid && !it.income).reduce((a, it) => a + onDay(it, d), 0);
+    const extra = items.filter((it) => it.income).reduce((a, it) => a + onDay(it, d), 0);
+    bal += incDay + extra - out;
+    return { d, out, extra, net: incDay + extra - out, bal };
   });
   const gap = rows.find((r) => r.bal < 0);
-  const totalOut = items.reduce((a, it) => a + (it.kind === "daily" ? it.amount * days : it.kind === "weekly" ? it.amount * rows.filter((r) => wdOf(r.d) === (it.weekday ?? 0)).length : it.amount), 0);
-  const byDept = DEPTS.map((n, i) => ({ n, v: items.filter((it) => it.dept === String(i + 1)).reduce((a, it) => a + (it.kind === "daily" ? it.amount * days : it.kind === "weekly" ? it.amount * rows.filter((r) => wdOf(r.d) === (it.weekday ?? 0)).length : it.amount), 0) }));
+  const totalOut = items.filter((it) => !it.paid && !it.income).reduce((a, it) => a + monthSum(it, mk), 0);
+  const byDept = DEPTS.map((n, i) => ({ n, v: items.filter((it) => !it.income && it.dept === String(i + 1)).reduce((a, it) => a + monthSum(it, mk), 0) }));
   const lead = wdOf(1);
 
   const Num = ({ v, k, ph }: { v?: number | null; k: "start" | "revenue"; ph: string }) => isOwner
@@ -60,29 +70,32 @@ export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, is
       {rows.map((r) => <div key={r.d} onClick={() => setOpenDay(openDay === r.d ? null : r.d)} style={{ cursor: "pointer", border: "1px solid var(--border, #333)", borderRadius: 8, padding: 4, fontSize: 11, minWidth: 0,
         background: r.bal < 0 ? "rgba(232,80,80,.18)" : undefined, outline: openDay === r.d ? "2px solid var(--accent)" : undefined }}>
         <div style={{ textAlign: "right" }}><b>{r.d}</b></div>
-        <div className="ok">+{Math.round(incDay / 1000)}к</div>
+        <div className="ok">+{Math.round((incDay + r.extra) / 1000)}к</div>
         {r.out > 0 && <div className="error">−{Math.round(r.out / 1000)}к</div>}
         <div style={{ borderTop: "1px solid var(--border, #333)", marginTop: 2 }} className={r.bal < 0 ? "error" : ""}>{Math.round(r.bal / 1000)}к</div>
       </div>)}
     </div>
     {openDay && <div className="comment small" style={{ marginTop: 8 }}>
-      <b>{openDay} число:</b> приход +{rub(Math.round(incDay))}{items.filter((it) => onDay(it, openDay)).map((it) => <div key={it.id}>−{rub(Math.round(onDay(it, openDay)))} · {it.name}</div>)}
+      <b>{openDay} число:</b> приход +{rub(Math.round(incDay))}{items.filter((it) => onDay(it, openDay)).map((it) => <div key={it.id} style={{ textDecoration: it.paid ? "line-through" : undefined }}>{it.income ? "+" : "−"}{rub(Math.round(onDay(it, openDay)))} · {it.name}{it.paid ? " (оплачено заранее)" : ""}</div>)}
       <div>Остаток на конец дня: <b>{rub(Math.round(rows[openDay - 1].bal))}</b></div>
     </div>}
 
     <h3 style={{ marginBottom: 6 }}>Плановые платежи</h3>
     <table className="pnl-table"><tbody>
-      {items.map((it) => <tr key={it.id}>
-        <td>{it.name}<div className="small muted">{DEPTS[Number(it.dept) - 1]} · {KIND[it.kind]}{it.kind === "once" ? `, ${it.day} число` : it.kind === "weekly" ? `, ${WD[it.weekday ?? 0]}` : ""}</div></td>
-        <td className="error">−{rub(it.amount)}</td>
-        {isOwner && <td><button className="ghost" onClick={() => save({ items: items.filter((x) => x.id !== it.id) })}>🗑</button></td>}
+      {items.map((it) => <tr key={it.id} style={{ opacity: it.paid ? .55 : 1 }}>
+        <td>{it.income ? "➕ " : ""}{it.name}{it.paid && <span className="ok small"> ✓ оплачено заранее</span>}<div className="small muted">{it.income ? "Приход" : DEPTS[Number(it.dept) - 1]} · {KIND[it.kind]}{it.kind === "once" ? `, ${it.day} число` : it.kind === "weekly" ? `, ${WD[it.weekday ?? 0]}` : ""}</div></td>
+        <td className={it.income ? "ok" : "error"}>{it.income ? "+" : "−"}{rub(it.amount)}</td>
+        {isOwner && <td style={{ whiteSpace: "nowrap" }}>
+          {!it.income && <button className="ghost" title="Оплачено заранее — не уменьшает остаток" onClick={() => save({ items: items.map((x) => x.id === it.id ? { ...x, paid: !x.paid } : x) })}>{it.paid ? "↩" : "✓"}</button>}
+          <button className="ghost" onClick={() => save({ items: items.filter((x) => x.id !== it.id) })}>🗑</button></td>}
       </tr>)}
       <tr className="pnl-key"><td>Итого по отделам</td><td colSpan={2}>{byDept.filter((x) => x.v).map((x) => <div key={x.n} className="small">{x.n}: −{rub(Math.round(x.v))}</div>)}</td></tr>
     </tbody></table>
 
     {isOwner && <div className="row small" style={{ flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+      <select value={draft.income ? "in" : "out"} onChange={(e) => setDraft({ ...draft, income: e.target.value === "in" })}><option value="out">Расход</option><option value="in">Приход</option></select>
       <input placeholder="Статья (напр. Аренда)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} style={{ flex: "1 1 160px" }} />
-      <select value={draft.dept} onChange={(e) => setDraft({ ...draft, dept: e.target.value })}>{DEPTS.map((d, i) => <option key={d} value={String(i + 1)}>{d}</option>)}</select>
+      {!draft.income && <select value={draft.dept} onChange={(e) => setDraft({ ...draft, dept: e.target.value })}>{DEPTS.map((d, i) => <option key={d} value={String(i + 1)}>{d}</option>)}</select>}
       <input type="number" placeholder="Сумма" value={draft.amount || ""} onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })} style={{ width: 110 }} />
       <select value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value as PayItem["kind"] })}>{Object.entries(KIND).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
       {draft.kind === "once" && <input type="number" min={1} max={days} value={draft.day} onChange={(e) => setDraft({ ...draft, day: Number(e.target.value) })} style={{ width: 60 }} title="число" />}

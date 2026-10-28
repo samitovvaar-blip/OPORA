@@ -11,7 +11,7 @@ import { applySales, buildDds, loadPnl, Pnl } from "../lib/sheetPnl";
 import { visibleItems } from "../components/Checklist";
 import { useAuth } from "../lib/auth";
 import { LinkButtons } from "../components/ProjectLinks";
-import PayCalendar from "../components/PayCalendar";
+import PayCalendar, { monthSum } from "../components/PayCalendar";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 const pct = (a?: number | null, b?: number | null) => (a != null && b ? Math.round(a / b * 1000) / 10 : null);
@@ -367,7 +367,10 @@ export default function ClientPortal() {
         const fExp = fRev != null && fProf != null ? Math.abs(fRev - fProf) : null;
         const DK = ["d1", "d2", "d3", "d4", "d5"] as const;
         const fDept = (k: string) => (i >= 0 && pnl!.metrics?.[k]?.[i] != null ? Math.abs(pnl!.metrics![k][i]!) : null);
-        const pDepts = DK.map((k) => pl[k] ?? null), anyP = pDepts.some((x) => x != null);
+        // план отдела: введён вручную или собран из платёжного календаря
+        const calItems = (p.payCal?.[pmk]?.items || []).filter((it) => !it.income);
+        const calDept = (n: number) => { const l = calItems.filter((it) => it.dept === String(n + 1)); return l.length ? l.reduce((a, it) => a + monthSum(it, pmk), 0) : null; };
+        const pDepts = DK.map((k, n) => pl[k] ?? calDept(n)), anyP = pDepts.some((x) => x != null);
         const pRev = p.planSales?.[pmk] ?? null, pExp = anyP ? pDepts.reduce((a: number, x) => a + (x || 0), 0) : null;
         const pProf = pRev != null && pExp != null ? pRev - pExp : null;
         const save = (k: string, v: string) => updateDoc(ref, { [`plans.${pmk}.${k}`]: v === "" ? deleteField() : k === "note" ? v : Number(v) });
@@ -390,7 +393,7 @@ export default function ClientPortal() {
           {isOwner && <div className="muted small" style={{ marginTop: -8 }}>План выручки — из «📥 Данные от ОП» (план продаж).</div>}
           <Line l="Расходы итого" plan={pExp} fact={fExp} inverse />
           <div style={{ paddingLeft: 14, borderLeft: "2px solid var(--border, #333)" }}>
-            {DK.map((k, n) => <Line key={k} l={DEPT_NAMES[n]} plan={pl[k] ?? null} fact={fDept(k)} k={k} inverse />)}
+            {DK.map((k, n) => <Line key={k} l={DEPT_NAMES[n]} plan={pDepts[n]} fact={fDept(k)} k={k} inverse />)}
           </div>
           <Line l="Чистая прибыль" plan={pProf} fact={fProf} />
           <div className="row" style={{ margin: "8px 0" }}><span>Рентабельность</span>

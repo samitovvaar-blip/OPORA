@@ -114,7 +114,7 @@ export interface ClientProject {
   kpi?: Record<string, { units?: number; newClients?: number; orders?: number }>;
   clientPlan?: { mk: string; revenue?: number; expenses?: number; profit?: number; note?: string };
 }
-export interface PayItem { id: string; name: string; dept: string; amount: number; kind: "once" | "daily" | "weekly" | "spread"; day?: number; weekday?: number; }
+export interface PayItem { id: string; name: string; dept: string; amount: number; kind: "once" | "daily" | "weekly" | "spread"; day?: number; weekday?: number; paid?: boolean; income?: boolean; }
 
 export interface Mark { done?: boolean; doneBy?: string; doneAt?: string; comment?: string; commentBy?: string; commentAt?: string; reply?: string; replyAt?: string; replyBy?: string; }
 
