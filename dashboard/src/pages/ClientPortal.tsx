@@ -100,12 +100,12 @@ export default function ClientPortal() {
 
           <div className="wide" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12, alignItems: "start" }}>
           {pnl.depts.length > 0 && <div className="card">
-            <h3>Структура расходов · {pnl.months[cur].label}</h3>
+            <h3 style={{ marginTop: 0 }}>Структура расходов · {pnl.months[cur].label}</h3>
             {pnl.depts.map((d) => {
               const val = Math.abs(d.values[cur] || 0); const share = rev ? val / rev * 100 : 0;
-              return <div key={d.name} style={{ margin: "6px 0" }}>
+              return <div key={d.name} style={{ margin: "3px 0" }}>
                 <div className="row small"><span>{d.name.replace(/^\d+\.\s*/, "")}</span><span>{rub(val)} <span className="muted">· {share.toFixed(1)}% выручки</span></span></div>
-                <div className="progress" style={{ margin: 0 }}><div style={{ width: Math.min(100, share) + "%", background: "#e8873a" }} /></div></div>;
+                <div className="progress" style={{ margin: 0, height: 4 }}><div style={{ width: Math.min(100, share) + "%", background: "#e8873a" }} /></div></div>;
             })}
           </div>}
 
@@ -115,11 +115,11 @@ export default function ClientPortal() {
             const mk = pnl.months[cur].mk || "", kp = p.kpi?.[mk] || {};
             const cost = Math.abs(at("d1") || 0), mkt = Math.abs(at("d3") || 0);
             const per = (a: number, b?: number) => b ? rub(Math.round(a / b)) : "—";
-            const Row = ({ l, v, c }: { l: string; v: string; c?: string }) => <div className="row small" style={{ margin: "4px 0" }}><span style={{ color: c }}>{l}</span><b>{v}</b></div>;
-            const Num = ({ f, l }: { f: "units" | "newClients" | "orders"; l: string }) => <div className="row small" style={{ margin: "4px 0" }}><span>{l}</span>
+            const Row = ({ l, v, c }: { l: string; v: string; c?: string }) => <div className="row small" style={{ margin: "1px 0", padding: "2px 0" }}><span style={{ color: c }}>{l}</span><b>{v}</b></div>;
+            const Num = ({ f, l }: { f: "units" | "newClients" | "orders"; l: string }) => <div className="row small" style={{ margin: "1px 0", padding: "2px 0" }}><span>{l}</span>
               <b>{kp[f] ?? "—"}</b></div>;
             return <><div className="card">
-              <h3>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
+              <h3 style={{ marginTop: 0 }}>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
               <div className="muted small" style={{ marginBottom: 4 }}>1. Доля от выручки</div>
               <Row l="Дивиденды" v={sh("dividends")} c="#b02a2a" />
               <Row l="Налоги" v={sh("taxes")} c="#8a3ab9" />
@@ -130,8 +130,8 @@ export default function ClientPortal() {
               <div style={{ height: 6 }} />
               {(["d1", "d2", "d3", "d4", "d5"] as const).map((k, n) => <Row key={k} l={DEPT_NAMES[n]} v={sh(k)} />)}
             </div>
-            <div className="card" style={{ gridColumn: "1 / -1" }}>
-              <h3>Себестоимость и клиенты · {pnl.months[cur].label}</h3>
+            <div className="card" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", columnGap: 24 }}>
+              <h3 style={{ gridColumn: "1 / -1", margin: "0 0 4px" }}>Себестоимость и клиенты · {pnl.months[cur].label}</h3>
               <Row l="Себестоимость продаж" v={cost ? rub(cost) : "—"} />
               <Num f="units" l="Количество проданных кубиков" />
               <Row l="Себестоимость на единицу" v={per(cost, kp.units)} />
