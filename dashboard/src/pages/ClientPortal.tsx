@@ -118,7 +118,7 @@ export default function ClientPortal() {
             const Row = ({ l, v, c }: { l: string; v: string; c?: string }) => <div className="row small" style={{ margin: "4px 0" }}><span style={{ color: c }}>{l}</span><b>{v}</b></div>;
             const Num = ({ f, l }: { f: "units" | "newClients" | "orders"; l: string }) => <div className="row small" style={{ margin: "4px 0" }}><span>{l}</span>
               <b>{kp[f] ?? "—"}</b></div>;
-            return <div className="card">
+            return <><div className="card">
               <h3>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
               <div className="muted small" style={{ marginBottom: 4 }}>1. Доля от выручки</div>
               <Row l="Дивиденды" v={sh("dividends")} c="#b02a2a" />
@@ -129,7 +129,9 @@ export default function ClientPortal() {
               <Row l="ФОТ общая" v={at("salary") != null ? rub(at("salary")!) : "—"} />
               <div style={{ height: 6 }} />
               {(["d1", "d2", "d3", "d4", "d5"] as const).map((k, n) => <Row key={k} l={DEPT_NAMES[n]} v={sh(k)} />)}
-              <div className="muted small" style={{ margin: "10px 0 4px" }}>2. Себестоимость и клиенты</div>
+            </div>
+            <div className="card" style={{ gridColumn: "1 / -1" }}>
+              <h3>Себестоимость и клиенты · {pnl.months[cur].label}</h3>
               <Row l="Себестоимость продаж" v={cost ? rub(cost) : "—"} />
               <Num f="units" l="Количество проданных кубиков" />
               <Row l="Себестоимость на единицу" v={per(cost, kp.units)} />
@@ -138,7 +140,7 @@ export default function ClientPortal() {
               <Row l="Средний чек" v={per(rev || 0, kp.orders)} />
               <Row l="Цена привлечения клиента (CAC)" v={per(mkt, kp.newClients)} />
               {isOwner && <div className="muted small">Количества и выручка ОП — во вкладке «📥 Данные от ОП».</div>}
-            </div>;
+            </div></>;
           })()}
           </div>
           <div className="card wide" style={{ gridColumn: "1 / -1" }}>
