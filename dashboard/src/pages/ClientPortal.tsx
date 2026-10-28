@@ -370,7 +370,7 @@ export default function ClientPortal() {
         // план отдела: введён вручную или собран из платёжного календаря
         const calItems = (p.payCal?.[pmk]?.items || []).filter((it) => !it.income);
         const calDept = (n: number) => { const l = calItems.filter((it) => it.dept === String(n + 1)); return l.length ? l.reduce((a, it) => a + monthSum(it, pmk), 0) : null; };
-        const pDepts = DK.map((k, n) => pl[k] ?? calDept(n)), anyP = pDepts.some((x) => x != null);
+        const pDepts = DK.map((_, n) => calDept(n)), anyP = pDepts.some((x) => x != null);
         const pRev = p.planSales?.[pmk] ?? null, pExp = anyP ? pDepts.reduce((a: number, x) => a + (x || 0), 0) : null;
         const pProf = pRev != null && pExp != null ? pRev - pExp : null;
         const save = (k: string, v: string) => updateDoc(ref, { [`plans.${pmk}.${k}`]: v === "" ? deleteField() : k === "note" ? v : Number(v) });
@@ -395,12 +395,12 @@ export default function ClientPortal() {
             <tbody>
               <Line l="Выручка" plan={pRev} fact={fRev} bold />
               <Line l="Расходы итого" plan={pExp} fact={fExp} inverse bold />
-              {DK.map((k, n) => <Line key={k} l={DEPT_NAMES[n]} plan={pDepts[n]} fact={fDept(k)} k={k} inverse sub />)}
+              {DK.map((k, n) => <Line key={k} l={DEPT_NAMES[n]} plan={pDepts[n]} fact={fDept(k)} inverse sub />)}
               <Line l="Чистая прибыль" plan={pProf} fact={fProf} bold />
               <tr><td>Рентабельность</td><td>{pct(pProf, pRev) != null ? pct(pProf, pRev) + "%" : "—"}</td><td>{pct(fProf, fRev) != null ? pct(fProf, fRev) + "%" : "—"}</td><td /></tr>
             </tbody>
           </table>
-          {isOwner && <div className="muted small">План выручки — из «📥 Данные от ОП». Расходы отделов — из платёжного календаря ниже или вписываешь сама.</div>}
+          {isOwner && <div className="muted small">План выручки — из «📥 Данные от ОП». Расходы отделов — из платёжного календаря ниже.</div>}
           <h3 style={{ marginBottom: 6 }}>📝 Фокус месяца</h3>
           {isOwner ? <textarea rows={4} placeholder="Цели и задачи на месяц: что делаем, на что обратить внимание" key={"n" + pmk} defaultValue={pl.note || ""} onBlur={(e) => e.target.value !== (pl.note || "") && save("note", e.target.value)} />
             : <div className="comment" style={{ whiteSpace: "pre-wrap" }}>{pl.note || "—"}</div>}
