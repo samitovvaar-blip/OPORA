@@ -11,6 +11,7 @@ import { applySales, buildDds, loadPnl, Pnl } from "../lib/sheetPnl";
 import { visibleItems } from "../components/Checklist";
 import { useAuth } from "../lib/auth";
 import { LinkButtons } from "../components/ProjectLinks";
+import PayCalendar from "../components/PayCalendar";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 const pct = (a?: number | null, b?: number | null) => (a != null && b ? Math.round(a / b * 1000) / 10 : null);
@@ -379,7 +380,7 @@ export default function ClientPortal() {
             {pc != null && <div className="progress" style={{ margin: "4px 0 0" }}><div style={{ width: Math.min(100, pc) + "%", background: good ? undefined : "#e8873a" }} /></div>}
           </div>;
         };
-        return <div className="card" style={{ maxWidth: 640 }}>
+        return <><div className="card" style={{ maxWidth: 640 }}>
           <div className="row">
             <button className="ghost" onClick={() => setPlanMonth(new Date(planMonth.getFullYear(), planMonth.getMonth() - 1, 1))}>‹</button>
             <b>🎯 План на {MONTHS[planMonth.getMonth()].toLowerCase()} {planMonth.getFullYear()}</b>
@@ -397,7 +398,9 @@ export default function ClientPortal() {
           <h3 style={{ marginBottom: 6 }}>📝 Фокус месяца</h3>
           {isOwner ? <textarea rows={4} placeholder="Цели и задачи на месяц: что делаем, на что обратить внимание" key={"n" + pmk} defaultValue={pl.note || ""} onBlur={(e) => e.target.value !== (pl.note || "") && save("note", e.target.value)} />
             : <div className="comment" style={{ whiteSpace: "pre-wrap" }}>{pl.note || "—"}</div>}
-        </div>;
+        </div>
+        <div style={{ maxWidth: 900 }}><PayCalendar p={p} wsId={wsId!} mk={pmk} planRevenue={pRev} isOwner={isOwner}
+          startBalance={pnl?.balances ? pnl.balances.accounts.filter((a) => /^1\./.test(a.group)).reduce((x, a) => x + a.balance, 0) : null} /></div></>;
       })()}
     </>
   );

@@ -106,6 +106,7 @@ export interface ClientProject {
   calls?: { id: string; at: string; text: string; archived?: boolean }[];
   sales?: Record<string, number>;
   planSales?: Record<string, number>;
+  payCal?: Record<string, { start?: number | null; revenue?: number | null; items?: PayItem[] }>;
   plans?: Record<string, { d1?: number; d2?: number; d3?: number; d4?: number; d5?: number; note?: string }>;
   planPrepay?: Record<string, number>;
   prepay?: Record<string, number>;
@@ -113,6 +114,8 @@ export interface ClientProject {
   kpi?: Record<string, { units?: number; newClients?: number; orders?: number }>;
   clientPlan?: { mk: string; revenue?: number; expenses?: number; profit?: number; note?: string };
 }
+export interface PayItem { id: string; name: string; dept: string; amount: number; kind: "once" | "daily" | "weekly" | "spread"; day?: number; weekday?: number; }
+
 export interface Mark { done?: boolean; doneBy?: string; doneAt?: string; comment?: string; commentBy?: string; commentAt?: string; reply?: string; replyAt?: string; replyBy?: string; }
 
 export const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
