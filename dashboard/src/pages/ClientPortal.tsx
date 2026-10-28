@@ -48,8 +48,8 @@ export default function ClientPortal() {
     (e) => setErr(e.code === "permission-denied" ? "Доступ к кабинету закрыт" : e.message)) : undefined, [wsId, cid]);
   useEffect(() => {
     if (!p?.pnlUrl) return;
-    setPnlErr(""); loadPnl(p.pnlUrl, p.closedMonths || []).then((x) => setPnl(applySales(x, p.sales))).catch((e) => setPnlErr(e.message));
-  }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify(p?.sales || {})]);
+    setPnlErr(""); loadPnl(p.pnlUrl, p.closedMonths || []).then((x) => setPnl(applySales(x, p.sales, p.prepay))).catch((e) => setPnlErr(e.message));
+  }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify([p?.sales, p?.prepay])]);
 
   // последний сданный месяц и предыдущий
   const filled = useMemo(() => pnl ? pnl.months.map((m, i) => ({ m, i })).filter(({ i }) => pnl.revenue[i] != null) : [], [pnl]);
@@ -160,6 +160,11 @@ export default function ClientPortal() {
           <input type="number" step="0.01" style={{ width: 150 }} key={"s" + pnl.months[cur].mk} defaultValue={p.sales?.[pnl.months[cur].mk!] ?? ""} placeholder="как по банку"
             onBlur={(e) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`sales.${pnl.months[cur].mk}`]: e.target.value === "" ? deleteField() : Number(e.target.value) })} />
         </div>}
+        {isOwner && pnl.months[cur].mk && <div className="row small" style={{ marginBottom: 10, maxWidth: 520 }}>
+          <span>🧾 Факт предоплат за {pnl.months[cur].label.toLowerCase()}</span>
+          <input type="number" step="0.01" style={{ width: 150 }} key={"pp" + pnl.months[cur].mk} defaultValue={p.prepay?.[pnl.months[cur].mk!] ?? ""}
+            onBlur={(e) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`prepay.${pnl.months[cur].mk}`]: e.target.value === "" ? deleteField() : Number(e.target.value) })} />
+        </div>}
         {(() => {
           // дерево: итоговые строки → процессы → статьи
           let l0 = "", l1 = "";
@@ -179,7 +184,7 @@ export default function ClientPortal() {
               return <tr key={i} className={t.lvl === 0 && big(t.r.name) ? "pnl-key" : t.lvl === 0 ? "pnl-sec" : t.lvl === 2 ? "small" : ""}
                 style={{ cursor: kids ? "pointer" : undefined }} onClick={() => kids && setOpen((o) => ({ ...o, [t.key]: !o[t.key] }))}>
                 <td style={{ paddingLeft: [8, 24, 44][t.lvl] }}>{kids ? (open[t.key] ? "▾ " : "▸ ") : ""}{t.lvl === 2 ? t.r.sub : t.r.name}</td>
-                <td className={(v || 0) < 0 ? "error" : ""}>{v != null ? rub(v) : "—"}</td>
+                <td className={/^Проверка/.test(t.r.name) ? (Math.abs(v || 0) < 1 ? "ok" : "error") : (v || 0) < 0 ? "error" : ""}>{v != null ? (/^Проверка/.test(t.r.name) && Math.abs(v) < 1 ? "✓ " : "") + rub(v) : "—"}</td>
                 <td className="small muted">{v != null && rev ? (Math.abs(v) / rev * 100).toFixed(1) + "%" : ""}</td>
               </tr>;
             })}</tbody>
