@@ -164,3 +164,21 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   return { metrics, ddsRaw: j.dds, balances: j.balances, db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
     depts: rows.filter((r) => r.total) };
 }
+
+// Выручка = факт продаж от отдела продаж (вносится вручную). Поступления по банку остаются строкой для сверки.
+export function applySales(p: Pnl, sales?: Record<string, number>): Pnl {
+  if (!p.db || !sales) return p;
+  const revenue = [...p.revenue], profit = [...p.profit], bank = [...p.revenue];
+  p.months.forEach((m, i) => {
+    const s = m.mk ? sales[m.mk] : undefined;
+    if (s == null) return;
+    revenue[i] = s; profit[i] = (p.profit[i] || 0) - (bank[i] || 0) + s;
+  });
+  const rows: PnlRow[] = [];
+  p.rows.forEach((r) => {
+    if (r.name === "ВЫРУЧКА ИТОГО") { rows.push({ ...r, name: "ВЫРУЧКА (факт продаж ОП)", values: revenue }); rows.push({ ...r, name: "Поступления по банку (для сверки)", values: bank }); }
+    else if (r.name === "ЧИСТАЯ ПРИБЫЛЬ") rows.push({ ...r, values: profit });
+    else rows.push(r);
+  });
+  return { ...p, rows, revenue, profit };
+}

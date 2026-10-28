@@ -1,13 +1,13 @@
 // Кабинет клиента: ход работы, ОПиУ из таблицы, дашборд показателей, план.
 // Клиент видит только свой проект. Владелец открывает предпросмотр: #/client?p=<id>
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { deleteField, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { useMarks } from "../lib/clients";
 import { ClientProject, monthKey, stamp } from "../lib/catalog";
 import { rub } from "../lib/money";
-import { buildDds, loadPnl, Pnl } from "../lib/sheetPnl";
+import { applySales, buildDds, loadPnl, Pnl } from "../lib/sheetPnl";
 import { visibleItems } from "../components/Checklist";
 import { useAuth } from "../lib/auth";
 import { LinkButtons } from "../components/ProjectLinks";
@@ -48,8 +48,8 @@ export default function ClientPortal() {
     (e) => setErr(e.code === "permission-denied" ? "Доступ к кабинету закрыт" : e.message)) : undefined, [wsId, cid]);
   useEffect(() => {
     if (!p?.pnlUrl) return;
-    setPnlErr(""); loadPnl(p.pnlUrl, p.closedMonths || []).then(setPnl).catch((e) => setPnlErr(e.message));
-  }, [p?.pnlUrl, (p?.closedMonths || []).join()]);
+    setPnlErr(""); loadPnl(p.pnlUrl, p.closedMonths || []).then((x) => setPnl(applySales(x, p.sales))).catch((e) => setPnlErr(e.message));
+  }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify(p?.sales || {})]);
 
   // последний сданный месяц и предыдущий
   const filled = useMemo(() => pnl ? pnl.months.map((m, i) => ({ m, i })).filter(({ i }) => pnl.revenue[i] != null) : [], [pnl]);
@@ -155,6 +155,11 @@ export default function ClientPortal() {
       {tab === "pnl" && pnl && cur != null && <div className="card" style={{ overflowX: "auto", maxWidth: 820 }}>
         <h3 style={{ marginTop: 0 }}>Отчёт о прибылях и убытках · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
         <div className="muted small" style={{ marginBottom: 8 }}>По дате для отчёта. Нажми на отдел или процесс, чтобы раскрыть.</div>
+        {isOwner && pnl.months[cur].mk && <div className="row small" style={{ marginBottom: 10, maxWidth: 520 }}>
+          <span>💰 Выручка ОП (факт продаж) за {pnl.months[cur].label.toLowerCase()}</span>
+          <input type="number" step="0.01" style={{ width: 150 }} key={"s" + pnl.months[cur].mk} defaultValue={p.sales?.[pnl.months[cur].mk!] ?? ""} placeholder="как по банку"
+            onBlur={(e) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`sales.${pnl.months[cur].mk}`]: e.target.value === "" ? deleteField() : Number(e.target.value) })} />
+        </div>}
         {(() => {
           // дерево: итоговые строки → процессы → статьи
           let l0 = "", l1 = "";
