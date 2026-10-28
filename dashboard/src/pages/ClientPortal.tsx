@@ -364,7 +364,11 @@ export default function ClientPortal() {
         const i = pnl?.months.findIndex((m) => m.mk === pmk) ?? -1;
         const fRev = i >= 0 ? pnl!.revenue[i] : null, fProf = i >= 0 ? pnl!.profit[i] : null;
         const fExp = fRev != null && fProf != null ? Math.abs(fRev - fProf) : null;
-        const pRev = p.planSales?.[pmk] ?? null, pExp = pl.expenses ?? null, pProf = pl.profit ?? (pRev != null && pExp != null ? pRev - pExp : null);
+        const DK = ["d1", "d2", "d3", "d4", "d5"] as const;
+        const fDept = (k: string) => (i >= 0 && pnl!.metrics?.[k]?.[i] != null ? Math.abs(pnl!.metrics![k][i]!) : null);
+        const pDepts = DK.map((k) => pl[k] ?? null), anyP = pDepts.some((x) => x != null);
+        const pRev = p.planSales?.[pmk] ?? null, pExp = anyP ? pDepts.reduce((a: number, x) => a + (x || 0), 0) : null;
+        const pProf = pRev != null && pExp != null ? pRev - pExp : null;
         const save = (k: string, v: string) => updateDoc(ref, { [`plans.${pmk}.${k}`]: v === "" ? deleteField() : k === "note" ? v : Number(v) });
         const Line = ({ l, plan, fact, k, inverse }: { l: string; plan: number | null; fact: number | null; k?: string; inverse?: boolean }) => {
           const pc = plan && fact != null ? Math.round(fact / plan * 100) : null, good = pc != null && (inverse ? pc <= 100 : pc >= 100);
@@ -383,8 +387,11 @@ export default function ClientPortal() {
           </div>
           <Line l="Выручка" plan={pRev} fact={fRev} />
           {isOwner && <div className="muted small" style={{ marginTop: -8 }}>План выручки — из «📥 Данные от ОП» (план продаж).</div>}
-          <Line l="Расходы" plan={pExp} fact={fExp} k="expenses" inverse />
-          <Line l="Чистая прибыль" plan={pProf} fact={fProf} k="profit" />
+          <Line l="Расходы итого" plan={pExp} fact={fExp} inverse />
+          <div style={{ paddingLeft: 14, borderLeft: "2px solid var(--border, #333)" }}>
+            {DK.map((k, n) => <Line key={k} l={DEPT_NAMES[n]} plan={pl[k] ?? null} fact={fDept(k)} k={k} inverse />)}
+          </div>
+          <Line l="Чистая прибыль" plan={pProf} fact={fProf} />
           <div className="row" style={{ margin: "8px 0" }}><span>Рентабельность</span>
             <span className="small">план <b>{pct(pProf, pRev) != null ? pct(pProf, pRev) + "%" : "—"}</b> · факт <b>{pct(fProf, fRev) != null ? pct(fProf, fRev) + "%" : "—"}</b></span></div>
           <h3 style={{ marginBottom: 6 }}>📝 Фокус месяца</h3>
