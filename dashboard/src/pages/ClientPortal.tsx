@@ -30,7 +30,7 @@ export default function ClientPortal() {
   const cid = isOwner ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
   const [p, setP] = useState<ClientProject | null>(null);
   const [err, setErr] = useState("");
-  const [tab, setTab] = useState<"work" | "pnl" | "dds" | "dash" | "plan">("dash");
+  const [tab, setTab] = useState<"work" | "pnl" | "dds" | "dash" | "plan" | "op">("dash");
   const [pnl, setPnl] = useState<Pnl | null>(null);
   const [pnlErr, setPnlErr] = useState("");
   const [mi, setMi] = useState<number | null>(null);
@@ -75,7 +75,7 @@ export default function ClientPortal() {
       <div className="muted" style={{ marginTop: -12, marginBottom: 12 }}>Кабинет клиента ОПОРЫ</div>
       <LinkButtons links={p.links} />
       <div className="chips" style={{ marginTop: 12 }}>
-        {([["dash", "📊 Показатели"], ["pnl", "📑 Отчёт ОПиУ"], ["dds", "💸 Отчёт ДДС"], ["work", "🛠 Ход работы"], ["plan", "🎯 План"]] as const).map(([k, l]) =>
+        {([["dash", "📊 Показатели"], ["pnl", "📑 Отчёт ОПиУ"], ["dds", "💸 Отчёт ДДС"], ["work", "🛠 Ход работы"], ["plan", "🎯 План"], ...(isOwner ? [["op", "📥 Данные от ОП"]] as const : [])] as const).map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}{k === "work" && waiting ? ` · ⏳${waiting}` : ""}</button>)}
       </div>
 
@@ -123,10 +123,9 @@ export default function ClientPortal() {
             const mk = pnl.months[cur].mk || "", kp = p.kpi?.[mk] || {};
             const cost = Math.abs(at("d1") || 0), mkt = Math.abs(at("d3") || 0);
             const per = (a: number, b?: number) => b ? rub(Math.round(a / b)) : "—";
-            const setK = (f: string, val: string) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`kpi.${mk}.${f}`]: val === "" ? null : Number(val) });
             const Row = ({ l, v, c }: { l: string; v: string; c?: string }) => <div className="row small" style={{ margin: "4px 0" }}><span style={{ color: c }}>{l}</span><b>{v}</b></div>;
             const Num = ({ f, l }: { f: "units" | "newClients" | "orders"; l: string }) => <div className="row small" style={{ margin: "4px 0" }}><span>{l}</span>
-              {isOwner ? <input type="number" style={{ width: 110 }} defaultValue={kp[f] ?? ""} key={mk + f} onBlur={(e) => setK(f, e.target.value)} /> : <b>{kp[f] ?? "—"}</b>}</div>;
+              <b>{kp[f] ?? "—"}</b></div>;
             return <div className="card wide">
               <h3>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
               <div className="muted small" style={{ marginBottom: 4 }}>1. Доля от выручки</div>
@@ -146,7 +145,7 @@ export default function ClientPortal() {
               <Num f="orders" l="Заказов всего (доставлено)" />
               <Row l="Средний чек" v={per(rev || 0, kp.orders)} />
               <Row l="Цена привлечения клиента (CAC)" v={per(mkt, kp.newClients)} />
-              {isOwner && <div className="muted small">Количества вводишь ты (клиент видит только цифры) — остальное считается из таблицы.</div>}
+              {isOwner && <div className="muted small">Количества и выручка ОП — во вкладке «📥 Данные от ОП».</div>}
             </div>;
           })()}
         </div>
@@ -155,16 +154,6 @@ export default function ClientPortal() {
       {tab === "pnl" && pnl && cur != null && <div className="card" style={{ overflowX: "auto", maxWidth: 820 }}>
         <h3 style={{ marginTop: 0 }}>Отчёт о прибылях и убытках · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
         <div className="muted small" style={{ marginBottom: 8 }}>По дате для отчёта. Нажми на отдел или процесс, чтобы раскрыть.</div>
-        {isOwner && pnl.months[cur].mk && <div className="row small" style={{ marginBottom: 10, maxWidth: 520 }}>
-          <span>💰 Выручка ОП (факт продаж) за {pnl.months[cur].label.toLowerCase()}</span>
-          <input type="number" step="0.01" style={{ width: 150 }} key={"s" + pnl.months[cur].mk} defaultValue={p.sales?.[pnl.months[cur].mk!] ?? ""} placeholder="как по банку"
-            onBlur={(e) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`sales.${pnl.months[cur].mk}`]: e.target.value === "" ? deleteField() : Number(e.target.value) })} />
-        </div>}
-        {isOwner && pnl.months[cur].mk && <div className="row small" style={{ marginBottom: 10, maxWidth: 520 }}>
-          <span>🧾 Факт предоплат за {pnl.months[cur].label.toLowerCase()}</span>
-          <input type="number" step="0.01" style={{ width: 150 }} key={"pp" + pnl.months[cur].mk} defaultValue={p.prepay?.[pnl.months[cur].mk!] ?? ""}
-            onBlur={(e) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`prepay.${pnl.months[cur].mk}`]: e.target.value === "" ? deleteField() : Number(e.target.value) })} />
-        </div>}
         {(() => {
           // дерево: итоговые строки → процессы → статьи
           let l0 = "", l1 = "";
@@ -257,6 +246,30 @@ export default function ClientPortal() {
           {isOwner && !B && startBal == null && <div className="muted small">Впиши остаток на начало первого месяца (как в твоём ДДС) — дальше остатки посчитаются сами.</div>}
         </div>;
       })() : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
+
+      {tab === "op" && isOwner && (() => {
+        const ref = doc(db, "workspaces", wsId!, "clients", p.id);
+        const mks = [...new Set([...(pnl?.months.map((m) => m.mk!).filter(Boolean) || []), ...[0, -1, -2].map((k) => monthKey(new Date(new Date().getFullYear(), new Date().getMonth() + k, 1)))])].sort().reverse();
+        const cols: [string, string, (mk: string) => number | undefined][] = [
+          ["sales", "Выручка (факт продаж ОП), ₽", (mk) => p.sales?.[mk]], ["prepay", "Факт предоплат, ₽", (mk) => p.prepay?.[mk]],
+          ["kpi.units", "Продано кубиков", (mk) => p.kpi?.[mk]?.units], ["kpi.newClients", "Новых клиентов (доставлено)", (mk) => p.kpi?.[mk]?.newClients],
+          ["kpi.orders", "Заказов всего (доставлено)", (mk) => p.kpi?.[mk]?.orders]];
+        const save = (path: string, mk: string, v: string) => {
+          const field = path.startsWith("kpi.") ? `kpi.${mk}.${path.slice(4)}` : `${path}.${mk}`;
+          updateDoc(ref, { [field]: v === "" ? deleteField() : Number(v) });
+        };
+        return <div className="card" style={{ overflowX: "auto" }}>
+          <h3 style={{ marginTop: 0 }}>📥 Данные от отдела продаж</h3>
+          <div className="muted small" style={{ marginBottom: 8 }}>Вписываешь цифры от ОП по месяцам — из них считаются выручка в ОПиУ, проверка предоплат, средний чек, CAC и себестоимость на единицу. Клиент эту вкладку не видит.</div>
+          <table className="pnl-table">
+            <thead><tr><th>Месяц</th>{cols.map(([k, l]) => <th key={k} className="small">{l}</th>)}</tr></thead>
+            <tbody>{mks.map((mk) => { const [y, m] = mk.split("-").map(Number);
+              return <tr key={mk}><td>{MONTHS[m - 1]} {y}</td>{cols.map(([k, , get]) => <td key={k}>
+                <input type="number" step="any" style={{ width: 130 }} key={k + mk + (get(mk) ?? "")} defaultValue={get(mk) ?? ""}
+                  onBlur={(e) => e.target.value !== String(get(mk) ?? "") && save(k, mk, e.target.value)} /></td>)}</tr>; })}</tbody>
+          </table>
+        </div>;
+      })()}
 
       {tab === "work" && <div className="card" style={{ maxWidth: 860 }}>
         <div className="row">
