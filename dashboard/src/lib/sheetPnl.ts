@@ -83,7 +83,9 @@ export function buildDds(d: { months: string[]; rows: DbRow[] }): Dds {
     add(proc || "Без процесса", sum(l), { sub: "Процесс" });
     l.sort((a, b) => a.article.localeCompare(b.article, "ru")).forEach((r) => add(r.article, sum([r]), { sub: r.article }));
   });
-  const inflow = sum(ins), outflow = sum(outs);
+  // факт прихода/расхода — по знаку каждой суммы за месяц
+  const inflow = vec((mk) => d.rows.reduce((a, r) => a + Math.max(0, r.values[mk] || 0), 0));
+  const outflow = vec((mk) => d.rows.reduce((a, r) => a + Math.min(0, r.values[mk] || 0), 0));
   add("Поступления", mks.map(() => null), { section: true }); add("ПОСТУПЛЕНИЯ ИТОГО", inflow); group(ins);
   add("Выплаты", mks.map(() => null), { section: true }); add("ВЫПЛАТЫ ИТОГО", outflow); group(outs);
   const netFlow = mks.map((_, i) => ((inflow[i] || 0) + (outflow[i] || 0)) || null);

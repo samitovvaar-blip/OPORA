@@ -1,6 +1,6 @@
 // Кабинет клиента: ход работы, ОПиУ из таблицы, дашборд показателей, план.
 // Клиент видит только свой проект. Владелец открывает предпросмотр: #/client?p=<id>
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
@@ -33,6 +33,7 @@ export default function ClientPortal() {
   const [pnlErr, setPnlErr] = useState("");
   const [mi, setMi] = useState<number | null>(null);
   const [detail, setDetail] = useState(false);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const mk = monthKey(month);
   const { marks } = useMarks(cid ? [cid] : [], mk);
@@ -162,20 +163,48 @@ export default function ClientPortal() {
         {pnl.at && <div className="muted small" style={{ marginTop: 6 }}>Данные из таблицы на {new Date(pnl.at).toLocaleString("ru-RU")}</div>}
       </div>}
 
-      {tab === "dds" && pnl && cur != null && (pnl.dds ? <div className="card" style={{ overflowX: "auto" }}>
-        <div className="row"><h3 style={{ margin: 0 }}>Движение денежных средств</h3>
-          <label className="small"><input type="checkbox" checked={detail} onChange={(e) => setDetail(e.target.checked)} /> по статьям</label></div>
-        <div className="muted small" style={{ margin: "4px 0 8px" }}>По дате операции: сколько денег реально пришло и ушло. Переводы между своими счетами не учитываются.</div>
-        {!ddsM && <div className="muted">За {pnl.months[cur].label} {pnl.months[cur].year} движений по счетам нет.</div>}
-        {ddsM && <table className="pnl-table">
-          <thead><tr><th /><th>{ddsM.label} {ddsM.year}</th></tr></thead>
-          <tbody>{pnl.dds.rows.filter((r) => detail || r.section || !r.sub || r.sub === "Процесс").map((r, k) => (
-            <tr key={k} className={!r.sub && !r.section ? "pnl-key" : r.section ? "pnl-sec" : ""}>
-              <td style={{ paddingLeft: r.sub && r.sub !== "Процесс" ? 24 : undefined }}>{r.name}</td>
-              <td className={(r.values[ddsM.col] || 0) < 0 ? "error" : ""}>{r.values[ddsM.col] != null ? rub(r.values[ddsM.col]!) : ""}</td>
-            </tr>))}</tbody>
-        </table>}
-      </div> : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
+      {tab === "dds" && pnl && cur != null && (pnl.dds ? (() => {
+        const D = pnl.dds, mk = pnl.months[cur].mk || "", st = p.ddsStart;
+        // остаток: стартовый + все движения с месяца старта до выбранного
+        const netOf = (m: { col: number }) => D.net[m.col] || 0;
+        const startBal = st && st.mk <= mk ? D.months.filter((m) => m.mk! >= st.mk && m.mk! < mk).reduce((x, m) => x + netOf(m), st.amount) : null;
+        const c = ddsM?.col, inflow = c != null ? D.inflow[c] || 0 : 0, outflow = c != null ? D.outflow[c] || 0 : 0;
+        const endBal = startBal != null ? startBal + inflow + outflow : null;
+        // приходы/расходы: процесс → статьи
+        const groups: Record<string, { name: string; v: number; arts: { name: string; v: number }[] }[]> = { in: [], out: [] };
+        let sec = "in";
+        D.rows.forEach((r) => {
+          if (r.section) { sec = /выплат/i.test(r.name) ? "out" : "in"; return; }
+          const v = c != null ? r.values[c] || 0 : 0;
+          if (r.sub === "Процесс") groups[sec].push({ name: r.name, v, arts: [] });
+          else if (r.sub && groups[sec].length && v) groups[sec][groups[sec].length - 1].arts.push({ name: r.name, v });
+        });
+        const tog = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
+        const Money = ({ v }: { v: number | null }) => <td className={(v || 0) < 0 ? "error" : ""}>{v != null ? rub(v) : "—"}</td>;
+        const Block = ({ k, title, total }: { k: "in" | "out"; title: string; total: number }) => <>
+          <tr className="pnl-key" style={{ cursor: "pointer" }} onClick={() => tog(k)}><td>{open[k] ? "▾" : "▸"} {title}</td><Money v={total} /></tr>
+          {open[k] && groups[k].filter((g) => g.v).map((g) => <Fragment key={g.name}>
+            <tr style={{ cursor: "pointer" }} onClick={() => tog(k + g.name)}><td style={{ paddingLeft: 20 }}>{open[k + g.name] ? "▾" : "▸"} {g.name}</td><Money v={g.v} /></tr>
+            {open[k + g.name] && g.arts.map((x) => <tr key={x.name} className="small"><td style={{ paddingLeft: 44 }}>{x.name}</td><Money v={x.v} /></tr>)}
+          </Fragment>)}
+        </>;
+        return <div className="card" style={{ overflowX: "auto", maxWidth: 720 }}>
+          <h3 style={{ marginTop: 0 }}>Движение денежных средств · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
+          <div className="muted small" style={{ marginBottom: 8 }}>По дате операции. Переводы между своими счетами не учитываются. Нажми на строку, чтобы раскрыть.</div>
+          <table className="pnl-table"><tbody>
+            <tr className="pnl-sec"><td>Остаток на начало месяца</td><Money v={startBal} /></tr>
+            <Block k="in" title="ФАКТ ПРИХОД" total={inflow} />
+            <Block k="out" title="ФАКТ РАСХОД" total={outflow} />
+            <tr className="pnl-sec"><td>Остаток на конец месяца</td><Money v={endBal} /></tr>
+          </tbody></table>
+          {isOwner && <div className="row small" style={{ marginTop: 10 }}>
+            <span>Стартовый остаток на начало <select defaultValue={st?.mk || D.months[0]?.mk} id="dds-st-mk">{D.months.map((m) => <option key={m.mk} value={m.mk}>{m.label} {m.year}</option>)}</select></span>
+            <input type="number" step="0.01" style={{ width: 140 }} defaultValue={st?.amount ?? ""} key={"st" + (st?.amount ?? "")}
+              onBlur={(e) => e.target.value !== "" && updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { ddsStart: { mk: (document.getElementById("dds-st-mk") as HTMLSelectElement).value, amount: Number(e.target.value) } })} />
+          </div>}
+          {isOwner && startBal == null && <div className="muted small">Впиши остаток на начало первого месяца (как в твоём ДДС) — дальше остатки посчитаются сами.</div>}
+        </div>;
+      })() : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
 
       {tab === "work" && <div className="card" style={{ maxWidth: 860 }}>
         <div className="row">
