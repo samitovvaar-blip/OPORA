@@ -249,7 +249,7 @@ export default function ClientPortal() {
 
       {tab === "op" && isOwner && (() => {
         const ref = doc(db, "workspaces", wsId!, "clients", p.id);
-        const mks = [...new Set([...(pnl?.months.map((m) => m.mk!).filter(Boolean) || []), ...[0, -1, -2].map((k) => monthKey(new Date(new Date().getFullYear(), new Date().getMonth() + k, 1)))])].sort().reverse();
+        const mks = [...new Set([...(pnl?.months.map((m) => m.mk!).filter(Boolean) || []), ...[1, 0, -1, -2].map((k) => monthKey(new Date(new Date().getFullYear(), new Date().getMonth() + k, 1)))])].sort().reverse();
         const cols: [string, string, (mk: string) => number | undefined][] = [
           ["sales", "Выручка (факт продаж ОП), ₽", (mk) => p.sales?.[mk]], ["prepay", "Факт предоплат, ₽", (mk) => p.prepay?.[mk]],
           ["kpi.units", "Продано кубиков", (mk) => p.kpi?.[mk]?.units], ["kpi.newClients", "Новых клиентов (доставлено)", (mk) => p.kpi?.[mk]?.newClients],
@@ -267,6 +267,21 @@ export default function ClientPortal() {
               return <tr key={mk}><td>{MONTHS[m - 1]} {y}</td>{cols.map(([k, , get]) => <td key={k}>
                 <input type="number" step="any" style={{ width: 130 }} key={k + mk + (get(mk) ?? "")} defaultValue={get(mk) ?? ""}
                   onBlur={(e) => e.target.value !== String(get(mk) ?? "") && save(k, mk, e.target.value)} /></td>)}</tr>; })}</tbody>
+          </table>
+
+          <h3 style={{ marginTop: 22 }}>🎯 План / факт отдела продаж</h3>
+          <div className="muted small" style={{ marginBottom: 8 }}>Вносишь только план. Факт берётся из «Выручка (факт продаж ОП)» выше.</div>
+          <table className="pnl-table">
+            <thead><tr><th>Месяц</th><th className="small">План продаж, ₽</th><th className="small">Факт продаж ОП, ₽</th><th className="small">Отклонение</th><th className="small">Выполнение</th></tr></thead>
+            <tbody>{mks.map((mk) => { const [y, m] = mk.split("-").map(Number);
+              const pl = p.planSales?.[mk], fa = p.sales?.[mk], pc = pl && fa != null ? Math.round(fa / pl * 100) : null;
+              return <tr key={mk}><td>{MONTHS[m - 1]} {y}</td>
+                <td><input type="number" step="any" style={{ width: 130 }} key={"pl" + mk + (pl ?? "")} defaultValue={pl ?? ""}
+                  onBlur={(e) => e.target.value !== String(pl ?? "") && save("planSales", mk, e.target.value)} /></td>
+                <td>{fa != null ? rub(fa) : "—"}</td>
+                <td className={pc == null ? "muted" : fa! >= pl! ? "ok" : "error"}>{pc == null ? "—" : (fa! - pl! >= 0 ? "+" : "") + rub(fa! - pl!)}</td>
+                <td className={pc == null ? "muted" : pc >= 100 ? "ok" : "error"}>{pc == null ? "—" : pc + "%"}</td>
+              </tr>; })}</tbody>
           </table>
         </div>;
       })()}
