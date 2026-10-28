@@ -103,9 +103,9 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   // Оплата налогов — всегда в финансовый отдел (как в ОПиУ), даже если процесс в базе не указан
   const deptOf0 = (proc: string) => (proc.match(/^(\d)/) || [])[1] || "";
   j = { ...j, rows: j.rows.map((r) => isTax(r) && deptOf0(r.process) !== "5" ? { ...r, process: "5.1. Процесс: Налоги, кредиты и займы" } : r) };
-  // «Выручка доставка СДЭК» — туда же, где «Выручка почта» (в доходы)
-  const postProc = j.rows.find((r) => /выручк.*почт/i.test(r.article))?.process || "Доходы";
-  j = { ...j, rows: j.rows.map((r) => /выручк.*сдэк/i.test(r.article) ? { ...r, process: postProc } : r) };
+  // «Выручка доставка СДЭК» — отдельной строкой рядом с «Выручка почта» (в производственном отделе)
+  const postProc = j.rows.find((r) => /выручк.*почт/i.test(r.article))?.process;
+  if (postProc) j = { ...j, rows: j.rows.map((r) => /выручк.*сдэк/i.test(r.article) ? { ...r, process: postProc } : r) };
   const deptOf = deptOf0;
   // Доход — только процесс «Доходы». Прочее без номера («Расходы: Вывел на личный счёт» и т.п.)
   // — это движение денег собственника, в ОПиУ не входит.
