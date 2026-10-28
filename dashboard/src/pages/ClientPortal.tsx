@@ -26,7 +26,7 @@ export default function ClientPortal() {
   const cid = isOwner ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
   const [p, setP] = useState<ClientProject | null>(null);
   const [err, setErr] = useState("");
-  const [tab, setTab] = useState<"work" | "pnl" | "dash" | "plan">("dash");
+  const [tab, setTab] = useState<"work" | "pnl" | "dds" | "dash" | "plan">("dash");
   const [pnl, setPnl] = useState<Pnl | null>(null);
   const [pnlErr, setPnlErr] = useState("");
   const [mi, setMi] = useState<number | null>(null);
@@ -67,13 +67,13 @@ export default function ClientPortal() {
       <div className="muted" style={{ marginTop: -12, marginBottom: 12 }}>Кабинет клиента ОПОРЫ</div>
       <LinkButtons links={p.links} />
       <div className="chips" style={{ marginTop: 12 }}>
-        {([["dash", "📊 Показатели"], ["pnl", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 План"]] as const).map(([k, l]) =>
+        {([["dash", "📊 Показатели"], ["pnl", "📑 Отчёт ОПиУ"], ["dds", "💸 Отчёт ДДС"], ["work", "🛠 Ход работы"], ["plan", "🎯 План"]] as const).map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}{k === "work" && waiting ? ` · ⏳${waiting}` : ""}</button>)}
       </div>
 
-      {(tab === "dash" || tab === "pnl") && !p.pnlUrl && <div className="card muted">Отчётность скоро появится здесь.</div>}
-      {(tab === "dash" || tab === "pnl") && pnlErr && <div className="card error">Не удалось загрузить отчёт: {pnlErr}</div>}
-      {(tab === "dash" || tab === "pnl") && p.pnlUrl && !pnl && !pnlErr && <div className="muted">Загружаю отчёт из таблицы…</div>}
+      {(tab === "dash" || tab === "pnl" || tab === "dds") && !p.pnlUrl && <div className="card muted">Отчётность скоро появится здесь.</div>}
+      {(tab === "dash" || tab === "pnl" || tab === "dds") && pnlErr && <div className="card error">Не удалось загрузить отчёт: {pnlErr}</div>}
+      {(tab === "dash" || tab === "pnl" || tab === "dds") && p.pnlUrl && !pnl && !pnlErr && <div className="muted">Загружаю отчёт из таблицы…</div>}
 
       {tab === "dash" && pnl && cur != null && <>
         <div className="row small" style={{ maxWidth: 520 }}>
@@ -123,6 +123,20 @@ export default function ClientPortal() {
         </table>
         {pnl.at && <div className="muted small" style={{ marginTop: 6 }}>Данные из таблицы на {new Date(pnl.at).toLocaleString("ru-RU")}</div>}
       </div>}
+
+      {tab === "dds" && pnl && (pnl.dds ? <div className="card" style={{ overflowX: "auto" }}>
+        <div className="row"><h3 style={{ margin: 0 }}>Движение денежных средств</h3>
+          <label className="small"><input type="checkbox" checked={detail} onChange={(e) => setDetail(e.target.checked)} /> по статьям</label></div>
+        <div className="muted small" style={{ margin: "4px 0 8px" }}>По дате операции: сколько денег реально пришло и ушло. Переводы между своими счетами не учитываются.</div>
+        <table className="pnl-table">
+          <thead><tr><th />{pnl.dds.months.map((m) => <th key={m.col}>{m.label}<div className="small muted">{m.year}</div></th>)}</tr></thead>
+          <tbody>{pnl.dds.rows.filter((r) => detail || r.section || !r.sub || r.sub === "Процесс").map((r, k) => (
+            <tr key={k} className={!r.sub && !r.section ? "pnl-key" : r.section ? "pnl-sec" : ""}>
+              <td style={{ paddingLeft: r.sub && r.sub !== "Процесс" ? 24 : undefined }}>{r.name}</td>
+              {pnl.dds!.months.map((m) => <td key={m.col} className={(r.values[m.col] || 0) < 0 ? "error" : ""}>{r.values[m.col] != null ? rub(r.values[m.col]!) : ""}</td>)}
+            </tr>))}</tbody>
+        </table>
+      </div> : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
 
       {tab === "work" && <div className="card" style={{ maxWidth: 860 }}>
         <div className="row">

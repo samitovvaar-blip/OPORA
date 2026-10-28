@@ -2,7 +2,8 @@
 // строка с месяцами, над ней — статусы («СДАНО»), слева — статьи, «Итого» — по отделам.
 export interface PnlMonth { col: number; label: string; year?: string; status: string; closed: boolean; }
 export interface PnlRow { name: string; sub: string; total: boolean; section: boolean; values: (number | null)[]; }
-export interface Pnl { db?: boolean; title: string; months: PnlMonth[]; rows: PnlRow[]; at?: string;
+export interface Dds { months: PnlMonth[]; rows: PnlRow[]; inflow: (number | null)[]; outflow: (number | null)[]; net: (number | null)[]; }
+export interface Pnl { db?: boolean; dds?: Dds; title: string; months: PnlMonth[]; rows: PnlRow[]; at?: string;
   revenue: (number | null)[]; profit: (number | null)[]; variable: (number | null)[]; fixed: (number | null)[]; depts: PnlRow[]; }
 
 const MONTHS = ["январ", "феврал", "март", "апрел", "май", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"];
@@ -66,7 +67,30 @@ const DEPTS: Record<string, string> = { "1": "1. Производственны�
   "4": "4. Админ-хоз отдел и Руководство", "5": "5. Финансовый отдел", "6": "6. Фондирование" };
 
 interface DbRow { process: string; article: string; values: Record<string, number>; }
-export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]; at?: string }, closed: string[] = []): Pnl {
+// ДДС: поступления и выплаты по «Дате операции», сгруппированы по процессам
+export function buildDds(d: { months: string[]; rows: DbRow[] }): Dds {
+  const mks = d.months;
+  const months: PnlMonth[] = mks.map((mk, i) => { const [y, m] = mk.split("-"); return { col: i, label: RU[Number(m) - 1], year: y, status: "", closed: false }; });
+  const vec = (f: (mk: string) => number) => mks.map((mk) => { const v = f(mk); return Math.abs(v) < 0.005 ? null : Math.round(v * 100) / 100; });
+  const net = (r: DbRow) => mks.reduce((a, mk) => a + (r.values[mk] || 0), 0);
+  const ins = d.rows.filter((r) => net(r) > 0), outs = d.rows.filter((r) => net(r) <= 0);
+  const sum = (l: DbRow[]) => vec((mk) => l.reduce((a, r) => a + (r.values[mk] || 0), 0));
+  const rows: PnlRow[] = [];
+  const add = (name: string, values: (number | null)[], o: Partial<PnlRow> = {}) => rows.push({ name, sub: "", total: false, section: false, values, ...o });
+  const group = (list: DbRow[]) => [...new Set(list.map((r) => r.process))].sort((a, b) => a.localeCompare(b, "ru")).forEach((proc) => {
+    const l = list.filter((r) => r.process === proc);
+    add(proc || "Без процесса", sum(l), { sub: "Процесс" });
+    l.sort((a, b) => a.article.localeCompare(b.article, "ru")).forEach((r) => add(r.article, sum([r]), { sub: r.article }));
+  });
+  const inflow = sum(ins), outflow = sum(outs);
+  add("Поступления", mks.map(() => null), { section: true }); add("ПОСТУПЛЕНИЯ ИТОГО", inflow); group(ins);
+  add("Выплаты", mks.map(() => null), { section: true }); add("ВЫПЛАТЫ ИТОГО", outflow); group(outs);
+  const netFlow = mks.map((_, i) => ((inflow[i] || 0) + (outflow[i] || 0)) || null);
+  add("ЧИСТЫЙ ДЕНЕЖНЫЙ ПОТОК", netFlow);
+  return { months, rows, inflow, outflow, net: netFlow };
+}
+
+export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]; at?: string; dds?: { months: string[]; rows: DbRow[] } }, closed: string[] = []): Pnl {
   const mks = j.months;
   const months: PnlMonth[] = mks.map((mk, i) => {
     const [y, m] = mk.split("-"); const isClosed = closed.includes(mk);
@@ -106,6 +130,6 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   const fond = byDept("6");
   if (fond.length) { add(DEPTS["6"] + " (после прибыли)", sumOf(fond)); articles(fond); }
 
-  return { db: true, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
+  return { db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
     depts: rows.filter((r) => r.total) };
 }

@@ -27,6 +27,7 @@ function doGet(e) {
   var names = p.sheet ? String(p.sheet).split(',') : DEFAULT_SHEETS;
 
   var sums = {}, months = {}, seen = 0, total = 0;
+  var dds = {}, ddsMonths = {};   // ДДС: по «Дате операции», все движения денег
   for (var s = 0; s < names.length; s++) {
     var sh = ss.getSheetByName(names[s].trim());
     if (!sh) return out({ error: 'Лист не найден: ' + names[s] });
@@ -46,6 +47,17 @@ function doGet(e) {
       if (!hit) continue;
       seen++;
       var proc = String(row[cProc] || '').trim(), art = String(row[cArt] || '').trim();
+      var amtD = Math.abs(toNum(row[cSum]));
+      var outD = cType >= 0 ? /расход/i.test(String(row[cType])) : toNum(row[cSum]) < 0;
+      // ДДС: все движения по дате операции, кроме внутренних переводов между своими счетами
+      var dOp = toDate(cDate2 >= 0 ? row[cDate2] : null) || toDate(cDate >= 0 ? row[cDate] : null);
+      if (art && amtD && dOp && !/между сч|внутрен/i.test(art) && !/субсч/i.test(proc)) {
+        var mkD = dOp.getFullYear() + '-' + ('0' + (dOp.getMonth() + 1)).slice(-2);
+        var kD = proc + '\u0001' + art;
+        dds[kD] = dds[kD] || {};
+        dds[kD][mkD] = (dds[kD][mkD] || 0) + (outD ? -amtD : amtD);
+        ddsMonths[mkD] = true;
+      }
       if (!art || /^\*\*/.test(proc) || /субсч/i.test(proc)) continue;      // переводы между счетами — не в ОПиУ
       var d = toDate(cDate >= 0 ? row[cDate] : null) || toDate(cDate2 >= 0 ? row[cDate2] : null);
       if (!d) continue;
@@ -60,7 +72,8 @@ function doGet(e) {
     }
   }
   var rows = Object.keys(sums).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: sums[k] }; });
-  return out({ mode: 'db', title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
+  var ddsRows = Object.keys(dds).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: dds[k] }; });
+  return out({ mode: 'db', dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
 }
 
 function norm(s) { return String(s || '').trim().toLowerCase().replace(/ё/g, 'е'); }
