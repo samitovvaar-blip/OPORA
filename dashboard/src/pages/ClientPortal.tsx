@@ -8,7 +8,7 @@ import { useMarks } from "../lib/clients";
 import { ClientProject, monthKey, stamp } from "../lib/catalog";
 import { rub } from "../lib/money";
 import { buildDds, loadPnl, Pnl } from "../lib/sheetPnl";
-import Checklist, { visibleItems } from "../components/Checklist";
+import { visibleItems } from "../components/Checklist";
 import { useAuth } from "../lib/auth";
 import { LinkButtons } from "../components/ProjectLinks";
 
@@ -39,7 +39,7 @@ export default function ClientPortal() {
   const [accSel, setAccSel] = useState<string[] | null>(null);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const mk = monthKey(month);
-  const { marks, setMark } = useMarks(cid ? [cid] : [], mk);
+  const { marks } = useMarks(cid ? [cid] : [], mk);
 
   useEffect(() => wsId && cid ? onSnapshot(doc(db, "workspaces", wsId, "clients", cid),
     (s) => setP(s.exists() ? ({ id: s.id, ...s.data() } as ClientProject) : null),
@@ -231,21 +231,26 @@ export default function ClientPortal() {
           <button className="ghost" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
         </div>
         {(() => {
-          const ms = marks[p.id] || {}, ask = visibleItems(p).filter((it) => ms[it.id]?.comment && !ms[it.id]?.done);
-          if (!ask.length) return null;
-          return <div className="card" style={{ background: "var(--bg)", margin: "10px 0" }}>
-            <h3 style={{ marginTop: 0 }}>⏳ Ждём от вас</h3>
-            {ask.map((it) => { const m = ms[it.id];
-              return <div key={it.id} style={{ margin: "10px 0" }}>
-                <b className="small">{it.title}</b>
-                <div className="comment small">💬 {m.comment}</div>
-                <textarea placeholder="Ваш ответ — например: отправила документы на почту" defaultValue={m.reply || ""} key={it.id + (m.replyAt || "")} disabled={isOwner}
-                  onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== (m.reply || "")) setMark(p.id, it.id, { reply: v, replyAt: stamp(), replyBy: user?.email || "" }); }} />
-                {m.reply && <div className="muted small">✓ ответ отправлен {m.replyAt}</div>}
-              </div>; })}
-          </div>;
+          const ms = marks[p.id] || {}, all = visibleItems(p), done = all.filter((it) => ms[it.id]?.done).length;
+          const ws = p.workStatus?.[mk] || {};
+          const save = (patch: object) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`workStatus.${mk}`]: { ...ws, ...patch } });
+          const Flag = ({ f, l }: { f: "reportsDone" | "taxesPaid"; l: string }) => <div className="row" style={{ margin: "8px 0" }}><span>{l}</span>
+            {isOwner ? <button className={`chipbtn ${ws[f] ? "on" : ""}`} onClick={() => save({ [f]: !ws[f] })}>{ws[f] ? "✓ да" : "нет"}</button>
+              : <b className={ws[f] ? "ok" : "muted"}>{ws[f] ? "✓ да" : "ещё нет"}</b>}</div>;
+          return <>
+            <div className="progress" style={{ marginTop: 10 }}><div style={{ width: (all.length ? done / all.length * 100 : 0) + "%" }} /></div>
+            <div className="muted small">Работа за месяц выполнена на {all.length ? Math.round(done / all.length * 100) : 0}%</div>
+            <div className="row" style={{ margin: "14px 0 8px" }}><span>📥 Данные в таблицу загружены до</span>
+              {isOwner ? <input type="date" value={ws.loadedTo || ""} onChange={(e) => save({ loadedTo: e.target.value })} />
+                : <b>{ws.loadedTo ? new Date(ws.loadedTo).toLocaleDateString("ru-RU") : "—"}</b>}</div>
+            <Flag f="reportsDone" l="📑 Отчётность сдана" />
+            <Flag f="taxesPaid" l="🧾 Налоги оплачены" />
+            <h3 style={{ marginBottom: 6 }}>📞 Итог прошлого созвона</h3>
+            {isOwner ? <textarea rows={5} placeholder="Что обсудили, какие вопросы открыты, что ждём от клиента" defaultValue={ws.callNote || ""} key={mk}
+                onBlur={(e) => e.target.value !== (ws.callNote || "") && save({ callNote: e.target.value })} />
+              : <div className="comment" style={{ whiteSpace: "pre-wrap" }}>{ws.callNote || "Пока нет записей"}</div>}
+          </>;
         })()}
-        <Checklist p={p} mk={mk} marks={marks[p.id] || {}} setMark={async () => {}} readOnly />
       </div>}
 
       {tab === "plan" && <div className="card" style={{ maxWidth: 640 }}>
