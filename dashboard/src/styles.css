@@ -230,3 +230,27 @@ html,body{overscroll-behavior-y:contain}
 .soft-card .pnl-key td{font-size:15px}
 .soft-card .comment{background:var(--surface);border-radius:12px;padding:10px 12px}
 .soft-card [style*="repeat(7"]>div{background:var(--surface);border-radius:10px!important}
+
+/* ===== Телефон ===== */
+@media (max-width:720px){
+  /* шапка кабинета: всё списком, на всю ширину */
+  .brand-head{flex-direction:column;align-items:stretch;padding:12px}
+  .brand-logo{justify-content:center}
+  .brand-mid{flex-direction:column;align-items:stretch;gap:8px}
+  .brand-mid .inline{flex-direction:column;gap:8px;width:100%}
+  .brand-mid .linkbtn,.brand-month{width:100%;justify-content:flex-start}
+  .brand-month select{flex:1}
+  .brand-head>div:last-child{justify-content:space-between}
+  .neyla-btn{flex:1}
+  /* плитки: 2 в ряд, компактнее */
+  .tile{padding:14px!important;border-radius:18px!important}
+  .tile .tile-ico{font-size:36px;right:8px;top:12px;transform:rotate(-8deg)}
+  .dash-grid .stat b{font-size:19px}
+  .dash-grid .stat{min-height:104px}
+  .tile>*:not(.tile-ico){max-width:100%}
+  /* отчёты и календарь */
+  .soft-card{padding:14px 12px}
+  .soft-card .pnl-table td,.soft-card .pnl-table th{padding:7px 8px;font-size:13px}
+  .pnl-table input{width:100px!important}
+  h1{font-size:20px}
+}
