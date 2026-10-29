@@ -341,8 +341,8 @@ export default function ClientPortal() {
         </div>;
       })()}
 
-      {tab === "work" && <div className="card" style={{ maxWidth: 860 }}>
-        <div className="row">
+      {tab === "work" && <div className="card work-card" style={{ maxWidth: 860 }}>
+        <div className="row work-head">
           <button className="ghost" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
           <b>{MONTHS[month.getMonth()]} {month.getFullYear()}</b>
           <button className="ghost" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
@@ -355,19 +355,21 @@ export default function ClientPortal() {
           const opts = [-1, -2, -3, 0].map((k) => { const d = new Date(month.getFullYear(), month.getMonth() + k, 1); return monthKey(d); });
           const mName = (k?: string) => { if (!k) return ""; const [y, m] = k.split("-").map(Number); return `${MONTHS[m - 1].toLowerCase()} ${y}`; };
           const Flag = ({ f, l }: { f: "reportsDone" | "taxesPaid"; l: string }) => { const fk = (f + "For") as "reportsDoneFor" | "taxesPaidFor", per = ws[fk] || opts[0];
-            return <div className="row" style={{ margin: "8px 0" }}><span>{l} за {isOwner
+            return <div className="row work-row"><span>{l} за {isOwner
               ? <select value={per} onChange={(e) => save({ [fk]: e.target.value })}>{opts.map((o) => <option key={o} value={o}>{mName(o)}</option>)}</select> : mName(per)}</span>
             {isOwner ? <button className={`chipbtn ${ws[f] ? "on" : ""}`} onClick={() => save({ [f]: !ws[f], [fk]: per })}>{ws[f] ? "✓ да" : "нет"}</button>
-              : <b className={ws[f] ? "ok" : "muted"}>{ws[f] ? "✓ да" : "ещё нет"}</b>}</div>; };
+              : <span className={`pill ${ws[f] ? "pill-ok" : "pill-wait"}`}>{ws[f] ? "✓ да" : "ещё нет"}</span>}</div>; };
           return <>
-            <div className="progress" style={{ marginTop: 10 }}><div style={{ width: (all.length ? done / all.length * 100 : 0) + "%" }} /></div>
-            <div className="muted small">Работа за месяц выполнена на {all.length ? Math.round(done / all.length * 100) : 0}%</div>
-            <div className="row" style={{ margin: "14px 0 8px" }}><span>📥 Данные в таблицу загружены до</span>
+            <div className="work-progress">
+              <div className="row" style={{ padding: 0 }}><b>Работа за месяц</b><b className="work-pct">{all.length ? Math.round(done / all.length * 100) : 0}%</b></div>
+              <div className="progress" style={{ margin: "6px 0 0", height: 10 }}><div style={{ width: (all.length ? done / all.length * 100 : 0) + "%", background: "linear-gradient(90deg,#16a34a,#7ee0a8)" }} /></div>
+            </div>
+            <div className="row work-row"><span>📥 Данные в таблицу загружены до</span>
               {isOwner ? <input type="date" value={ws.loadedTo || ""} onChange={(e) => save({ loadedTo: e.target.value })} />
-                : <b>{ws.loadedTo ? new Date(ws.loadedTo).toLocaleDateString("ru-RU") : "—"}</b>}</div>
+                : <span className="pill pill-info">{ws.loadedTo ? new Date(ws.loadedTo).toLocaleDateString("ru-RU") : "—"}</span>}</div>
             <Flag f="reportsDone" l="📑 Отчётность сдана" />
             <Flag f="taxesPaid" l="🧾 Налоги оплачены" />
-            <h3 style={{ marginBottom: 6 }}>📞 Итоги созвонов</h3>
+            <h3 className="work-calls">📞 Итоги созвонов</h3>
             {isOwner && <div style={{ marginBottom: 10 }}>
               <textarea rows={4} placeholder="Что обсудили, какие вопросы открыты, что ждём от клиента" value={note} onChange={(e) => setNote(e.target.value)} />
               <button disabled={!note.trim()} onClick={() => { updateDoc(ref, { calls: [{ id: String(Date.now()), at: new Date().toISOString(), text: note.trim() }, ...calls] }); setNote(""); }}>💾 Сохранить итог</button>
