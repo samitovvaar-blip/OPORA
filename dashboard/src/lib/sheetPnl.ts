@@ -161,7 +161,7 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
     salary: by(/зарплат|з\/п|\bзп\b|фот|оклад|преми|мотивац|аванс сотр/i, /налог/i),
     d1: sumOf(byDept("1")), d2: sumOf(byDept("2")), d3: sumOf(byDept("3")), d4: sumOf(byDept("4")), d5: sumOf(byDept("5")) };
 
-  return { metrics, ddsRaw: j.dds, balances: j.balances, db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
+  return { metrics, ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
     depts: rows.filter((r) => r.total) };
 }
 
@@ -187,4 +187,13 @@ export function applySales(p: Pnl, sales?: Record<string, number>, prepay?: Reco
     else rows.push(r);
   });
   return { ...p, rows, revenue, profit };
+}
+
+// Остатки: чистим хвосты в названиях групп («…на счетах     р»), убираем повторы счетов
+function cleanBalances(b?: Balances | null): Balances | null {
+  if (!b) return null;
+  const seen = new Set<string>();
+  const accounts = b.accounts.map((a) => ({ ...a, group: a.group.replace(/\s{2,}.*$/, "").trim() }))
+    .filter((a) => !seen.has(a.account) && (seen.add(a.account), true));
+  return { ...b, accounts };
 }
