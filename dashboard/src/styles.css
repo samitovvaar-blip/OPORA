@@ -254,3 +254,13 @@ html,body{overscroll-behavior-y:contain}
   .pnl-table input{width:100px!important}
   h1{font-size:20px}
 }
+@media (max-width:720px){
+  /* цифры в плитках не переносятся и не наезжают на иконку */
+  .dash-grid .stat b{font-size:clamp(15px,4.6vw,20px)!important;white-space:nowrap}
+  .tile .tile-ico{font-size:26px!important;right:10px!important;top:10px!important;opacity:.9}
+  .tile .muted{padding-right:30px;font-size:13px}
+  /* таблицы: суммы в одну строку, названия переносятся, широкие таблицы листаются пальцем */
+  .pnl-table td:not(:first-child),.pnl-table th:not(:first-child){white-space:nowrap;text-align:right}
+  .pnl-table td:first-child{word-break:break-word}
+  .soft-card,.card{overflow-x:auto;-webkit-overflow-scrolling:touch}
+}
