@@ -52,7 +52,7 @@ export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, is
       onBlur={(e) => save({ [k]: e.target.value === "" ? null : Number(e.target.value) })} />
     : <b>{ph}</b>;
 
-  return <div className="card" style={{ marginTop: 14 }}>
+  return <div className="card soft-card" style={{ marginTop: 14 }}>
     <h3 style={{ marginTop: 0 }}>📅 Платёжный календарь</h3>
     <div className="row small" style={{ flexWrap: "wrap", gap: 10 }}>
       <span>Остаток на начало: <Num v={cal.start} k="start" ph={rub(startBalance ?? 0)} /></span>

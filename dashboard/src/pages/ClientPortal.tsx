@@ -191,7 +191,7 @@ export default function ClientPortal() {
         </div>
       </>}
 
-      {view === "pnl" && pnl && cur != null && <div className="card" style={{ overflowX: "auto", maxWidth: 820 }}>
+      {view === "pnl" && pnl && cur != null && <div className="card soft-card" style={{ overflowX: "auto", maxWidth: 900 }}>
         <h3 style={{ marginTop: 0 }}>Отчёт о прибылях и убытках · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
         <div className="muted small" style={{ marginBottom: 8 }}>По дате для отчёта. Нажми на отдел или процесс, чтобы раскрыть.</div>
         {(() => {
@@ -253,7 +253,7 @@ export default function ClientPortal() {
             {open[k + g.name] && g.arts.map((x) => <tr key={x.name} className="small"><td style={{ paddingLeft: 44 }}>{x.name}</td><Money v={x.v} /></tr>)}
           </Fragment>)}
         </>;
-        return <div className="card" style={{ overflowX: "auto", maxWidth: 720 }}>
+        return <div className="card soft-card" style={{ overflowX: "auto", maxWidth: 900 }}>
           <h3 style={{ marginTop: 0 }}>Движение денежных средств · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
           <div className="muted small" style={{ marginBottom: 8 }}>По дате операции, лист «ДДС БОТ ОСНОВНЫЕ». Нажми на строку, чтобы раскрыть.</div>
           <table className="pnl-table"><tbody>
@@ -414,7 +414,7 @@ export default function ClientPortal() {
             <td className={pc == null ? "muted" : good ? "ok" : "error"}>{pc != null ? pc + "%" : "—"}</td>
           </tr>;
         };
-        return <><div className="card" style={{ maxWidth: 640 }}>
+        return <><div className="card soft-card" style={{ maxWidth: 900 }}>
           <div className="row">
             <button className="ghost" onClick={() => setPlanMonth(new Date(planMonth.getFullYear(), planMonth.getMonth() - 1, 1))}>‹</button>
             <b>🎯 План на {MONTHS[planMonth.getMonth()].toLowerCase()} {planMonth.getFullYear()}</b>

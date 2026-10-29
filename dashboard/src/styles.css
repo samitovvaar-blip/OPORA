@@ -220,3 +220,13 @@ html,body{overscroll-behavior-y:contain}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .dash-grid .card:not(.stat){background:linear-gradient(0deg,#1e3656 0%,#1a2638 50%,var(--surface) 100%);border-color:#263a55}}
 /* Верхние 4 плитки — сплошной цвет, без градиента */
 .tile.g-blue{background:#25476f}.tile.g-orange{background:#e8883a}.tile.g-green{background:#16a34a}
+/* Отчётность и Планирование — в стиле «Моего кабинета» */
+.soft-card{background:linear-gradient(0deg,#d6e6fb 0%,#eef4fd 40%,var(--surface) 100%);border-color:#d6e3f5;border-radius:20px;padding:20px 22px;box-shadow:0 8px 24px rgba(22,48,79,.08);margin-top:12px}
+:root[data-theme="dark"] .soft-card{background:linear-gradient(0deg,#1e3656 0%,#1a2638 50%,var(--surface) 100%);border-color:#263a55}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .soft-card{background:linear-gradient(0deg,#1e3656 0%,#1a2638 50%,var(--surface) 100%);border-color:#263a55}}
+.soft-card h3{font-size:17px}
+.soft-card .pnl-table{background:var(--surface);border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(22,48,79,.06)}
+.soft-card .pnl-table td{padding:9px 12px}
+.soft-card .pnl-key td{font-size:15px}
+.soft-card .comment{background:var(--surface);border-radius:12px;padding:10px 12px}
+.soft-card [style*="repeat(7"]>div{background:var(--surface);border-radius:10px!important}
