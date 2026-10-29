@@ -204,8 +204,8 @@ export default function ClientPortal() {
               const v = t.r.values[cur], kids = hasKids(i);
               return <tr key={i} className={t.lvl === 0 && big(t.r.name) ? "pnl-key" : t.lvl === 0 ? "pnl-sec" : t.lvl === 2 ? "small" : ""}
                 style={{ cursor: kids ? "pointer" : undefined }} onClick={() => kids && setOpen((o) => ({ ...o, [t.key]: !o[t.key] }))}>
-                <td style={{ paddingLeft: [8, 24, 44][t.lvl] }}>{kids ? (open[t.key] ? "▾ " : "▸ ") : ""}{t.lvl === 2 ? t.r.sub : t.r.name}</td>
-                <td className={/^Проверка/.test(t.r.name) ? (Math.abs(v || 0) < 1 ? "ok" : "error") : (v || 0) < 0 ? "error" : ""}>{v != null ? (/^Проверка/.test(t.r.name) && Math.abs(v) < 1 ? "✓ " : "") + rub(v) : "—"}</td>
+                <td style={{ paddingLeft: [8, 24, 44][t.lvl] }} className={/прибыль/i.test(t.r.name) && t.lvl === 0 ? "profit" : ""}>{kids ? (open[t.key] ? "▾ " : "▸ ") : ""}{t.lvl === 2 ? t.r.sub : t.r.name}</td>
+                <td className={/^Проверка/.test(t.r.name) ? (Math.abs(v || 0) < 1 ? "ok" : "error") : /прибыль/i.test(t.r.name) && t.lvl === 0 ? ((v || 0) < 0 ? "error profit" : "profit") : (v || 0) < 0 ? "neg" : ""}>{v != null ? (/^Проверка/.test(t.r.name) && Math.abs(v) < 1 ? "✓ " : "") + rub(v) : "—"}</td>
                 <td className="small muted">{v != null && rev ? (Math.abs(v) / rev * 100).toFixed(1) + "%" : ""}</td>
               </tr>;
             })}</tbody>
@@ -236,7 +236,7 @@ export default function ClientPortal() {
           else if (r.sub && groups[sec].length && v) groups[sec][groups[sec].length - 1].arts.push({ name: r.name, v });
         });
         const tog = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
-        const Money = ({ v }: { v: number | null }) => <td className={(v || 0) < 0 ? "error" : ""}>{v != null ? rub(v) : "—"}</td>;
+        const Money = ({ v }: { v: number | null }) => <td className={(v || 0) < 0 ? "neg" : ""}>{v != null ? rub(v) : "—"}</td>;
         const Block = ({ k, title, total }: { k: "in" | "out" | "other"; title: string; total: number }) => <>
           <tr className="pnl-key" style={{ cursor: "pointer" }} onClick={() => tog(k)}><td>{open[k] ? "▾" : "▸"} {title}</td><Money v={total} /></tr>
           {open[k] && groups[k].filter((g) => g.v).map((g) => <Fragment key={g.name}>
@@ -407,10 +407,11 @@ export default function ClientPortal() {
         // строка таблицы план/факт; inverse — для расходов (хорошо, когда факт не больше плана)
         const Line = ({ l, plan, fact, k, inverse, sub, bold }: { l: string; plan: number | null; fact: number | null; k?: string; inverse?: boolean; sub?: boolean; bold?: boolean }) => {
           const pc = plan && fact != null ? Math.round(fact / plan * 100) : null, good = pc != null && (inverse ? pc <= 100 : pc >= 100);
+          const isProfit = /прибыль/i.test(l);
           return <tr className={bold ? "pnl-key" : sub ? "small" : ""}>
-            <td style={{ paddingLeft: sub ? 22 : undefined }}>{l}</td>
+            <td style={{ paddingLeft: sub ? 22 : undefined }} className={isProfit ? "profit" : ""}>{l}</td>
             <td>{isOwner && k ? <input type="number" style={{ width: 120 }} key={k + pmk + (plan ?? "")} defaultValue={plan ?? ""} onBlur={(e) => e.target.value !== String(plan ?? "") && save(k, e.target.value)} /> : plan != null ? rub(plan) : "—"}</td>
-            <td>{fact != null ? rub(fact) : "—"}</td>
+            <td className={isProfit ? ((fact || 0) < 0 ? "error profit" : "profit") : ""}>{fact != null ? rub(fact) : "—"}</td>
             <td className={pc == null ? "muted" : good ? "ok" : "error"}>{pc != null ? pc + "%" : "—"}</td>
           </tr>;
         };

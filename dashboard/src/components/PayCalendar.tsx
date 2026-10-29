@@ -59,7 +59,7 @@ export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, is
       <span>Приход за месяц: <Num v={cal.revenue} k="revenue" ph={rub(planRevenue ?? 0)} /> <span className="muted">→ {rub(Math.round(incDay))}/день</span></span>
     </div>
     <div className="row small" style={{ margin: "8px 0" }}>
-      <span>Расходы по плану: <b className="error">−{rub(Math.round(totalOut))}</b></span>
+      <span>Расходы по плану: <b className="neg">−{rub(Math.round(totalOut))}</b></span>
       <span>Остаток на конец: <b className={bal < 0 ? "error" : "ok"}>{rub(Math.round(bal))}</b></span>
     </div>
     {gap && <div className="card error small" style={{ margin: "6px 0" }}>⚠️ Кассовый разрыв {gap.d} {["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"][m - 1]}: не хватит {rub(Math.round(-gap.bal))}</div>}
@@ -71,7 +71,7 @@ export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, is
         background: r.bal < 0 ? "rgba(232,80,80,.18)" : undefined, outline: openDay === r.d ? "2px solid var(--accent)" : undefined }}>
         <div style={{ textAlign: "right" }}><b>{r.d}</b></div>
         <div className="ok">+{Math.round((incDay + r.extra) / 1000)}к</div>
-        {r.out > 0 && <div className="error">−{Math.round(r.out / 1000)}к</div>}
+        {r.out > 0 && <div className="neg">−{Math.round(r.out / 1000)}к</div>}
         <div style={{ borderTop: "1px solid var(--border, #333)", marginTop: 2 }} className={r.bal < 0 ? "error" : ""}>{Math.round(r.bal / 1000)}к</div>
       </div>)}
     </div>
@@ -84,7 +84,7 @@ export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, is
     <table className="pnl-table"><tbody>
       {items.map((it) => <tr key={it.id} style={{ opacity: it.paid ? .55 : 1 }}>
         <td>{it.income ? "➕ " : ""}{it.name}{it.paid && <span className="ok small"> ✓ оплачено заранее</span>}<div className="small muted">{it.income ? "Приход" : DEPTS[Number(it.dept) - 1]} · {KIND[it.kind]}{it.kind === "once" ? `, ${it.day} число` : it.kind === "weekly" ? `, ${WD[it.weekday ?? 0]}` : ""}</div></td>
-        <td className={it.income ? "ok" : "error"}>{it.income ? "+" : "−"}{rub(it.amount)}</td>
+        <td className={it.income ? "ok" : "neg"}>{it.income ? "+" : "−"}{rub(it.amount)}</td>
         {isOwner && <td style={{ whiteSpace: "nowrap" }}>
           {!it.income && <button className="ghost" title="Оплачено заранее — не уменьшает остаток" onClick={() => save({ items: items.map((x) => x.id === it.id ? { ...x, paid: !x.paid } : x) })}>{it.paid ? "↩" : "✓"}</button>}
           <button className="ghost" onClick={() => save({ items: items.filter((x) => x.id !== it.id) })}>🗑</button></td>}

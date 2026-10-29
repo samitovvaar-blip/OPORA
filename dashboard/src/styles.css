@@ -174,3 +174,8 @@ html,body{overscroll-behavior-y:contain}
 .pnl-table thead th{background:linear-gradient(90deg,var(--brand-navy),var(--brand-navy2))}
 .chipbtn.on{background:linear-gradient(135deg,var(--brand-navy),var(--brand-navy2))!important}
 .dash-grid .card:not(.stat) h3,.pnl-table+h3,.card>h3{border-left-color:var(--brand-orange)}
+
+/* Цвета сумм: прибыль — зелёным жирным, обычные расходы — оранжевым, критичное (разрыв, отклонение от плана) — красным */
+.neg{color:var(--brand-orange,#e8883a)}
+.profit{color:var(--won)!important;font-weight:800!important}
+.profit.error{color:var(--lost)!important}
