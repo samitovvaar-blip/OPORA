@@ -23,6 +23,11 @@ function Delta({ v, inverse = false }: { v: number | null; inverse?: boolean }) 
   return <span className={`small ${good ? "ok" : "error"}`}> {v >= 0 ? "▲" : "▼"} {Math.abs(v)}%</span>;
 }
 
+// Нейла — ИИ-помощник ОПОРЫ по финансам
+const NEYLA_URL = "https://oporasamitovva.ru";
+const SpiralLogo = () => <svg width="30" height="30" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+  <path d="M16 16c0-1.5 1.8-2.2 3-1.2 1.6 1.4.8 4.2-1.4 4.8-3 .8-5.6-1.8-5-4.8.8-3.8 5.4-5.4 8.6-3.4 4 2.6 3.8 8.6-.2 11.2-4.6 3-10.8.6-12.4-4.6C7 12 10.4 6.4 16 6c5.6-.4 10 4 10 9.6" /></svg>;
+
 const DEPT_NAMES = ["1. Производственный отдел", "2. Отдел продаж", "3. Отдел маркетинга", "4. Админ-хоз отдел и Руководство", "5. Финансовый отдел"];
 
 export default function ClientPortal() {
@@ -73,11 +78,18 @@ export default function ClientPortal() {
   return (
     <>
       {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a></div>}
-      <h1 style={{ justifyContent: "space-between" }}>{p.name}
-        <button className="ghost" title="Светлая / тёмная тема" onClick={() => {
-          const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-          document.documentElement.dataset.theme = t; try { localStorage.setItem("theme", t); } catch {}
-        }}>◐ Тема</button></h1>
+      <div className="brand-head">
+        <div className="brand-logo"><SpiralLogo /><span>ОПОРА</span></div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <a className="neyla-btn" href={NEYLA_URL} target="_blank" rel="noreferrer">
+            <img src="neyla.jpg" alt="" /><span><b>Использовать Нейлу</b><small>помощник по финансам</small></span></a>
+          <button className="ghost" title="Светлая / тёмная тема" onClick={() => {
+            const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+            document.documentElement.dataset.theme = t; try { localStorage.setItem("theme", t); } catch {}
+          }}>◐</button>
+        </div>
+      </div>
+      <h1>{p.name}</h1>
       <div className="muted" style={{ marginTop: -12, marginBottom: 12 }}>Кабинет клиента ОПОРЫ</div>
       <LinkButtons links={p.links} />
       <div className="chips" style={{ marginTop: 12 }}>

@@ -157,3 +157,20 @@ html,body{overscroll-behavior-y:contain}
 .pnl-table thead th:first-child{border-top-left-radius:8px}.pnl-table thead th:last-child{border-top-right-radius:8px}
 .pnl-key td{background:linear-gradient(90deg,rgba(59,109,179,.18),rgba(255,255,255,0))}
 .chipbtn.on{background:linear-gradient(135deg,#1b3459,#3b6db3)!important;color:#fff!important;border-color:transparent!important}
+
+/* Бренд ОПОРЫ: тёмно-синий, лавандовый, оранжевый */
+:root{--brand-navy:#16304f;--brand-navy2:#25476f;--brand-lav:#9aa6d6;--brand-orange:#e8883a}
+.brand-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:-4px 0 14px;padding:12px 16px;border-radius:16px;
+  background:linear-gradient(120deg,var(--brand-navy) 0%,var(--brand-navy2) 70%,#3c5f8f 100%);color:#fff}
+.brand-logo{display:flex;align-items:center;gap:10px;color:var(--brand-lav)}
+.brand-logo span{font-size:26px;font-weight:300;letter-spacing:.08em}
+.neyla-btn{display:flex;align-items:center;gap:8px;padding:5px 16px 5px 5px;border-radius:999px;text-decoration:none;color:#fff;
+  background:linear-gradient(135deg,#1d5a8c,#2f86b8);border:1px solid rgba(143,214,255,.5);box-shadow:0 0 16px rgba(80,180,255,.35)}
+.neyla-btn img{width:36px;height:36px;border-radius:50%;object-fit:cover}
+.neyla-btn span{display:flex;flex-direction:column;line-height:1.1}.neyla-btn small{font-size:10px;opacity:.85}
+.brand-head .ghost{color:#fff}
+.g-blue{background:linear-gradient(135deg,var(--brand-navy) 0%,var(--brand-navy2) 55%,var(--brand-lav) 100%)}
+.g-orange{background:linear-gradient(135deg,var(--brand-orange) 0%,#f0a565 60%,#f8d3b0 100%)}
+.pnl-table thead th{background:linear-gradient(90deg,var(--brand-navy),var(--brand-navy2))}
+.chipbtn.on{background:linear-gradient(135deg,var(--brand-navy),var(--brand-navy2))!important}
+.dash-grid .card:not(.stat) h3,.pnl-table+h3,.card>h3{border-left-color:var(--brand-orange)}
