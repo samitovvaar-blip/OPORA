@@ -190,3 +190,8 @@ html,body{overscroll-behavior-y:contain}
 /* одинаковая высота блоков в каждом ряду */
 .dash-grid>.card,.dash-grid>div>.card{height:100%}
 .dash-grid .stat{min-height:132px;display:flex;flex-direction:column}
+/* шапка: месяц и ссылки — одинаковые кнопки */
+.brand-mid .linkbtn,.brand-month{height:40px;display:inline-flex;align-items:center;gap:6px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:600;
+  background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25);text-decoration:none;box-sizing:border-box}
+.brand-month select{font-size:14px;font-weight:600;padding:0;height:auto}
+.brand-mid .inline{gap:10px}
