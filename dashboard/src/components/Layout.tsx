@@ -49,11 +49,16 @@ export default function Layout() {
   }, [theme]);
   useEffect(() => setMore(false), [loc.pathname]);
 
-  const visible = clientOf ? [{ id: "client", title: "", items: [{ to: "/", label: "Мой кабинет", icon: "◎" }] }] : groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly : i.staff) })).filter((g) => g.items.length);
+  const visible = clientOf ? [{ id: "client", title: "", items: [{ to: "/?t=dash", label: "Мой кабинет", icon: "◎" }, { to: "/?t=rep", label: "Отчётность", icon: "📑" },
+    { to: "/?t=work", label: "Ход работы", icon: "🛠" }, { to: "/?t=plan", label: "Планирование", icon: "🎯" }] }] : groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly : i.staff) })).filter((g) => g.items.length);
   const flat = visible.flatMap((g) => g.items);
   const mobile = isOwner ? flat.filter((i) => MOBILE.includes(i.to)) : flat;
   const link = (n: Item) => (
-    <NavLink key={n.to} to={n.to} end={n.to === "/"} className="navlink"><span className="ni">{n.icon}</span>{n.label}</NavLink>
+    <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => {
+      // разделы кабинета клиента — по ?t=…; без параметра активен «Мой кабинет»
+      const on = n.to.includes("?t=") ? (loc.search || "?t=dash") === n.to.slice(n.to.indexOf("?")) : isActive;
+      return "navlink" + (on ? " active" : "");
+    }}><span className="ni">{n.icon}</span>{n.label}</NavLink>
   );
   const foot = (
     <div className="side-foot">

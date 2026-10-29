@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { deleteField, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
+import { useLocation } from "react-router-dom";
 import { useMarks } from "../lib/clients";
 import { ClientProject, monthKey, stamp } from "../lib/catalog";
 import { rub } from "../lib/money";
@@ -36,7 +37,10 @@ export default function ClientPortal() {
   const cid = isOwner ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
   const [p, setP] = useState<ClientProject | null>(null);
   const [err, setErr] = useState("");
-  const [tab, setTab] = useState<"work" | "pnl" | "dds" | "dash" | "plan" | "op">("dash");
+  const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op">("dash");
+  const [rep, setRep] = useState<"pnl" | "dds">("pnl");
+  const loc = useLocation();
+  useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
   const [pnl, setPnl] = useState<Pnl | null>(null);
   const [pnlErr, setPnlErr] = useState("");
   const [mi, setMi] = useState<number | null>(null);
@@ -64,6 +68,7 @@ export default function ClientPortal() {
   const cur = mi ?? (closed.length ? closed[closed.length - 1].i : filled.length ? filled[filled.length - 1].i : null);
   const prevIdx = cur != null ? filled.filter(({ i }) => i < cur).slice(-1)[0]?.i : undefined;
 
+  const view = tab === "rep" ? rep : tab;
   if (err) return <><h1>Кабинет клиента</h1><div className="card">🔒 {err}</div></>;
   if (!p) return <div className="muted">Загрузка…</div>;
 
@@ -92,16 +97,20 @@ export default function ClientPortal() {
       <h1>{p.name}</h1>
       <div className="muted" style={{ marginTop: -12, marginBottom: 12 }}>Кабинет клиента ОПОРЫ</div>
       <LinkButtons links={p.links} />
-      <div className="chips" style={{ marginTop: 12 }}>
-        {([["dash", "📊 Показатели"], ["pnl", "📑 Отчёт ОПиУ"], ["dds", "💸 Отчёт ДДС"], ["work", "🛠 Ход работы"], ["plan", "🎯 План"], ...(isOwner ? [["op", "📥 Данные от ОП"]] as const : [])] as const).map(([k, l]) =>
-          <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}{k === "work" && waiting ? ` · ⏳${waiting}` : ""}</button>)}
-      </div>
+      {isOwner && <div className="chips" style={{ marginTop: 12 }}>
+        {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).map(([k, l]) =>
+          <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
+      </div>}
+      {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
+        {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"]] as const).map(([k, l]) =>
+          <button key={k} className={`chipbtn ${rep === k ? "on" : ""}`} onClick={() => setRep(k)}>{l}</button>)}
+      </div>}
 
-      {(tab === "dash" || tab === "pnl" || tab === "dds") && !p.pnlUrl && <div className="card muted">Отчётность скоро появится здесь.</div>}
-      {(tab === "dash" || tab === "pnl" || tab === "dds") && pnlErr && <div className="card error">Не удалось загрузить отчёт: {pnlErr}</div>}
-      {(tab === "dash" || tab === "pnl" || tab === "dds") && p.pnlUrl && !pnl && !pnlErr && <div className="muted">Загружаю отчёт из таблицы…</div>}
+      {(view === "dash" || view === "pnl" || view === "dds") && !p.pnlUrl && <div className="card muted">Отчётность скоро появится здесь.</div>}
+      {(view === "dash" || view === "pnl" || view === "dds") && pnlErr && <div className="card error">Не удалось загрузить отчёт: {pnlErr}</div>}
+      {(view === "dash" || view === "pnl" || view === "dds") && p.pnlUrl && !pnl && !pnlErr && <div className="muted">Загружаю отчёт из таблицы…</div>}
 
-      {(tab === "dash" || tab === "pnl" || tab === "dds") && pnl && cur != null && <div className="row small" style={{ maxWidth: 520, marginTop: 10 }}>
+      {(view === "dash" || view === "pnl" || view === "dds") && pnl && cur != null && <div className="row small" style={{ maxWidth: 520, marginTop: 10 }}>
         <span>Месяц: <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
           {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select></span>
         <span className={pnl.months[cur].closed ? "ok" : "muted"}>{pnl.months[cur].closed ? "✓ " + pnl.months[cur].status : "предварительно"}</span>
@@ -183,7 +192,7 @@ export default function ClientPortal() {
         </div>
       </>}
 
-      {tab === "pnl" && pnl && cur != null && <div className="card" style={{ overflowX: "auto", maxWidth: 820 }}>
+      {view === "pnl" && pnl && cur != null && <div className="card" style={{ overflowX: "auto", maxWidth: 820 }}>
         <h3 style={{ marginTop: 0 }}>Отчёт о прибылях и убытках · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
         <div className="muted small" style={{ marginBottom: 8 }}>По дате для отчёта. Нажми на отдел или процесс, чтобы раскрыть.</div>
         {(() => {
@@ -214,7 +223,7 @@ export default function ClientPortal() {
         {pnl.at && <div className="muted small" style={{ marginTop: 6 }}>Данные из таблицы на {new Date(pnl.at).toLocaleString("ru-RU")}</div>}
       </div>}
 
-      {tab === "dds" && pnl && cur != null && (pnl.dds ? (() => {
+      {view === "dds" && pnl && cur != null && (pnl.dds ? (() => {
         const B = pnl.balances, mk = pnl.months[cur].mk || "", st = p.ddsStart;
         // ДДС — только лист «ДДС БОТ ОСНОВНЫЕ» (все его счета); фонды — отдельной таблицей из «ДДС БОТ ФОНДЫ»
         const accs = B?.accounts || [], sel = [...new Set((pnl.ddsRaw?.rows || []).map((r) => r.account || "").filter((a) => !/^фонд/i.test(a)))];
