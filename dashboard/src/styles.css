@@ -264,3 +264,10 @@ html,body{overscroll-behavior-y:contain}
   .pnl-table td:first-child{word-break:break-word}
   .soft-card,.card{overflow-x:auto;-webkit-overflow-scrolling:touch}
 }
+@media (max-width:720px){
+  /* таблица плана и другие узкие таблицы помещаются в экран */
+  .soft-card .pnl-table{table-layout:auto;width:100%}
+  .soft-card .pnl-table td:first-child,.soft-card .pnl-table th:first-child{white-space:normal;min-width:90px}
+  .soft-card .pnl-table td,.soft-card .pnl-table th{padding:6px 6px;font-size:12px}
+  .soft-card .pnl-key td{font-size:13px}
+}

@@ -436,7 +436,7 @@ export default function ClientPortal() {
             : <div className="comment" style={{ whiteSpace: "pre-wrap" }}>{pl.note || "—"}</div>}
         </div>
         <div style={{ maxWidth: 900 }}><PayCalendar p={p} wsId={wsId!} mk={pmk} planRevenue={pRev} isOwner={isOwner}
-          startBalance={pnl?.balances ? pnl.balances.accounts.filter((a) => /^1\./.test(a.group)).reduce((x, a) => x + a.balance, 0) : null} /></div></>;
+          startBalance={pnl?.balances ? pnl.balances.accounts.filter((a) => /^1\./.test(a.group) && !/между|невыяснен/i.test(a.account)).reduce((x, a) => x + a.balance, 0) : null} /></div></>;
       })()}
     </>
   );
