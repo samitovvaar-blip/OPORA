@@ -121,7 +121,7 @@ export default function ClientPortal() {
           <div style={{ display: "contents" }}>
           <div className="card stat g-blue"><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
           <div className="card stat g-orange"><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
-          <div className="card stat g-blue"><div className="muted">Чистая прибыль</div><b className={prof != null && prof < 0 ? "error" : "ok"}>{prof != null ? rub(prof) : "—"}</b><Delta v={delta(prof, prevProf)} /></div>
+          <div className="card stat g-green"><div className="muted">Чистая прибыль</div><b className={prof != null && prof < 0 ? "error" : "ok"}>{prof != null ? rub(prof) : "—"}</b><Delta v={delta(prof, prevProf)} /></div>
           <div className="card stat g-orange"><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
 
           {pnl.depts.length > 0 && <div className="card span2">
@@ -182,11 +182,11 @@ export default function ClientPortal() {
             <h3>Выручка и прибыль по месяцам</h3>
             <div className="chart">{series.map((s, k) => (
               <div key={k} className="chart-col" title={`Выручка ${rub(s.rev)} · Прибыль ${rub(s.prof)}`}>
-                <div className="chart-bars"><div className="bar-i" style={{ height: s.rev / max * 100 + "%", opacity: s.closed ? 1 : .5 }} /><div className="bar-e" style={{ height: Math.max(0, s.prof) / max * 100 + "%", background: "var(--accent)" }} /></div>
+                <div className="chart-bars"><div className="bar-i" style={{ height: s.rev / max * 100 + "%", opacity: s.closed ? 1 : .5, background: "#25476f" }} /><div className="bar-e" style={{ height: Math.max(0, s.prof) / max * 100 + "%", background: "#16a34a", opacity: s.closed ? 1 : .5 }} /></div>
                 <div className="small muted">{s.label}</div>
                 <div className="small">{pct(s.prof, s.rev) != null ? pct(s.prof, s.rev) + "%" : ""}</div>
               </div>))}</div>
-            <div className="small muted"><span className="dot i" /> выручка <span className="dot" style={{ background: "var(--accent)" }} /> прибыль · внизу рентабельность · бледные — не сданы</div>
+            <div className="small muted"><span className="dot" style={{ background: "#25476f" }} /> выручка <span className="dot" style={{ background: "#16a34a" }} /> прибыль · внизу рентабельность · бледные — не сданы</div>
           </div>
 
         </div>

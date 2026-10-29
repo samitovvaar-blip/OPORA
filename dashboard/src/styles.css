@@ -185,3 +185,5 @@ html,body{overscroll-behavior-y:contain}
 .brand-month{display:flex;align-items:center;gap:6px;font-size:13px;color:#fff;background:rgba(255,255,255,.1);border-radius:10px;padding:4px 8px}
 .brand-month select{background:transparent;color:#fff;border:0;font-weight:700}.brand-month option{color:#000}
 .brand-month .ok{color:#7ee0a8}
+.g-green{background:linear-gradient(135deg,#0f6b3a 0%,#16a34a 60%,#86e0a8 100%);color:#fff;border:0}
+.g-green .muted{color:rgba(255,255,255,.85)}.g-green .ok,.g-green .error{color:#fff}
