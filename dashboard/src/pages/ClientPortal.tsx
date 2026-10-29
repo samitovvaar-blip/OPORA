@@ -119,10 +119,10 @@ export default function ClientPortal() {
       {tab === "dash" && pnl && cur != null && <>
         <div className="dash-grid" style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "stretch" }}>
           <div style={{ display: "contents" }}>
-          <div className="card stat g-blue"><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
-          <div className="card stat g-orange"><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
-          <div className="card stat g-green"><div className="muted">Чистая прибыль</div><b className={prof != null && prof < 0 ? "error" : "ok"}>{prof != null ? rub(prof) : "—"}</b><Delta v={delta(prof, prevProf)} /></div>
-          <div className="card stat g-orange"><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
+          <div className="card stat g-blue tile"><span className="tile-ico">💰</span><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
+          <div className="card stat g-orange tile"><span className="tile-ico">💸</span><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
+          <div className="card stat g-green tile"><span className="tile-ico">💎</span><div className="muted">Чистая прибыль</div><b className={prof != null && prof < 0 ? "error" : "ok"}>{prof != null ? rub(prof) : "—"}</b><Delta v={delta(prof, prevProf)} /></div>
+          <div className="card stat g-orange tile"><span className="tile-ico">📈</span><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
 
           {pnl.depts.length > 0 && <div className="card span2">
             <h3 style={{ marginTop: 0 }}>Структура расходов · {pnl.months[cur].label}</h3>

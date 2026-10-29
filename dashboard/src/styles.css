@@ -209,3 +209,14 @@ html,body{overscroll-behavior-y:contain}
 .pill-info{background:rgba(59,109,179,.15);color:#3b6db3}
 .work-calls{margin:18px 18px 8px!important}
 .work-card>*:last-child{margin-bottom:18px}
+/* Плитки как карточки-баннеры: скругление, тень, объёмная иконка справа */
+.tile{position:relative;overflow:hidden;border-radius:22px!important;padding:20px 22px!important;box-shadow:0 12px 28px rgba(22,48,79,.25)}
+.tile .tile-ico{position:absolute;right:14px;top:50%;transform:translateY(-50%) rotate(-8deg);font-size:58px;filter:drop-shadow(0 10px 14px rgba(0,0,0,.3));opacity:.95}
+.tile::after{content:"";position:absolute;right:-40px;top:-40px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.12)}
+.tile>*:not(.tile-ico){position:relative;z-index:1;max-width:72%}
+/* Нижние блоки: голубой градиент снизу вверх */
+.dash-grid .card:not(.stat){background:linear-gradient(0deg,#d6e6fb 0%,#eef4fd 45%,var(--surface) 100%);border-color:#d6e3f5;border-radius:20px}
+:root[data-theme="dark"] .dash-grid .card:not(.stat){background:linear-gradient(0deg,#1e3656 0%,#1a2638 50%,var(--surface) 100%);border-color:#263a55}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .dash-grid .card:not(.stat){background:linear-gradient(0deg,#1e3656 0%,#1a2638 50%,var(--surface) 100%);border-color:#263a55}}
+/* Верхние 4 плитки — сплошной цвет, без градиента */
+.tile.g-blue{background:#25476f}.tile.g-orange{background:#e8883a}.tile.g-green{background:#16a34a}
