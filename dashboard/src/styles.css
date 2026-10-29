@@ -187,3 +187,6 @@ html,body{overscroll-behavior-y:contain}
 .brand-month .ok{color:#7ee0a8}
 .g-green{background:linear-gradient(135deg,#0f6b3a 0%,#16a34a 60%,#86e0a8 100%);color:#fff;border:0}
 .g-green .muted{color:rgba(255,255,255,.85)}.g-green .ok,.g-green .error{color:#fff}
+/* одинаковая высота блоков в каждом ряду */
+.dash-grid>.card,.dash-grid>div>.card{height:100%}
+.dash-grid .stat{min-height:132px;display:flex;flex-direction:column}

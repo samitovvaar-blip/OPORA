@@ -117,7 +117,7 @@ export default function ClientPortal() {
 
 
       {tab === "dash" && pnl && cur != null && <>
-        <div className="dash-grid" style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "start" }}>
+        <div className="dash-grid" style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "stretch" }}>
           <div style={{ display: "contents" }}>
           <div className="card stat g-blue"><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
           <div className="card stat g-orange"><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
