@@ -216,13 +216,14 @@ export default function ClientPortal() {
 
       {tab === "dds" && pnl && cur != null && (pnl.dds ? (() => {
         const B = pnl.balances, mk = pnl.months[cur].mk || "", st = p.ddsStart;
-        const accs = B?.accounts || [], sel = accSel ?? accs.filter((a) => /^1\./.test(a.group)).map((a) => a.account);
+        // ДДС — только лист «ДДС БОТ ОСНОВНЫЕ» (все его счета); фонды — отдельной таблицей из «ДДС БОТ ФОНДЫ»
+        const accs = B?.accounts || [], sel = [...new Set((pnl.ddsRaw?.rows || []).map((r) => r.account || "").filter((a) => !/^фонд/i.test(a)))];
         const D = B && pnl.ddsRaw ? buildDds(pnl.ddsRaw, sel) : pnl.dds;
         const ddsM = D.months.find((m) => m.label === pnl.months[cur].label && m.year === pnl.months[cur].year);
         const netOf = (m: { col: number }) => D.net[m.col] || 0;
         // остаток на начало: остатки из «БАЛАНСЫ СЕЙЧАС» на дату ввода + все движения после неё до выбранного месяца
         const bm = B?.start.match(/(\d+)\.(\d+)\.(\d{4})/), bMk = bm ? `${bm[3]}-${bm[2].padStart(2, "0")}` : "";
-        const startBal = B && bMk ? D.months.filter((m) => m.mk! > bMk && m.mk! < mk).reduce((x, m) => x + netOf(m), accs.filter((a) => sel.includes(a.account)).reduce((x, a) => x + a.start, 0))
+        const startBal = B && bMk ? D.months.filter((m) => m.mk! > bMk && m.mk! < mk).reduce((x, m) => x + netOf(m), accs.filter((a) => /^1\./.test(a.group)).reduce((x, a) => x + a.start, 0))
           : st && st.mk <= mk ? D.months.filter((m) => m.mk! >= st.mk && m.mk! < mk).reduce((x, m) => x + netOf(m), st.amount) : null;
         const c = ddsM?.col, inflow = c != null ? D.inflow[c] || 0 : 0, outflow = c != null ? D.outflow[c] || 0 : 0, other = c != null ? D.other?.[c] || 0 : 0;
         const endBal = startBal != null ? startBal + inflow + outflow + other : null;
@@ -246,10 +247,7 @@ export default function ClientPortal() {
         </>;
         return <div className="card" style={{ overflowX: "auto", maxWidth: 720 }}>
           <h3 style={{ marginTop: 0 }}>Движение денежных средств · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
-          <div className="muted small" style={{ marginBottom: 8 }}>По дате операции. Переводы между своими счетами не учитываются. Нажми на строку, чтобы раскрыть.</div>
-          {accs.length > 0 && <div className="chips" style={{ marginBottom: 8 }}>{accs.map((a) => { const on = sel.includes(a.account);
-            return <button key={a.account} className={`chipbtn ${on ? "on" : ""}`} title={a.group}
-              onClick={() => setAccSel(on ? sel.filter((x) => x !== a.account) : [...sel, a.account])}>{a.account.replace(/\s*\d{20}\s*/, " ").slice(0, 34)}</button>; })}</div>}
+          <div className="muted small" style={{ marginBottom: 8 }}>По дате операции, лист «ДДС БОТ ОСНОВНЫЕ». Нажми на строку, чтобы раскрыть.</div>
           <table className="pnl-table"><tbody>
             <tr className="pnl-sec"><td>Остаток на начало месяца</td><Money v={startBal} /></tr>
             <Block k="in" title="ФАКТ ПРИХОД" total={inflow} />
@@ -257,11 +255,6 @@ export default function ClientPortal() {
             {other !== 0 && <tr className="small muted"><td>Прочие движения (таблица ниже)</td><Money v={other} /></tr>}
             <tr className="pnl-sec"><td>Остаток на конец месяца</td><Money v={endBal} /></tr>
           </tbody></table>
-          {groups.other.some((g) => g.v) && <>
-            <h3 style={{ marginTop: 18 }}>Прочие движения</h3>
-            <div className="muted small" style={{ marginBottom: 6 }}>Фонды, «Для ДДС», «Не выяснено», переводы между счетами — не приход и не расход бизнеса.</div>
-            <table className="pnl-table"><tbody><Block k="other" title="ПРОЧЕЕ ИТОГО" total={other} /></tbody></table>
-          </>}
           {(() => {
             // Фонды: каждый фонд — отдельный счёт, минуса быть не может
             const funds = accs.filter((a) => /фонд/i.test(a.group));
@@ -287,13 +280,9 @@ export default function ClientPortal() {
               </table>
             </>;
           })()}
-          {accs.length > 0 && <>
-            <h3 style={{ marginTop: 18 }}>Остатки на счетах · сверка с выпиской</h3>
-            <table className="pnl-table"><tbody>{accs.map((a, k) => <Fragment key={a.account}>
-              {(k === 0 || accs[k - 1].group !== a.group) && <tr className="pnl-sec"><td colSpan={3}>{a.group}</td></tr>}
-              <tr><td>{a.account}</td><Money v={a.balance} />
-                <td className={`small ${a.checked ? "ok" : "muted"}`}>{a.checked ? "✓ сверено" : "не сверено"}{a.checkedAt ? " " + a.checkedAt.slice(0, 10) : ""}</td></tr>
-            </Fragment>)}</tbody></table>
+          {groups.other.some((g) => g.v) && <>
+            <h3 style={{ marginTop: 18 }}>Прочее</h3>
+            <table className="pnl-table"><tbody><Block k="other" title="ПРОЧЕЕ ИТОГО" total={other} /></tbody></table>
           </>}
           {isOwner && !B && <div className="row small" style={{ marginTop: 10 }}>
             <span>Стартовый остаток на начало <select defaultValue={st?.mk || D.months[0]?.mk} id="dds-st-mk">{D.months.map((m) => <option key={m.mk} value={m.mk}>{m.label} {m.year}</option>)}</select></span>
