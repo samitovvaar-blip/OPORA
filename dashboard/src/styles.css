@@ -146,3 +146,14 @@ html,body{overscroll-behavior-y:contain}
 .dash-grid .span2 { grid-column: span 2; margin: 0; }
 .dash-grid .stat { margin: 0; }
 @media (max-width: 720px) { .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+/* Акценты кабинета: градиенты синий → белый / оранжевый */
+.g-blue{background:linear-gradient(135deg,#1b3459 0%,#3b6db3 60%,#8fb3e8 100%);color:#fff;border:0}
+.g-orange{background:linear-gradient(135deg,#e8873a 0%,#f2a865 60%,#fbd9b8 100%);color:#fff;border:0}
+.g-blue .muted,.g-orange .muted{color:rgba(255,255,255,.85)}
+.g-blue .ok,.g-orange .ok{color:#fff}.g-blue .error,.g-orange .error{color:#fff}
+.dash-grid .card:not(.stat) h3,.pnl-table+h3,.card>h3{border-left:4px solid #e8873a;padding-left:8px}
+.pnl-table thead th{background:linear-gradient(90deg,#1b3459,#3b6db3);color:#fff}
+.pnl-table thead th:first-child{border-top-left-radius:8px}.pnl-table thead th:last-child{border-top-right-radius:8px}
+.pnl-key td{background:linear-gradient(90deg,rgba(59,109,179,.18),rgba(255,255,255,0))}
+.chipbtn.on{background:linear-gradient(135deg,#1b3459,#3b6db3)!important;color:#fff!important;border-color:transparent!important}

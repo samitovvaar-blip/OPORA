@@ -98,20 +98,31 @@ export default function ClientPortal() {
       {tab === "dash" && pnl && cur != null && <>
         <div className="dash-grid" style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "start" }}>
           <div style={{ display: "contents" }}>
-          <div className="card stat"><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
-          <div className="card stat"><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
-          <div className="card stat"><div className="muted">Чистая прибыль</div><b className={prof != null && prof < 0 ? "error" : "ok"}>{prof != null ? rub(prof) : "—"}</b><Delta v={delta(prof, prevProf)} /></div>
-          <div className="card stat"><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
+          <div className="card stat g-blue"><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
+          <div className="card stat g-orange"><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
+          <div className="card stat g-blue"><div className="muted">Чистая прибыль</div><b className={prof != null && prof < 0 ? "error" : "ok"}>{prof != null ? rub(prof) : "—"}</b><Delta v={delta(prof, prevProf)} /></div>
+          <div className="card stat g-orange"><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
 
           {pnl.depts.length > 0 && <div className="card span2">
             <h3 style={{ marginTop: 0 }}>Структура расходов · {pnl.months[cur].label}</h3>
             <div className="row small" style={{ marginBottom: 6 }}><b>Расходы итого</b><b>{exp != null ? rub(exp) : "—"} <span className="muted">· {exp != null && rev ? (exp / rev * 100).toFixed(1) : "—"}% выручки</span></b></div>
-            {pnl.depts.map((d) => {
-              const val = Math.abs(d.values[cur] || 0); const share = rev ? val / rev * 100 : 0;
-              return <div key={d.name} style={{ margin: "3px 0" }}>
-                <div className="row small"><span>{d.name.replace(/^\d+\.\s*/, "")}</span><span>{rub(val)} <span className="muted">· {share.toFixed(1)}% выручки</span></span></div>
-                <div className="progress" style={{ margin: 0, height: 4 }}><div style={{ width: Math.min(100, share) + "%", background: "#e8873a" }} /></div></div>;
-            })}
+            {(() => {
+              // круговая диаграмма: доля каждого отдела в расходах
+              const COLORS = ["#1b3459", "#3b6db3", "#8fb3e8", "#e8873a", "#f6c08a"];
+              const ds = pnl.depts.map((d, n) => ({ n: d.name.replace(/^\d+\.\s*/, ""), v: Math.abs(d.values[cur] || 0), c: COLORS[n % COLORS.length] }));
+              const tot = ds.reduce((x, d) => x + d.v, 0) || 1;
+              let acc = 0;
+              const grad = ds.map((d) => { const from = acc / tot * 360; acc += d.v; return `${d.c} ${from}deg ${acc / tot * 360}deg`; }).join(", ");
+              return <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ width: 150, height: 150, borderRadius: "50%", background: `conic-gradient(${grad})`, display: "grid", placeItems: "center", flexShrink: 0 }}>
+                  <div style={{ width: 92, height: 92, borderRadius: "50%", background: "var(--surface)", display: "grid", placeItems: "center", textAlign: "center" }} className="small">
+                    <div><div className="muted">расходы</div><b>{rev ? (tot / rev * 100).toFixed(0) + "%" : ""}</b><div className="muted">выручки</div></div></div>
+                </div>
+                <div style={{ flex: 1, minWidth: 180 }}>{ds.map((d) => <div key={d.n} className="row small" style={{ padding: "3px 0" }}>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: d.c, marginRight: 6 }} />{d.n}</span>
+                  <span>{rub(d.v)} <span className="muted">· {(d.v / tot * 100).toFixed(0)}%</span></span></div>)}</div>
+              </div>;
+            })()}
           </div>}
 
           {pnl.metrics && (() => {
