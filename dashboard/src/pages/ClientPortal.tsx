@@ -24,7 +24,7 @@ function Delta({ v, inverse = false }: { v: number | null; inverse?: boolean }) 
 }
 
 // Нейла — ИИ-помощник ОПОРЫ по финансам
-const NEYLA_URL = "https://oporasamitovva.ru";
+const NEYLA_URL = "https://t.me/dsmitovvaservbot";
 const SpiralLogo = () => <svg width="30" height="30" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
   <path d="M16 16c0-1.5 1.8-2.2 3-1.2 1.6 1.4.8 4.2-1.4 4.8-3 .8-5.6-1.8-5-4.8.8-3.8 5.4-5.4 8.6-3.4 4 2.6 3.8 8.6-.2 11.2-4.6 3-10.8.6-12.4-4.6C7 12 10.4 6.4 16 6c5.6-.4 10 4 10 9.6" /></svg>;
 
