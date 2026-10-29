@@ -179,3 +179,9 @@ html,body{overscroll-behavior-y:contain}
 .neg{color:var(--brand-orange,#e8883a)}
 .profit{color:var(--won)!important;font-weight:800!important}
 .profit.error{color:var(--lost)!important}
+.brand-mid{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;justify-content:center}
+.brand-mid .inline{margin:0!important}
+.brand-mid .linkbtn{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.25)}
+.brand-month{display:flex;align-items:center;gap:6px;font-size:13px;color:#fff;background:rgba(255,255,255,.1);border-radius:10px;padding:4px 8px}
+.brand-month select{background:transparent;color:#fff;border:0;font-weight:700}.brand-month option{color:#000}
+.brand-month .ok{color:#7ee0a8}

@@ -85,6 +85,12 @@ export default function ClientPortal() {
       {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a></div>}
       <div className="brand-head">
         <div className="brand-logo"><SpiralLogo /><span>ОПОРА</span></div>
+        <div className="brand-mid">
+          {pnl && cur != null && <label className="brand-month">📅 <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
+            {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
+            <span className={pnl.months[cur].closed ? "ok" : ""}>{pnl.months[cur].closed ? "✓ сдано" : "предварительно"}</span></label>}
+          <LinkButtons links={p.links} />
+        </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <a className="neyla-btn" href={NEYLA_URL} target="_blank" rel="noreferrer">
             <img src="neyla.jpg" alt="" /><span><b>Использовать Нейлу</b><small>помощник по финансам</small></span></a>
@@ -96,7 +102,6 @@ export default function ClientPortal() {
       </div>
       <h1>{p.name}</h1>
       <div className="muted" style={{ marginTop: -12, marginBottom: 12 }}>Кабинет клиента ОПОРЫ</div>
-      <LinkButtons links={p.links} />
       {isOwner && <div className="chips" style={{ marginTop: 12 }}>
         {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
@@ -110,11 +115,6 @@ export default function ClientPortal() {
       {(view === "dash" || view === "pnl" || view === "dds") && pnlErr && <div className="card error">Не удалось загрузить отчёт: {pnlErr}</div>}
       {(view === "dash" || view === "pnl" || view === "dds") && p.pnlUrl && !pnl && !pnlErr && <div className="muted">Загружаю отчёт из таблицы…</div>}
 
-      {(view === "dash" || view === "pnl" || view === "dds") && pnl && cur != null && <div className="row small" style={{ maxWidth: 520, marginTop: 10 }}>
-        <span>Месяц: <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
-          {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select></span>
-        <span className={pnl.months[cur].closed ? "ok" : "muted"}>{pnl.months[cur].closed ? "✓ " + pnl.months[cur].status : "предварительно"}</span>
-      </div>}
 
       {tab === "dash" && pnl && cur != null && <>
         <div className="dash-grid" style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "start" }}>
