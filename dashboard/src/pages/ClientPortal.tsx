@@ -73,7 +73,11 @@ export default function ClientPortal() {
   return (
     <>
       {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a></div>}
-      <h1>{p.name}</h1>
+      <h1 style={{ justifyContent: "space-between" }}>{p.name}
+        <button className="ghost" title="Светлая / тёмная тема" onClick={() => {
+          const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+          document.documentElement.dataset.theme = t; try { localStorage.setItem("theme", t); } catch {}
+        }}>◐ Тема</button></h1>
       <div className="muted" style={{ marginTop: -12, marginBottom: 12 }}>Кабинет клиента ОПОРЫ</div>
       <LinkButtons links={p.links} />
       <div className="chips" style={{ marginTop: 12 }}>
