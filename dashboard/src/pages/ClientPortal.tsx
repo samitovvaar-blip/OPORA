@@ -152,12 +152,11 @@ export default function ClientPortal() {
             const mk = pnl.months[cur].mk || "", kp = p.kpi?.[mk] || {};
             const cost = Math.abs(at("d1") || 0), mkt = Math.abs(at("d3") || 0);
             const per = (a: number, b?: number) => b ? rub(Math.round(a / b)) : "—";
-            const Row = ({ l, v, c }: { l: string; v: string; c?: string }) => <div className="row small" style={{ margin: "1px 0", padding: "2px 0" }}><span style={{ color: c }}>{l}</span><b>{v}</b></div>;
+            const Row = ({ l, v, c }: { l: string; v: string; c?: string }) => <div className="row small" style={{ margin: "1px 0", padding: "2px 0" }}><span style={{ color: c, fontWeight: 700 }}>{l}</span><b>{v}</b></div>;
             const Num = ({ f, l }: { f: "units" | "newClients" | "orders"; l: string }) => <div className="row small" style={{ margin: "1px 0", padding: "2px 0" }}><span>{l}</span>
               <b>{kp[f] ?? "—"}</b></div>;
             return <><div className="card span2">
               <h3 style={{ marginTop: 0 }}>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
-              <div className="muted small" style={{ marginBottom: 4 }}>1. Доля от выручки</div>
               <Row l="Дивиденды" v={sh("dividends")} c="#b02a2a" />
               <Row l="Налоги" v={sh("taxes")} c="#8a3ab9" />
               <Row l="Производство аутсорс" v={sh("outsource")} c="#2a5bd7" />
