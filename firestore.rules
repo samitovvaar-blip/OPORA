@@ -62,15 +62,16 @@ service cloud.firestore {
 
     // Проекты-клиенты: ведёт владелец; сотрудник видит только открытые ему, клиент — свой
     match /workspaces/{ws}/clients/{cid} {
+      // сотрудник видит только своих клиентов (его почта в staffEmails) и общие сроки (calendarOpen)
       allow read: if isOwner(ws) || isClient(resource.data) || (isMember(ws)
-        && (resource.data.monthlyOpen == true || resource.data.calendarOpen == true));
+        && (request.auth.token.email.lower() in resource.data.get("staffEmails", []) || resource.data.calendarOpen == true));
       allow write: if isOwner(ws);
 
       // Отметки за месяц: сотрудник ставит галочку и пишет комментарий
       match /months/{month}/items/{id} {
         function opened() {
           let c = get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data;
-          return c.monthlyOpen == true || c.calendarOpen == true;
+          return request.auth.token.email.lower() in c.get("staffEmails", []) || c.calendarOpen == true;
         }
         allow read: if isOwner(ws) || (isMember(ws) && opened())
           || isClient(get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data);

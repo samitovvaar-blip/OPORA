@@ -25,7 +25,7 @@ const groups = (): Group[] => [
   { id: "ops", title: "Операционка", items: [
     { to: "/projects", label: "Проекты", icon: "◆" },
     { to: "/tasks", label: "Задания", icon: "▦", staff: true },
-    { to: "/monthly", label: "Ежемесячные", icon: "↻", staff: true, staffOnly: true },
+    { to: "/monthly", label: "Мои клиенты", icon: "👥", staff: true, staffOnly: true },
   ] },
   { id: "ref", title: "Справочник", items: [
     { to: "/products", label: "Продукты", icon: "★" },

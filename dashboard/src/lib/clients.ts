@@ -1,7 +1,7 @@
 // Подписки на проекты-клиенты и отметки месяца (общее пространство владельца)
 import { useEffect, useState } from "react";
 import { collection, doc, onSnapshot, query, setDoc, where } from "firebase/firestore";
-import { db } from "./firebase";
+import { auth, db } from "./firebase";
 import { useWorkspace } from "./workspace";
 import { ClientProject, Mark } from "./catalog";
 
@@ -16,7 +16,7 @@ export function useClientProjects() {
     const err = (e: any) => setError(e.code === "permission-denied" ? (isOwner ? "Firebase не пускает: опубликуй свежие правила Firestore" : "Доступ закрыт владельцем") : e.message);
     // Сотрудник читает только открытые ему проекты — запросы должны совпадать с правилами
     const subs = isOwner ? [onSnapshot(col, put("all"), err)]
-      : [onSnapshot(query(col, where("monthlyOpen", "==", true)), put("m"), err),
+      : [onSnapshot(query(col, where("staffEmails", "array-contains", (auth.currentUser?.email || "").toLowerCase())), put("m"), err),
          onSnapshot(query(col, where("calendarOpen", "==", true)), put("c"), err)];
     return () => subs.forEach((u) => u());
   }, [wsId, isOwner]);

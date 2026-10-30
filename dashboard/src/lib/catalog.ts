@@ -97,7 +97,8 @@ export const shown = (it: Item, flags: Partial<Record<Flag, boolean>>) => !it.on
 // Проект/клиент в общем пространстве: workspaces/{ws}/clients/{id}
 export interface ClientProject {
   id: string; name: string; flags: Partial<Record<Flag, boolean>>;
-  monthlyOpen: boolean;   // сотрудник видит чек-лист
+  monthlyOpen: boolean;   // устарело: теперь staffEmails
+  staffEmails?: string[];  // сотрудники, которым открыт клиент (чек-лист, ссылки)
   calendarOpen: boolean;  // сотрудник видит задачи с дедлайном в календаре
   links?: { sheet?: string; folder?: string; chat?: string };
   // Кабинет клиента

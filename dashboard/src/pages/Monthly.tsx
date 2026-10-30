@@ -1,11 +1,11 @@
 // Ежемесячные задачи по проектам-клиентам. Владелец видит все проекты,
 // сотрудник — только те, где владелец открыл чек-лист.
 import { useEffect, useState } from "react";
-import { deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { arrayRemove, arrayUnion, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import Payments from "../components/Payments";
 import ClientReport from "../components/ClientReport";
 import ClientAccess from "../components/ClientAccess";
-import { db } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { useClientProjects, useMarks } from "../lib/clients";
 import { monthKey } from "../lib/catalog";
@@ -18,7 +18,9 @@ const MONTHS = ["Январь","Февраль","Март","Апрель","Ма�
 export default function Monthly({ embedded = false }: { embedded?: boolean }) {
   const { wsId, isOwner, ws } = useWorkspace();
   const { list: all, error } = useClientProjects();
-  const list = isOwner ? all : all.filter((p) => p.monthlyOpen);
+  const me = (auth.currentUser?.email || "").toLowerCase();
+  const list = isOwner ? all : all.filter((p) => (p.staffEmails || []).includes(me));
+  const [opened, setOpened] = useState(isOwner || !!new URLSearchParams(location.hash.split("?")[1]).get("p"));
   const [sel, setSel] = useState<string | null>(() => new URLSearchParams(location.hash.split("?")[1]).get("p"));
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [editFlags, setEditFlags] = useState(false);
@@ -33,11 +35,16 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
 
   return (
     <>
-      {!embedded && <h1>Ежемесячные задачи</h1>}
+      {!embedded && <h1>{isOwner ? "Ежемесячные задачи" : "Мои клиенты"}</h1>}
       {error && <div className="error">{error}</div>}
-      {!list.length ? <div className="card">{isOwner ? <>Пока нет проектов. Создай первый кнопкой «+ Новый проект» — список задач подберётся сам.</> : "Пока нет открытых тебе проектов."}</div> : <>
-        <div className="chips">{list.map((x) =>
-          <button key={x.id} className={`chipbtn ${x.id === p?.id ? "on" : ""}`} onClick={() => setSel(x.id)}>{x.name}</button>)}</div>
+      {!list.length ? <div className="card">{isOwner ? <>Пока нет проектов. Создай первый кнопкой «+ Новый проект» — список задач подберётся сам.</> : "Пока нет открытых тебе клиентов."}</div>
+      : !isOwner && !opened ? <div className="bento">{list.map((x) =>
+          <button key={x.id} className="card client-card" onClick={() => { setSel(x.id); setOpened(true); }}>
+            <b>{x.name}</b><span className="small muted">Чек-лист · таблица · документы · чат →</span></button>)}</div>
+      : <>
+        {!isOwner && <button className="ghost" onClick={() => setOpened(false)}>← Все мои клиенты</button>}
+        {isOwner && <div className="chips">{list.map((x) =>
+          <button key={x.id} className={`chipbtn ${x.id === p?.id ? "on" : ""}`} onClick={() => setSel(x.id)}>{x.name}</button>)}</div>}
         {p && <div className="card" style={{ maxWidth: 860 }}>
           <div className="row">
             <button className="ghost" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
@@ -45,8 +52,11 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
             <button className="ghost" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
           </div>
           {isOwner && <div className="inline" style={{ marginTop: 8 }}>
-            <button className={p.monthlyOpen ? "" : "ghost"} onClick={() => upd({ monthlyOpen: !p.monthlyOpen })}>
-              {p.monthlyOpen ? "🔓 Чек-лист открыт сотруднику" : "🔒 Чек-лист закрыт"}</button>
+            <span className="small muted" style={{ alignSelf: "center" }}>👤 Сотрудники клиента:</span>
+            {(ws?.members || []).length ? (ws!.members).map((em) => { const on = (p.staffEmails || []).includes(em);
+              return <button key={em} className={on ? "" : "ghost"} title={on ? "Клиент открыт сотруднику — нажми, чтобы закрыть" : "Открыть клиента сотруднику"}
+                onClick={() => upd({ staffEmails: on ? arrayRemove(em) : arrayUnion(em) })}>{on ? "🔓 " : "🔒 "}{em}</button>; })
+              : <span className="small muted">сотрудников пока нет (Админка)</span>}
             <button className={p.calendarOpen ? "" : "ghost"} onClick={() => upd({ calendarOpen: !p.calendarOpen })}>
               {p.calendarOpen ? "🔓 Сроки в календаре сотрудника" : "🔒 Сроки только у меня"}</button>
             <button onClick={() => setReport(true)}>📄 Отчёт клиенту</button>

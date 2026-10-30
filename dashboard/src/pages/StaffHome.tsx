@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { useAuth } from "../lib/auth";
 import { useWorkspace } from "../lib/workspace";
 import { today } from "../lib/store";
@@ -48,7 +48,7 @@ export default function StaffHome() {
   const calProjects = projects.filter((p) => p.calendarOpen);
   const dl = projectDeadlines(calProjects, marks, mk).filter((x) => !x.done && x.date <= d).sort((a, b) => a.date.localeCompare(b.date));
   const soon = projectDeadlines(calProjects, marks, mk).filter((x) => !x.done && x.date > d).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
-  const checklists = projects.filter((p) => p.monthlyOpen);
+  const checklists = projects.filter((p) => (p.staffEmails || []).includes((auth.currentUser?.email || "").toLowerCase()));
   const left = todayTasks.filter((a) => !doneToday(a)).length + dl.length;
   const date = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
 

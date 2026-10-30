@@ -363,3 +363,5 @@ input,select,textarea{border-radius:12px}
 @keyframes nt-bob{50%{transform:translateY(-3px) rotate(-6deg)}}
 @keyframes nt-dot{0%,100%{opacity:.2}50%{opacity:1}}
 @media (max-width:720px){.neyla-toast{top:10px;width:calc(100% - 24px);border-radius:20px}}
+.client-card{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;background:var(--surface)!important;color:var(--text);cursor:pointer;padding:20px}
+.client-card b{font-size:18px}.client-card:hover{box-shadow:0 10px 30px rgba(22,48,79,.18)}
