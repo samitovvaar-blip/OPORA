@@ -20,7 +20,7 @@ var DEFAULT_SHEETS = ['ДДС БОТ ОСНОВНЫЕ', 'ДДС БОТ ФОНД�
 var DIRECTORY = 'Справочник-общее';   // группы статей → статьи (A → B)
 var BALANCES = 'БАЛАНСЫ СЕЙЧАС';      // остатки по счетам и дата сверки с выпиской
 
-function doGet(e) {
+function buildReport(e) {
   var p = (e && e.parameter) || {};
   if (p.key !== KEY) return out({ error: 'Неверный ключ' });
   var dirs = String(p.dir || '').split(',').map(norm).filter(String);
@@ -128,4 +128,30 @@ function toDate(x) {
   var m = String(x || '').match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
   return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null;
 }
+// Кеш: таблица большая, поэтому готовый ответ храним 10 минут — отчёт открывается мгновенно.
+// &fresh=1 в ссылке — пересчитать сразу (кнопка «Обновить данные» в кабинете).
+var CACHE_SEC = 600;
+function doGet(e) {
+  var p = (e && e.parameter) || {};
+  if (p.key !== KEY) return out({ error: 'Неверный ключ' });
+  var cache = CacheService.getScriptCache(), ck = 'r:' + (p.dir || '') + '|' + (p.sheet || '');
+  if (p.fresh !== '1') {
+    var n = Number(cache.get(ck + ':n') || 0);
+    if (n) {
+      var keys = []; for (var i = 0; i < n; i++) keys.push(ck + ':' + i);
+      var parts = cache.getAll(keys), txt = '';
+      for (var i = 0; i < n; i++) { if (parts[keys[i]] == null) { txt = ''; break; } txt += parts[keys[i]]; }
+      if (txt) return ContentService.createTextOutput(txt).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+  var res = buildReport(e), body = res.getContent();
+  if (body.indexOf('"error"') < 0) {
+    var CH = 90000, map = {}, cnt = Math.ceil(body.length / CH);
+    for (var i = 0; i < cnt; i++) map[ck + ':' + i] = body.substr(i * CH, CH);
+    map[ck + ':n'] = String(cnt);
+    try { cache.putAll(map, CACHE_SEC); } catch (err) {}
+  }
+  return res;
+}
+
 function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }

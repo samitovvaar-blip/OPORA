@@ -48,6 +48,7 @@ export default function ClientPortal() {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState("");
   const [showArch, setShowArch] = useState(false);
+  const [reload, setReload] = useState(0);
   const [planMonth, setPlanMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1); });
   const [accSel, setAccSel] = useState<string[] | null>(null);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
@@ -59,8 +60,8 @@ export default function ClientPortal() {
     (e) => setErr(e.code === "permission-denied" ? "Доступ к кабинету закрыт" : e.message)) : undefined, [wsId, cid]);
   useEffect(() => {
     if (!p?.pnlUrl) return;
-    setPnlErr(""); loadPnl(p.pnlUrl, p.closedMonths || []).then((x) => setPnl(applySales(x, p.sales, p.prepay))).catch((e) => setPnlErr(e.message));
-  }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify([p?.sales, p?.prepay])]);
+    setPnlErr(""); loadPnl(reload ? p.pnlUrl + "&fresh=1" : p.pnlUrl, p.closedMonths || []).then((x) => setPnl(applySales(x, p.sales, p.prepay))).catch((e) => setPnlErr(e.message));
+  }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify([p?.sales, p?.prepay]), reload]);
 
   // последний сданный месяц и предыдущий
   const filled = useMemo(() => pnl ? pnl.months.map((m, i) => ({ m, i })).filter(({ i }) => pnl.revenue[i] != null) : [], [pnl]);
@@ -90,6 +91,8 @@ export default function ClientPortal() {
             {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
             <span className={pnl.months[cur].closed ? "ok" : ""}>{pnl.months[cur].closed ? "✓ сдано" : "предварительно"}</span></label>}
           <LinkButtons links={p.links} />
+          {p.pnlUrl && <button className="linkbtn brand-refresh" title="Данные кешируются на 10 минут — нажми, чтобы подтянуть свежие из таблицы"
+            onClick={() => { setPnl(null); setReload((x) => x + 1); }}>↻ Обновить данные</button>}
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <a className="neyla-btn" href={NEYLA_URL} target="_blank" rel="noreferrer">

@@ -57,7 +57,7 @@ export function parsePnl(values: string[][], title = ""): Pnl {
 // Таблица большая — скрипт иногда отвечает долго или с ошибкой Google. Пробуем до 3 раз,
 // а если не вышло — показываем последний удачно загруженный отчёт из памяти браузера.
 export async function loadPnl(url: string, closed: string[] = []): Promise<Pnl> {
-  const key = "pnl:" + url;
+  const key = "pnl:" + url.replace("&fresh=1", "");
   const build = (j: any): Pnl => j.mode === "db" ? buildFromDb(j, closed) : { ...parsePnl(j.values, j.title || j.sheet), at: j.at };
   let last = "";
   for (let a = 0; a < 3; a++) {

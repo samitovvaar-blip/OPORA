@@ -271,3 +271,4 @@ html,body{overscroll-behavior-y:contain}
   .soft-card .pnl-table td,.soft-card .pnl-table th{padding:6px 6px;font-size:12px}
   .soft-card .pnl-key td{font-size:13px}
 }
+.brand-mid .brand-refresh{cursor:pointer}
