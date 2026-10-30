@@ -85,6 +85,7 @@ export default function Layout() {
       <nav className="mnav">
         {mobile.map(link)}
         {isOwner && <button className={`navlink ${more ? "active" : ""}`} onClick={() => setMore(!more)}><span className="ni">☰</span>Ещё</button>}
+        {!isOwner && <button className="navlink" onClick={() => confirm("Выйти из кабинета?") && signOut(auth)}><span className="ni">⎋</span>Выйти</button>}
       </nav>
       {more && <div className="msheet-back" onClick={() => setMore(false)}>
         <div className="msheet" onClick={(e) => e.stopPropagation()}>{menu}{foot}</div></div>}
