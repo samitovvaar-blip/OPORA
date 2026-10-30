@@ -91,13 +91,13 @@ export default function ClientPortal() {
             {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
             <span className={pnl.months[cur].closed ? "ok" : ""}>{pnl.months[cur].closed ? "✓ сдано" : "предварительно"}</span></label>}
           <LinkButtons links={p.links} />
-          {p.pnlUrl && <button className="linkbtn brand-refresh" title="Данные кешируются на 10 минут — нажми, чтобы подтянуть свежие из таблицы"
-            onClick={() => { setPnl(null); setReload((x) => x + 1); }}>↻ Обновить данные</button>}
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <a className="neyla-btn" href={NEYLA_URL} target="_blank" rel="noreferrer">
             <img src="neyla.jpg" alt="" /><span><b>Использовать Нейлу</b><small>помощник по финансам</small></span></a>
-          <button className="ghost" title="Светлая / тёмная тема" onClick={() => {
+          {p.pnlUrl && <button className="ghost brand-icon" title="Обновить данные из таблицы"
+            onClick={() => { setPnl(null); setReload((x) => x + 1); }}>↻</button>}
+          <button className="ghost brand-icon" title="Светлая / тёмная тема" onClick={() => {
             const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
             document.documentElement.dataset.theme = t; try { localStorage.setItem("theme", t); } catch {}
           }}>◐</button>
