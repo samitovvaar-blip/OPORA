@@ -111,7 +111,10 @@ export default function ClientPortal() {
       {(view === "dash" || view === "pnl" || view === "dds") && !p.pnlUrl && <div className="card muted">Отчётность скоро появится здесь.</div>}
       {(view === "dash" || view === "pnl" || view === "dds") && pnl?.stale && <div className="card small muted">⚠️ Таблица сейчас не отвечает — показан последний загруженный отчёт{pnl.at ? " от " + new Date(pnl.at).toLocaleString("ru-RU") : ""}.</div>}
       {(view === "dash" || view === "pnl" || view === "dds") && pnlErr && <div className="card error">Не удалось загрузить отчёт: {pnlErr}</div>}
-      {(view === "dash" || view === "pnl" || view === "dds") && p.pnlUrl && !pnl && !pnlErr && <div className="muted">Загружаю отчёт из таблицы…</div>}
+      {p.pnlUrl && !pnl && !pnlErr && <div className="neyla-toast">
+        <img src="neyla.jpg" alt="" />
+        <div className="neyla-bubble"><b>Нейла</b><span>Загружаю данные из таблицы<span className="dots"><i>.</i><i>.</i><i>.</i></span></span></div>
+      </div>}
 
 
       {tab === "dash" && pnl && cur != null && <>
