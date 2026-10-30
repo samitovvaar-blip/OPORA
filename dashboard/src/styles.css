@@ -275,3 +275,49 @@ html,body{overscroll-behavior-y:contain}
 .brand-logo img{width:40px;height:40px;border-radius:12px}
 .logo{display:flex;align-items:center;gap:10px;letter-spacing:.08em;font-weight:300}
 .logo img{width:34px;height:34px;border-radius:10px}
+
+/* ===================== ДИЗАЙН-СИСТЕМА ОПОРЫ =====================
+   Синий — основной. Оранжевый — точечный акцент. Зелёный — прибыль/хорошо. Красный — плохо.
+   Стиль: светло-серый фон, белые карточки с большим скруглением и мягкой тенью (как в банковских приложениях),
+   фирменный фон со спиралями — в шапке, меню и на экране входа. */
+:root{--accent:#25476f;--accent-text:#fff;--bg:#f2f4f7;--border:#e6e9ef;--radius:22px;--shadow:0 6px 24px rgba(22,48,79,.08)}
+:root[data-theme="dark"]{--accent:#4f7fc0;--bg:#0c1522;--surface:#142235;--border:#1f3350;--text:#e8edf5;--muted:#8fa0b8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--accent:#4f7fc0;--bg:#0c1522;--surface:#142235;--border:#1f3350;--text:#e8edf5;--muted:#8fa0b8}}
+
+.card{border:0;border-radius:var(--radius);box-shadow:var(--shadow)}
+h3{font-size:18px;font-weight:800}
+button{border-radius:14px;font-weight:600}
+button:not(.ghost):not(.chipbtn):not(.navlink){background:var(--brand-navy2,#25476f)}
+input,select,textarea{border-radius:12px}
+
+/* фирменный фон со спиралями */
+.brand-head,.side,.center{background:#1b355a url(/OPORA/bg-spiral.jpg) center/cover!important}
+.brand-head{background-blend-mode:normal;box-shadow:0 10px 30px rgba(22,48,79,.25);border-radius:24px}
+.center .card{background:rgba(255,255,255,.95)}
+:root[data-theme="dark"] .center .card{background:rgba(20,34,53,.92)}
+
+/* левое меню — синее со спиралями */
+.side{border-right:0;color:#fff}
+.side .logo{color:#c9d2ef}
+.side .navlink{color:#dbe3f5;border-radius:14px}
+.side .navlink:hover{background:rgba(255,255,255,.1)}
+.side .navlink.active{background:rgba(255,255,255,.95);color:#16304f;font-weight:700}
+.side .ghead,.side .muted{color:#a9b7d4}
+.side .ghost{color:#dbe3f5}
+
+/* нижнее меню на телефоне — плавающая «таблетка» */
+@media (max-width:900px){
+  .mnav{left:12px!important;right:12px!important;bottom:12px!important;border:0!important;border-radius:28px;box-shadow:0 10px 30px rgba(22,48,79,.18);padding:6px!important}
+  .mnav .navlink{border-radius:20px}
+  .mnav .navlink.active{background:var(--bg)!important;color:var(--brand-navy,#16304f)!important;font-weight:700}
+  .main{padding-bottom:110px!important}
+}
+
+/* плитки «Мой кабинет»: синий — основной */
+.tile.g-blue{background:#16304f}
+.tile.g-orange{background:#3b6db3}
+.tile.t-light{background:#6f8fc9}
+.tile.g-green{background:#16a34a}
+/* вкладки и чипы */
+.chipbtn{border-radius:999px}
+.chipbtn.on{background:#16304f!important}

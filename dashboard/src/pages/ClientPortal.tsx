@@ -126,14 +126,14 @@ export default function ClientPortal() {
           <div className="card stat g-blue tile"><span className="tile-ico">💰</span><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
           <div className="card stat g-orange tile"><span className="tile-ico">💸</span><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
           <div className="card stat g-green tile"><span className="tile-ico">💎</span><div className="muted">Чистая прибыль</div><b className={prof != null && prof < 0 ? "error" : "ok"}>{prof != null ? rub(prof) : "—"}</b><Delta v={delta(prof, prevProf)} /></div>
-          <div className="card stat g-orange tile"><span className="tile-ico">📈</span><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
+          <div className="card stat g-orange t-light tile"><span className="tile-ico">📈</span><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
 
           {pnl.depts.length > 0 && <div className="card span2">
             <h3 style={{ marginTop: 0 }}>Структура расходов · {pnl.months[cur].label}</h3>
             <div className="row small" style={{ marginBottom: 6 }}><b>Расходы итого</b><b>{exp != null ? rub(exp) : "—"} <span className="muted">· {exp != null && rev ? (exp / rev * 100).toFixed(1) : "—"}% выручки</span></b></div>
             {(() => {
               // круговая диаграмма: доля каждого отдела в расходах
-              const COLORS = ["#1b3459", "#3b6db3", "#8fb3e8", "#e8873a", "#f6c08a"];
+              const COLORS = ["#16304f", "#25476f", "#3b6db3", "#6f8fc9", "#a9c0e8"];
               const ds = pnl.depts.map((d, n) => ({ n: d.name.replace(/^\d+\.\s*/, ""), v: Math.abs(d.values[cur] || 0), c: COLORS[n % COLORS.length] }));
               const tot = ds.reduce((x, d) => x + d.v, 0) || 1;
               let acc = 0;
