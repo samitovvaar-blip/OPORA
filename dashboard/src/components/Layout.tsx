@@ -80,6 +80,7 @@ export default function Layout() {
       <aside className="side">
         <div className="logo"><img src="logo.png" alt="" />ОПОРА</div>
         {menu}
+        {clientOf && <div id="side-slot" />}
         {foot}
       </aside>
       <nav className="mnav">

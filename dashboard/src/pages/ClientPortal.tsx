@@ -1,6 +1,7 @@
 // Кабинет клиента: ход работы, ОПиУ из таблицы, дашборд показателей, план.
 // Клиент видит только свой проект. Владелец открывает предпросмотр: #/client?p=<id>
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { deleteField, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
@@ -49,6 +50,8 @@ export default function ClientPortal() {
   const [note, setNote] = useState("");
   const [showArch, setShowArch] = useState(false);
   const [reload, setReload] = useState(0);
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => setSlot(document.getElementById("side-slot")), []);
   const [planMonth, setPlanMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1); });
   const [accSel, setAccSel] = useState<string[] | null>(null);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
@@ -84,20 +87,17 @@ export default function ClientPortal() {
   return (
     <>
       {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a></div>}
-      <div className="brand-head">
-        <div className="brand-logo"><img src="logo.png" alt="" /><span>ОПОРА</span></div>
-        <div style={{ flex: 1 }} />
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <a className="neyla-btn" href={NEYLA_URL} target="_blank" rel="noreferrer">
-            <img src="neyla.jpg" alt="" /><span><b>Использовать Нейлу</b><small>помощник по финансам</small></span></a>
-          {p.pnlUrl && <button className="ghost brand-icon" title="Обновить данные из таблицы"
-            onClick={() => { setPnl(null); setReload((x) => x + 1); }}>↻</button>}
-          <button className="ghost brand-icon" title="Светлая / тёмная тема" onClick={() => {
-            const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-            document.documentElement.dataset.theme = t; try { localStorage.setItem("theme", t); } catch {}
-          }}>◐</button>
-        </div>
-      </div>
+      {(() => {
+        // Месяц отчётности: один выбор на весь кабинет — слева в меню (на телефоне — над разделом)
+        const ctl = pnl && cur != null ? <div className="month-ctl">
+          <div className="small">Месяц отчётности</div>
+          <div className="month-row"><select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
+            {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
+            {p.pnlUrl && <button className="ghost" title="Обновить данные из таблицы" onClick={() => { setPnl(null); setReload((x) => x + 1); }}>↻</button>}</div>
+          <div className={`small ${pnl.months[cur].closed ? "ok" : ""}`}>{pnl.months[cur].closed ? "✓ отчётность сдана" : "предварительно"}</div>
+        </div> : null;
+        return <>{slot && !isOwner && createPortal(ctl, slot)}<div className={isOwner ? "" : "month-mobile"}>{ctl}</div></>;
+      })()}
       <h1>{p.name}</h1>
       <div className="muted" style={{ marginTop: -12, marginBottom: 12 }}>Кабинет клиента ОПОРЫ</div>
       {isOwner && <div className="chips" style={{ marginTop: 12 }}>
@@ -341,11 +341,10 @@ export default function ClientPortal() {
       })()}
 
       {tab === "work" && <div className="work-btns" style={{ maxWidth: 860 }}>
-        <label className="work-btn">📅 <select value={cur ?? ""} disabled={!pnl || cur == null} onChange={(e) => setMi(Number(e.target.value))}>
-          {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select></label>
         {LINK_FIELDS.map(([k, label]) => p.links?.[k]
           ? <a key={k} className="work-btn" href={p.links[k]} target="_blank" rel="noopener noreferrer">{label}</a>
           : <span key={k} className="work-btn off">{label}</span>)}
+        <a className="work-btn neyla-work" href={NEYLA_URL} target="_blank" rel="noreferrer"><img src="neyla.jpg" alt="" />Внести наличные</a>
       </div>}
       {tab === "work" && <div className="card work-card" style={{ maxWidth: 860 }}>
         <div className="row work-head">
