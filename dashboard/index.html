@@ -3,17 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#4f46e5" />
+    <meta name="theme-color" content="#16304f" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon-192.png" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="OPORA" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <title>OPORA · Арина</title>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>ОПОРА</title>
+    <style>
+      /* Экран загрузки: тёмно-синий фон, логотип крутится, вырастает и растворяется */
+      #splash{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;
+        background:#16304f url(./bg-spiral.jpg) center/cover;transition:opacity .5s ease}
+      #splash .s-wrap{display:flex;flex-direction:column;align-items:center;gap:18px}
+      #splash img{width:110px;height:110px;border-radius:28px;box-shadow:0 20px 50px rgba(0,0,0,.4);
+        animation:s-spin 1.4s cubic-bezier(.6,0,.3,1) forwards}
+      #splash .s-name{color:#c9d2ef;font:300 34px/1 Inter,system-ui,sans-serif;letter-spacing:.2em;opacity:0;animation:s-in .6s .9s forwards}
+      #splash.out{opacity:0;pointer-events:none}
+      #splash.out img{animation:s-zoom .6s ease-in forwards}
+      @keyframes s-spin{0%{transform:scale(.3) rotate(-540deg);opacity:0}70%{opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+      @keyframes s-zoom{to{transform:scale(6);opacity:0}}
+      @keyframes s-in{to{opacity:1}}
+    </style>
   </head>
   <body>
+    <div id="splash"><div class="s-wrap"><img src="./logo.png" alt="" /><div class="s-name">ОПОРА</div></div></div>
     <div id="root"></div>
+    <script>
+      // показываем заставку ~1.8 с, затем логотип «вылетает вперёд» и открывается кабинет
+      setTimeout(function () { var s = document.getElementById("splash"); if (!s) return;
+        s.classList.add("out"); setTimeout(function () { s.remove(); }, 650); }, 1800);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
