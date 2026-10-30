@@ -89,12 +89,11 @@ export default function ClientPortal() {
       {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a></div>}
       {(() => {
         // Месяц отчётности: один выбор на весь кабинет — слева в меню (на телефоне — над разделом)
-        const ctl = pnl && cur != null ? <div className="month-ctl">
-          <div className="small">Месяц отчётности</div>
-          <div className="month-row"><select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
+        const ctl = pnl && cur != null ? <div className="navlink month-ctl" title={pnl.months[cur].closed ? "Отчётность сдана" : "Предварительные данные"}>
+          <span className="ni">📅</span>
+          <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
             {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
-            {p.pnlUrl && <button className="ghost" title="Обновить данные из таблицы" onClick={() => { setPnl(null); setReload((x) => x + 1); }}>↻</button>}</div>
-          <div className={`small ${pnl.months[cur].closed ? "ok" : ""}`}>{pnl.months[cur].closed ? "✓ отчётность сдана" : "предварительно"}</div>
+          {p.pnlUrl && <button className="ghost" title="Обновить данные из таблицы" onClick={() => { setPnl(null); setReload((x) => x + 1); }}>↻</button>}
         </div> : null;
         return <>{slot && !isOwner && createPortal(ctl, slot)}<div className={isOwner ? "" : "month-mobile"}>{ctl}</div></>;
       })()}
