@@ -85,7 +85,7 @@ export default function ClientPortal() {
     <>
       {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a></div>}
       <div className="brand-head">
-        <div className="brand-logo"><SpiralLogo /><span>ОПОРА</span></div>
+        <div className="brand-logo"><img src="logo.png" alt="" /><span>ОПОРА</span></div>
         <div className="brand-mid">
           {pnl && cur != null && <label className="brand-month">📅 <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
             {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>

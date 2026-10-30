@@ -78,7 +78,7 @@ export default function Layout() {
   return (
     <div className="shell">
       <aside className="side">
-        <div className="logo">OPORA</div>
+        <div className="logo"><img src="logo.png" alt="" />ОПОРА</div>
         {menu}
         {foot}
       </aside>

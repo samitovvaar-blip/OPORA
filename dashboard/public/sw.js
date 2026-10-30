@@ -1,6 +1,6 @@
 // Service worker: всегда берём свежую версию из сети (минуя HTTP-кэш),
 // кэш — только запасной вариант для офлайна.
-const CACHE = "opora-v3";
+const CACHE = "opora-v4";
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys()

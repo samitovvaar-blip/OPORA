@@ -272,3 +272,6 @@ html,body{overscroll-behavior-y:contain}
   .soft-card .pnl-key td{font-size:13px}
 }
 .brand-mid .brand-refresh{cursor:pointer}
+.brand-logo img{width:40px;height:40px;border-radius:12px}
+.logo{display:flex;align-items:center;gap:10px;letter-spacing:.08em;font-weight:300}
+.logo img{width:34px;height:34px;border-radius:10px}
