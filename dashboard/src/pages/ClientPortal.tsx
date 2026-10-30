@@ -11,7 +11,7 @@ import { rub } from "../lib/money";
 import { applySales, buildDds, loadPnl, Pnl } from "../lib/sheetPnl";
 import { visibleItems } from "../components/Checklist";
 import { useAuth } from "../lib/auth";
-import { LinkButtons } from "../components/ProjectLinks";
+import { LINK_FIELDS } from "../components/ProjectLinks";
 import PayCalendar, { monthSum } from "../components/PayCalendar";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
@@ -86,12 +86,7 @@ export default function ClientPortal() {
       {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a></div>}
       <div className="brand-head">
         <div className="brand-logo"><img src="logo.png" alt="" /><span>ОПОРА</span></div>
-        <div className="brand-mid">
-          {pnl && cur != null && <label className="brand-month">📅 <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
-            {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
-            <span className={pnl.months[cur].closed ? "ok" : ""}>{pnl.months[cur].closed ? "✓ сдано" : "предварительно"}</span></label>}
-          <LinkButtons links={p.links} />
-        </div>
+        <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <a className="neyla-btn" href={NEYLA_URL} target="_blank" rel="noreferrer">
             <img src="neyla.jpg" alt="" /><span><b>Использовать Нейлу</b><small>помощник по финансам</small></span></a>
@@ -345,6 +340,13 @@ export default function ClientPortal() {
         </div>;
       })()}
 
+      {tab === "work" && <div className="work-btns" style={{ maxWidth: 860 }}>
+        <label className="work-btn">📅 <select value={cur ?? ""} disabled={!pnl || cur == null} onChange={(e) => setMi(Number(e.target.value))}>
+          {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select></label>
+        {LINK_FIELDS.map(([k, label]) => p.links?.[k]
+          ? <a key={k} className="work-btn" href={p.links[k]} target="_blank" rel="noopener noreferrer">{label}</a>
+          : <span key={k} className="work-btn off">{label}</span>)}
+      </div>}
       {tab === "work" && <div className="card work-card" style={{ maxWidth: 860 }}>
         <div className="row work-head">
           <button className="ghost" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>

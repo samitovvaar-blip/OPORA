@@ -325,3 +325,10 @@ input,select,textarea{border-radius:12px}
 .brand-head{overflow:hidden}
 .brand-mid{flex-wrap:nowrap}
 @media (max-width:1200px){.brand-mid{flex-wrap:wrap}}
+/* Ход работы: 4 одинаковые кнопки — месяц, таблица, документы, чат */
+.work-btns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 12px}
+@media (max-width:720px){.work-btns{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.work-btn{height:48px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:16px;background:#16304f;color:#fff;
+  font-weight:700;font-size:14px;text-decoration:none;box-shadow:var(--shadow);overflow:hidden;white-space:nowrap}
+.work-btn select{background:transparent;color:#fff;border:0;font-weight:700;font-size:14px;max-width:80%}
+.work-btn option{color:#000}.work-btn.off{opacity:.4}
