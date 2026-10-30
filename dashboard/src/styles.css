@@ -351,3 +351,4 @@ input,select,textarea{border-radius:12px}
 @media (max-width:900px){.month-mobile .month-ctl{background:#16304f;color:#fff;margin:0 0 12px}}
 /* меню: сверху тёмно-синее, книзу проявляются спирали */
 .side{background:linear-gradient(180deg,#16304f 0%,#16304f 30%,rgba(22,48,79,.55) 65%,rgba(22,48,79,0) 100%),#1b355a url(/OPORA/bg-spiral.jpg) bottom/cover!important}
+.tile::after{display:none!important}
