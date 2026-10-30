@@ -18,7 +18,8 @@
       #splash .s-wrap{display:flex;flex-direction:column;align-items:center;gap:18px}
       #splash img{width:120px;height:120px;
         animation:s-spin 1.4s cubic-bezier(.6,0,.3,1) forwards}
-      #splash .s-name{color:#c9d2ef;font:300 34px/1 Inter,system-ui,sans-serif;letter-spacing:.2em;opacity:0;animation:s-in .6s .9s forwards}
+      #splash .s-name small{display:block;font-size:15px;letter-spacing:.35em;margin-top:10px;text-align:center;color:#9aa6d6}
+      #splash .s-name{text-align:center;color:#c9d2ef;font:300 34px/1 Inter,system-ui,sans-serif;letter-spacing:.2em;opacity:0;animation:s-in .6s .9s forwards}
       #splash.out{opacity:0;pointer-events:none}
       #splash.out img{animation:s-zoom .6s ease-in forwards}
       @keyframes s-spin{0%{transform:scale(.3) rotate(-540deg);opacity:0}70%{opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
@@ -27,7 +28,7 @@
     </style>
   </head>
   <body>
-    <div id="splash"><div class="s-wrap"><img src="./spiral.png" alt="" /><div class="s-name">ОПОРА</div></div></div>
+    <div id="splash"><div class="s-wrap"><img src="./spiral.png" alt="" /><div class="s-name">ОПОРА<small>для бизнеса</small></div></div></div>
     <div id="root"></div>
     <script>
       // показываем заставку ~1.8 с, затем логотип «вылетает вперёд» и открывается кабинет

@@ -60,9 +60,12 @@ export default function Layout() {
       return "navlink" + (on ? " active" : "");
     }}><span className="ni">{n.icon}</span>{n.label}</NavLink>
   );
+  // ↻: кабинет клиента перезагружает отчёт сам (слушает событие), остальные разделы — перезагрузкой страницы
+  const refresh = () => { if (window.dispatchEvent(new Event("opora-refresh", { cancelable: true }))) location.reload(); };
   const foot = (
     <div className="side-foot">
       <button className="ghost" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "☀ Светлая" : "☾ Тёмная"}</button>
+      {clientOf && <div id="side-name" className="side-client" />}
       <div className="muted small">{user?.email}</div>
       <button className="ghost" onClick={() => signOut(auth)}>Выйти</button>
       <div className="muted small">версия {__BUILD__}</div>
@@ -78,9 +81,10 @@ export default function Layout() {
   return (
     <div className="shell">
       <aside className="side">
-        <div className="logo"><img src="logo.png" alt="" />ОПОРА</div>
-        {menu}
+        <div className="logo"><img src="logo.png" alt="" />ОПОРА
+          <button className="ghost side-refresh" title="Обновить данные" onClick={refresh}>↻</button></div>
         {clientOf && <div id="side-slot" />}
+        {menu}
         {foot}
       </aside>
       <nav className="mnav">

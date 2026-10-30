@@ -52,6 +52,10 @@ export default function ClientPortal() {
   const [reload, setReload] = useState(0);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   useEffect(() => setSlot(document.getElementById("side-slot")), []);
+  useEffect(() => {
+    const h = (e: Event) => { e.preventDefault(); setPnl(null); setReload((x) => x + 1); };
+    window.addEventListener("opora-refresh", h); return () => window.removeEventListener("opora-refresh", h);
+  }, []);
   const [planMonth, setPlanMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1); });
   const [accSel, setAccSel] = useState<string[] | null>(null);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
@@ -93,12 +97,12 @@ export default function ClientPortal() {
           <span className="ni">📅</span>
           <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
             {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
-          {p.pnlUrl && <button className="ghost" title="Обновить данные из таблицы" onClick={() => { setPnl(null); setReload((x) => x + 1); }}>↻</button>}
         </div> : null;
-        return <>{slot && !isOwner && createPortal(ctl, slot)}<div className={isOwner ? "" : "month-mobile"}>{ctl}</div></>;
+        const nameSlot = document.getElementById("side-name");
+        return <>{slot && !isOwner && createPortal(ctl, slot)}{nameSlot && !isOwner && createPortal(<>{p.name}</>, nameSlot)}
+          {(isOwner || view === "dash" || view === "pnl" || view === "dds") && <div className="month-top">{ctl}</div>}</>;
       })()}
-      <h1>{p.name}</h1>
-      <div className="muted" style={{ marginTop: -12, marginBottom: 12 }}>Кабинет клиента ОПОРЫ</div>
+      {isOwner && <h1>{p.name}</h1>}
       {isOwner && <div className="chips" style={{ marginTop: 12 }}>
         {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}

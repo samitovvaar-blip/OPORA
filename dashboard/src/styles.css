@@ -365,3 +365,11 @@ input,select,textarea{border-radius:12px}
 @media (max-width:720px){.neyla-toast{top:10px;width:calc(100% - 24px);border-radius:20px}}
 .client-card{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;background:var(--surface)!important;color:var(--text);cursor:pointer;padding:20px}
 .client-card b{font-size:18px}.client-card:hover{box-shadow:0 10px 30px rgba(22,48,79,.18)}
+.logo{position:relative}
+.side-refresh{margin-left:auto;width:32px;height:32px;border-radius:50%!important;background:rgba(255,255,255,.12)!important;color:#fff!important;padding:0!important;font-size:16px}
+#side-slot .month-ctl{margin-bottom:8px;background:rgba(255,255,255,.1)}
+.side-client{color:#fff;font-weight:700;font-size:15px}
+.month-mobile{display:none!important}
+.month-top{display:block}
+.month-top .month-ctl{display:inline-flex;background:#16304f;color:#fff;margin:0 0 14px;max-width:320px}
+@media (max-width:900px){.month-top{display:block}.month-top .month-ctl{max-width:none;display:flex}}
