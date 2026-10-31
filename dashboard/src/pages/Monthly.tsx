@@ -38,7 +38,7 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
       {!embedded && <h1>{isOwner ? "Ежемесячные задачи" : "Мои клиенты"}</h1>}
       {error && !list.length && <div className="error">{error}</div>}
       {!list.length ? <div className="card">{isOwner ? <>Пока нет проектов. Создай первый кнопкой «+ Новый проект» — список задач подберётся сам.</> : "Пока нет открытых тебе клиентов."}</div>
-      : !isOwner && !opened ? <div className="bento">{list.map((x) =>
+      : !isOwner && !opened ? <div className="client-list">{list.map((x) =>
           <div key={x.id} className="card client-card">
             <b>{x.name}</b>
             <div className="client-btns">
