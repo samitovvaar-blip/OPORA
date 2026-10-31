@@ -74,7 +74,7 @@ export default function StaffHome() {
       <div className="staff-top">
         <div className="staff-left">
         <div className="card">
-          <h3>📋 Задания на сегодня</h3>
+          <h3><Link to="/tasks" className="h-link">📋 Задания на сегодня →</Link></h3>
           {todayTasks.map((a) => (
             <label key={a.id} className={`row task ${doneToday(a) ? "done" : ""}`} style={{ cursor: "pointer" }}>
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -87,7 +87,7 @@ export default function StaffHome() {
         </div>
 
         <div className="card">
-          <h3>👥 Мои клиенты</h3>
+          <h3><Link to="/monthly" className="h-link">👥 Мои клиенты →</Link></h3>
           <div className="home-clients">{checklists.map((p) => {
             const items = visibleItems(p); const done = items.filter((it) => marks[p.id]?.[it.id]?.done).length;
             return <Link key={p.id} to={"/monthly?p=" + p.id} className="home-client">
@@ -100,7 +100,7 @@ export default function StaffHome() {
 
         </div>
         <div className="card staff-right">
-          <h3>◆ Сроки по проектам</h3>
+          <h3><Link to="/tasks" className="h-link">◆ Сроки по проектам →</Link></h3>
           {(allDl ? dl : dl.slice(0, 5)).map((x) => (
             <label key={x.key} className="row task" style={{ cursor: "pointer" }}>
               <span style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
@@ -119,7 +119,7 @@ export default function StaffHome() {
       </div>
       <div className="bento" style={{ marginTop: 14 }}>
         <div className="card wide2">
-          <h3>🎓 Новое в базе знаний</h3>
+          <h3><Link to="/kb" className="h-link">🎓 Новое в базе знаний →</Link></h3>
           {lessons.map((l) => <Link key={l.id} to="/kb" className="row small" style={{ color: "inherit", textDecoration: "none" }}><span>▶ {l.title}</span><span className="muted">{l.section || ""}</span></Link>)}
           {!lessons.length && <div className="muted small">Уроки скоро появятся</div>}
         </div>
