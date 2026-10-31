@@ -85,7 +85,7 @@ function buildReport(e) {
   }
   var rows = Object.keys(sums).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: sums[k] }; });
   var ddsRows = Object.keys(dds).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], account: x[2], values: dds[k] }; });
-  return out({ mode: 'db', balances: readBalances(ss), typos: typos, directory: Object.keys(groupsOf).length, dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
+  return out({ mode: 'db', dirMeta: readDirMeta(ss), balances: readBalances(ss), typos: typos, directory: Object.keys(groupsOf).length, dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
 }
 
 // Лист «БАЛАНСЫ СЕЙЧАС»: A — остаток на дату ввода, B — сверено, C — дата сверки, D — остаток сейчас, E — счёт, F — кто проверял
@@ -120,6 +120,24 @@ function readDirectory(ss) {
   }
   return map;
 }
+// Справочник, колонки C и D (необязательные) — по ним кабинет строит ОПиУ и ключевые метрики:
+//   C «Тип группы»: Доход / Переменные / Постоянные / Фонд / Не учитывать (пишется в строке группы или у любой статьи группы)
+//   D «Метрика»: любое название (ФОТ, Налоги, Дивиденды, Себестоимость, Маркетинг…) — статьи с одной меткой суммируются
+function readDirMeta(ss) {
+  var sh = ss.getSheetByName(DIRECTORY), types = {}, metrics = {}, order = [];
+  if (!sh) return { types: types, metrics: metrics, order: order };
+  var cols = Math.min(4, sh.getLastColumn());
+  var v = sh.getRange(1, 1, sh.getLastRow(), cols).getDisplayValues(), group = '';
+  for (var r = 1; r < v.length; r++) {
+    var g = String(v[r][0] || '').trim(), a = String(v[r][1] || '').trim();
+    var t = cols > 2 ? String(v[r][2] || '').trim() : '', m = cols > 3 ? String(v[r][3] || '').trim() : '';
+    if (g) { group = g; if (order.indexOf(g) < 0) order.push(g); }
+    if (group && t && !types[group]) types[group] = t;
+    if (a && m) metrics[a] = m;
+  }
+  return { types: types, metrics: metrics, order: order };
+}
+
 function fmtD(d) { return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); }
 function norm(s) { return String(s || '').trim().toLowerCase().replace(/ё/g, 'е'); }
 function toNum(x) { if (typeof x === 'number') return x; var n = Number(String(x).replace(/\s|р\.|₽/g, '').replace(',', '.')); return isNaN(n) ? 0 : n; }

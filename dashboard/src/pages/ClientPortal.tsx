@@ -191,12 +191,17 @@ export default function ClientPortal() {
               <b className={kp[f] == null ? "muted" : ""}>{kp[f] ?? "нет информации от ОП"}</b></div>;
             return <><div className="card span2">
               <h3 style={{ marginTop: 0 }}>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
+              {pnl.tagMetrics && Object.keys(pnl.tagMetrics).length ? Object.entries(pnl.tagMetrics).map(([tag, vals]) => {
+                // метрики из справочника: доля от выручки и сумма
+                const x = vals[cur]; return <Row key={tag} l={tag} v={x != null ? `${rev ? (x / rev * 100).toFixed(1) + "% · " : ""}${rub(x)}` : "—"} />; })
+              : <>
               <Row l="Дивиденды" v={sh("dividends")} c="#b02a2a" />
               <Row l="Налоги" v={sh("taxes")} c="#8a3ab9" />
               <Row l="Производство аутсорс" v={sh("outsource")} c="#2a5bd7" />
               <Row l="Возвраты клиентам" v={sh("refunds")} c="#e8873a" />
               <Row l="Зарплаты" v={sh("salary")} c="#3a9a5b" />
               <Row l="ФОТ общая" v={at("salary") != null ? rub(at("salary")!) : "—"} />
+              </>}
             </div>
             <div className="card span4">
               <h3 style={{ marginTop: 0 }}>Себестоимость и клиенты · {pnl.months[cur].label}</h3>

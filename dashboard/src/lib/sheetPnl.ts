@@ -6,7 +6,9 @@ export interface Dds { months: PnlMonth[]; rows: PnlRow[]; inflow: (number | nul
 export interface Pnl { db?: boolean; dds?: Dds; title: string; months: PnlMonth[]; rows: PnlRow[]; at?: string;
   revenue: (number | null)[]; profit: (number | null)[]; variable: (number | null)[]; fixed: (number | null)[]; depts: PnlRow[]; stale?: boolean;
   ddsRaw?: { months: string[]; rows: DbRow[] }; balances?: Balances | null;
-  metrics?: Record<string, (number | null)[]>; }
+  metrics?: Record<string, (number | null)[]>;
+  tagMetrics?: Record<string, (number | null)[]>;   // метрики из справочника (колонка D)
+}
 
 const MONTHS = ["январ", "феврал", "март", "апрел", "май", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"];
 const isMonth = (s: string) => MONTHS.some((m) => s.toLowerCase().trim().startsWith(m));
@@ -145,7 +147,7 @@ export function buildDds(d0: { months: string[]; rows: DbRow[] }, accounts?: str
   return { months, rows, inflow, outflow, other, net: netFlow };
 }
 
-export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]; at?: string; dds?: { months: string[]; rows: DbRow[] }; balances?: Balances | null }, closed: string[] = []): Pnl {
+export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]; at?: string; dds?: { months: string[]; rows: DbRow[] }; balances?: Balances | null; dirMeta?: { types: Record<string, string>; metrics: Record<string, string>; order: string[] } }, closed: string[] = []): Pnl {
   const mks = j.months;
   const months: PnlMonth[] = mks.map((mk, i) => {
     const [y, m] = mk.split("-"); const isClosed = closed.includes(mk);
@@ -187,6 +189,43 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   add("ВЫРУЧКА ИТОГО", revenue);
   articles(income);
   add("Расходы", mks.map(() => null), { section: true });
+  // Метрики из справочника (колонка D): статьи с одной меткой суммируются
+  const tagMetrics: Record<string, (number | null)[]> = {};
+  const mt = j.dirMeta?.metrics || {};
+  const lowMt = Object.fromEntries(Object.entries(mt).map(([a, m]) => [a.trim().toLowerCase(), m]));
+  [...new Set(Object.values(mt))].forEach((tag) => { tagMetrics[tag] = sumOf(j.rows.filter((r) => lowMt[r.article.trim().toLowerCase()] === tag)); });
+  const types = j.dirMeta?.types || {};
+  if (Object.keys(types).length) {
+    // Справочник с типами групп (колонка C) — отчёт строится строго по нему
+    const lowT = Object.fromEntries(Object.entries(types).map(([g, t]) => [g.trim().toLowerCase(), t.toLowerCase()]));
+    const kind = (r: DbRow) => { const t = lowT[r.process.trim().toLowerCase()] || "";
+      if (/доход|выруч|поступл/.test(t)) return "inc"; if (/перемен/.test(t)) return "var"; if (/постоян/.test(t)) return "fix";
+      if (/фонд/.test(t)) return "fund"; if (/не уч|исключ|не ву/.test(t)) return "skip";
+      return isIncome(r) ? "inc" : notExpense(r) ? "skip" : isFund(r) ? "fund" : "fix"; };
+    // выручку пересчитываем по типам (строки выручки уже добавлены выше — перестраиваем отчёт с нуля)
+    rows.length = 0;
+    const incT = j.rows.filter((r) => kind(r) === "inc"), varT = j.rows.filter((r) => kind(r) === "var"), fixT = j.rows.filter((r) => kind(r) === "fix"), fundT = j.rows.filter((r) => kind(r) === "fund");
+    const order = (j.dirMeta?.order || []).map((x) => x.trim().toLowerCase());
+    const groupsOf = (list: DbRow[]) => [...new Set(list.map((r) => r.process || "Без группы"))].sort((a, b) => {
+      const ia = order.indexOf(a.trim().toLowerCase()), ib = order.indexOf(b.trim().toLowerCase()); return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || a.localeCompare(b, "ru"); });
+    const block = (list: DbRow[]) => groupsOf(list).forEach((g) => { const inG = list.filter((r) => (r.process || "Без группы") === g);
+      add(g, sumOf(inG), { sub: "Итого", total: true });
+      inG.sort((a, b) => a.article.localeCompare(b.article, "ru")).forEach((r) => add(r.article, sumOf([r]), { sub: "Процесс" })); });
+    add("Доходы", mks.map(() => null), { section: true });
+    const revT = sumOf(incT); add("ВЫРУЧКА ИТОГО", revT);
+    incT.sort((a, b) => a.article.localeCompare(b.article, "ru")).forEach((r) => add(r.article, sumOf([r]), { sub: "Процесс" }));
+    add("Расходы", mks.map(() => null), { section: true });
+    const vS = sumOf(varT), fS = sumOf(fixT);
+    if (varT.length) { add("ПЕРЕМЕННЫЕ РАСХОДЫ", vS); block(varT); }
+    if (fixT.length) { add("ПОСТОЯННЫЕ РАСХОДЫ", fS); block(fixT); }
+    const profT = revT.map((v, i) => (v || 0) + (vS[i] || 0) + (fS[i] || 0) || null);
+    add("ЧИСТАЯ ПРИБЫЛЬ", profT);
+    if (fundT.length) { add("Фондирование (после прибыли)", sumOf(fundT)); fundT.forEach((r) => add(r.article, sumOf([r]), { sub: "Процесс" })); }
+    const none = mks.map(() => null);
+    return { metrics: { dividends: none, taxes: none, outsource: none, refunds: none, salary: none, d1: tagMetrics["Себестоимость"] || none, d2: none, d3: tagMetrics["Маркетинг"] || none, d4: none, d5: none },
+      tagMetrics, ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at,
+      revenue: revT, profit: profT, variable: vS, fixed: fS, depts: rows.filter((r) => r.total) };
+  }
   if (!numbered) {
     // Универсально: каждая группа (процесс) из справочника — строка расходов, внутри статьи
     const exp = j.rows.filter((r) => !isIncome(r) && !notExpense(r) && !isFund(r));
@@ -203,7 +242,7 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
     if (fondU.length) { add("Фондирование (после прибыли)", sumOf(fondU)); articles(fondU); }
     const none = mks.map(() => null);
     const groups = [...new Set(exp.map((r) => r.process || "Без группы"))].map((proc) => ({ name: proc, sub: "Итого", total: true, section: false, values: sumOf(exp.filter((r) => (r.process || "Без группы") === proc)) }));
-    return { metrics: { dividends: none, taxes: sumOf(j.rows.filter(isTax)), outsource: none, refunds: none, salary: sumOf(exp.filter((r) => /зарплат|з\/п|\bзп\b|фот|оклад/i.test(r.article))), d1: none, d2: none, d3: none, d4: none, d5: none },
+    return { tagMetrics, metrics: { dividends: none, taxes: sumOf(j.rows.filter(isTax)), outsource: none, refunds: none, salary: sumOf(exp.filter((r) => /зарплат|з\/п|\bзп\b|фот|оклад/i.test(r.article))), d1: none, d2: none, d3: none, d4: none, d5: none },
       ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit: profitU, variable: expSum, fixed: none, depts: groups };
   }
   const varSum = sumOf(variable);
@@ -225,7 +264,7 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
     salary: by(/зарплат|з\/п|\bзп\b|фот|оклад|преми|мотивац|аванс сотр/i, /налог/i),
     d1: sumOf(byDept("1")), d2: sumOf(byDept("2")), d3: sumOf(byDept("3")), d4: sumOf(byDept("4")), d5: sumOf(byDept("5")) };
 
-  return { metrics, ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
+  return { metrics, tagMetrics, ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
     depts: rows.filter((r) => r.total) };
 }
 
