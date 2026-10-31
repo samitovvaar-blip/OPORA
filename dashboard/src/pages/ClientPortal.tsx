@@ -129,6 +129,7 @@ export default function ClientPortal() {
           {p.tariff.items.length > 0 && <ul>{p.tariff.items.map((x, k) => <li key={k}>{x}</li>)}</ul>}
         </details> : null;
         return <>{slot && !preview && createPortal(ctl, slot)}{nameSlot && !preview && createPortal(<>{p.name}{tariffEl}</>, nameSlot)}
+          {!preview && tariffEl && <div className="tariff-mobile">{tariffEl}</div>}
           {(preview || view === "dash" || view === "pnl" || view === "dds" || view === "an") && <div className="month-top">{ctl}</div>}</>;
       })()}
       {preview && <h1>{p.name}</h1>}

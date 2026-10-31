@@ -462,3 +462,14 @@ input,select,textarea{border-radius:12px}
 :root[data-theme="dark"] .pnl-key td{background:#25395a}
 :root[data-theme="dark"] .home-client,:root[data-theme="dark"] .client-btns .linkbtn,:root[data-theme="dark"] .work-progress{background:#24385a}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pnl-table{background:#213450}:root:not([data-theme="light"]) .pnl-key td{background:#25395a}}
+/* тариф на телефоне — плашкой вверху страницы (левого меню там нет) */
+.tariff-mobile{display:none}
+@media (max-width:900px){.tariff-mobile{display:block;background:#16304f;border-radius:16px;padding:10px 14px;margin-bottom:12px}.tariff-mobile .tariff{margin:0}}
+/* нижнее меню на телефоне: крупные иконки, жирные подписи, активный — синяя «таблетка» */
+@media (max-width:900px){
+  .mnav .navlink .ni{font-size:24px;line-height:1;filter:saturate(1.3)}
+  .mnav .navlink{font-size:11px!important;font-weight:700;gap:4px!important;padding:8px 4px!important;color:#16304f!important;flex:1;min-width:0}
+  .mnav .navlink.active{background:#16304f!important;color:#fff!important}
+  :root[data-theme="dark"] .mnav .navlink{color:#dbe3f5!important}
+  :root[data-theme="dark"] .mnav .navlink.active{background:#3b6db3!important}
+}
