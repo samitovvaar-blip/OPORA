@@ -227,6 +227,12 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
     add("ЧИСТАЯ ПРИБЫЛЬ", profT);
     if (fundT.length) { add("Фондирование (после прибыли)", sumOf(fundT)); fundT.forEach((r) => add(r.article, sumOf([r]), { sub: "Процесс" })); }
     const none = mks.map(() => null);
+    // ключевые метрики по справочнику: доля переменных, постоянных и каждого отдела (если своих меток нет)
+    if (!Object.keys(tagMetrics).length) {
+      if (varT.length) tagMetrics["Переменные расходы"] = vS;
+      if (fixT.length) tagMetrics["Постоянные расходы"] = fS;
+      groupsOf([...varT, ...fixT]).filter((g) => !TYPE_RE.test(g.trim())).forEach((g) => { tagMetrics[g] = sumOf([...varT, ...fixT].filter((r) => (r.process || "Без группы") === g)); });
+    }
     return { metrics: { dividends: none, taxes: none, outsource: none, refunds: none, salary: none, d1: tagMetrics["Себестоимость"] || none, d2: none, d3: tagMetrics["Маркетинг"] || none, d4: none, d5: none },
       tagMetrics, ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at,
       revenue: revT, profit: profT, variable: vS, fixed: fS,

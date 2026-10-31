@@ -6,6 +6,8 @@ import { db } from "../lib/firebase";
 import { ClientProject } from "../lib/catalog";
 
 export const TEMPLATE_ID = "1FR7LnQUPY8TDpzTfhU-zwudGutPraDPUv2PABAtVEBM";
+// ключ = ID таблицы клиента (из ссылки …/spreadsheets/d/ID/edit) — код скрипта один для всех
+export const sheetId = (u?: string) => (u || "").match(/\/spreadsheets\/d\/([\w-]{20,})/)?.[1] || "";
 export const genKey = () => "opora-" + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
 const parse = (u?: string) => {
   const m = (u || "").match(/^([^?]+)\?(.*)$/); const q = new URLSearchParams(m?.[2] || "");
@@ -14,7 +16,8 @@ const parse = (u?: string) => {
 
 export default function ReportConnect({ p, wsId }: { p: ClientProject; wsId: string }) {
   const cur = parse(p.pnlUrl);
-  const key = cur.key || p.scriptKey || "";
+  const [sheet, setSheet] = useState(p.links?.sheet || "");
+  const key = cur.key || sheetId(sheet) || p.scriptKey || "";
   const [base, setBase] = useState(cur.base);
   const [dir, setDir] = useState(cur.dir);
   const [msg, setMsg] = useState<string[] | null>(null);
@@ -28,7 +31,7 @@ export default function ReportConnect({ p, wsId }: { p: ClientProject; wsId: str
     setBusy(true); await updateDoc(ref, { pnlUrl: url });
     try {
       const j = await (await fetch(url + "&fresh=1")).json();
-      setMsg(j.error ? ["❌ " + j.error, /ключ/i.test(j.error) ? "→ вставь в скрипт строку: " + line : ""].filter(Boolean)
+      setMsg(j.error ? ["❌ " + j.error, /ключ/i.test(j.error) ? "→ проверь, что ссылка на таблицу — именно та, где стоит скрипт, и скрипт обновлён с GitHub" : ""].filter(Boolean)
         : [`✅ Подключено: «${j.title}», операций по «${dir}»: ${j.matched ?? 0}, месяцев: ${(j.months || []).length}`]);
     } catch { setMsg(["❌ Скрипт не ответил. Проверь: «Веб-приложение», доступ «Все», ссылка /exec"]); }
     setBusy(false);
@@ -36,12 +39,12 @@ export default function ReportConnect({ p, wsId }: { p: ClientProject; wsId: str
 
   return <div className="card" style={{ background: "var(--bg)", margin: "6px 0" }}>
     <b>📑 Отчётность (Google-таблица)</b>
-    {!key ? <div style={{ marginTop: 6 }}><button onClick={() => updateDoc(ref, { scriptKey: genKey() })}>🔑 Создать ключ клиента</button>
-      <span className="muted small"> — один раз, потом его не меняем</span></div> : <>
-      <div className="small" style={{ marginTop: 6 }}>1. Таблица клиента: <a href={`https://docs.google.com/spreadsheets/d/${TEMPLATE_ID}/copy`} target="_blank" rel="noopener noreferrer">создать копию шаблона</a> (если ещё нет)</div>
-      <div className="small" style={{ marginTop: 4 }}>2. В таблице: Расширения → Apps Script → замени строку <code>var KEY</code> на:</div>
-      <div className="inline" style={{ margin: "4px 0" }}><code className="key-line">{line}</code>
-        <button className="ghost small" onClick={() => navigator.clipboard?.writeText(line)}>📋 Скопировать</button></div>
+    <div className="small" style={{ marginTop: 6 }}>1. Ссылка на таблицу клиента (из неё берётся ключ):</div>
+    <input value={sheet} onChange={(e) => setSheet(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…/edit" style={{ width: "100%", marginTop: 4 }} />
+    {!sheet && <div className="small muted">Нет таблицы? <a href={`https://docs.google.com/spreadsheets/d/${TEMPLATE_ID}/copy`} target="_blank" rel="noopener noreferrer">Создать копию шаблона</a></div>}
+    {key && <div className="small muted">🔑 ключ: <code>{key}</code></div>}
+    <div className="small" style={{ marginTop: 6 }}>2. Скрипт в таблице — общий для всех клиентов (код с GitHub, ничего не менять).</div>
+    {key && <>
       <div className="small">3. Развёртывание → «Веб-приложение», доступ «Все» → вставь ссылку /exec:</div>
       <input value={base} onChange={(e) => setBase(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" style={{ width: "100%", marginTop: 4 }} />
       <input value={dir} onChange={(e) => setDir(e.target.value)} placeholder="Направление, как в колонке «Направление» (например: Кубики)" style={{ width: "100%", marginTop: 4 }} />

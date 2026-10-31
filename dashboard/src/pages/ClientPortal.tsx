@@ -365,14 +365,13 @@ export default function ClientPortal() {
         const idx = mks.map((mk) => { const i = pnl.months.findIndex((m) => m.mk === mk); return i >= 0 && pnl.revenue[i] != null ? i : null; });
         const M = pnl.metrics || {}, a = (arr?: (number | null)[]) => idx.map((i) => i == null ? null : arr?.[i] ?? null);
         const neg = (arr: (number | null)[]) => arr.map((x) => x == null ? null : Math.abs(x));
-        const rows: [string, (number | null)[], string][] = [
-          ["Выручка", a(pnl.revenue), "an-key"],
-          ["Переменные расходы", neg(a(pnl.variable)), "an-sec"],
-          ["1. Производственный отдел", neg(a(M.d1)), ""], ["2. Отдел продаж", neg(a(M.d2)), ""], ["3. Отдел маркетинга", neg(a(M.d3)), ""],
-          ["Постоянные расходы", neg(a(pnl.fixed)), "an-sec"],
-          ["4. Админ-хоз отдел и Руководство", neg(a(M.d4)), ""], ["5. Финансовый отдел", neg(a(M.d5)), ""],
-          ["Чистая прибыль", a(pnl.profit), "an-key profit"],
-        ];
+        // строки берём из самого ОПиУ: выручка, переменные/постоянные (или расходы итого), отделы, прибыль — для любого справочника
+        const rows: [string, (number | null)[], string][] = [["Выручка", a(pnl.revenue), "an-key"]];
+        pnl.rows.forEach((r) => {
+          if (/^(ПЕРЕМЕННЫЕ РАСХОДЫ|ПОСТОЯННЫЕ РАСХОДЫ|РАСХОДЫ ИТОГО)/.test(r.name)) rows.push([r.name[0] + r.name.slice(1).toLowerCase(), neg(a(r.values)), "an-sec"]);
+          else if (r.total) rows.push([r.name, neg(a(r.values)), ""]);
+        });
+        rows.push(["Чистая прибыль", a(pnl.profit), "an-key profit"]);
         const sum = (arr: (number | null)[]) => arr.reduce((x: number, y) => x + (y || 0), 0);
         const revs = a(pnl.revenue), profs = a(pnl.profit);
         return <div className="card soft-card print-area" style={{ overflowX: "auto", maxWidth: 1000 }}>

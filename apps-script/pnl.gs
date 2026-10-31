@@ -15,14 +15,18 @@
  *
  * После изменения кода: Развернуть → Управление развертываниями → ✏️ → Версия «Новая» → Развернуть.
  */
+// Ключ доступа. Код ОДИН для всех клиентов: ключом служит ID самой таблицы
+// (часть ссылки между /d/ и /edit). Строку ниже можно оставить пустой; если в ней что-то
+// записано — этот ключ тоже принимается (для старых подключений, например у Аслана).
 var KEY = 'opora-af18tlqro6wg5bup';
+function okKey(k) { return !!k && (k === KEY || k === SpreadsheetApp.getActiveSpreadsheet().getId()); }
 var DEFAULT_SHEETS = ['ДДС БОТ ОСНОВНЫЕ', 'ДДС БОТ ФОНДЫ'];   // основная база + база фондов (траты из фондов — расход в ОПиУ)
 var DIRECTORY = 'Справочник-общее';   // группы статей → статьи (A → B)
 var BALANCES = 'БАЛАНСЫ СЕЙЧАС';      // остатки по счетам и дата сверки с выпиской
 
 function buildReport(e) {
   var p = (e && e.parameter) || {};
-  if (p.key !== KEY) return out({ error: 'Неверный ключ' });
+  if (!okKey(p.key)) return out({ error: 'Неверный ключ' });
   var dirs = String(p.dir || '').split(',').map(norm).filter(String);
   if (!dirs.length) return out({ error: 'Не указано направление: добавь &dir=Кубики' });
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -154,7 +158,7 @@ function toDate(x) {
 var CACHE_SEC = 600;
 function doGet(e) {
   var p = (e && e.parameter) || {};
-  if (p.key !== KEY) return out({ error: 'Неверный ключ' });
+  if (!okKey(p.key)) return out({ error: 'Неверный ключ' });
   var cache = CacheService.getScriptCache(), ck = 'r:' + (p.dir || '') + '|' + (p.sheet || '');
   if (p.fresh !== '1') {
     var n = Number(cache.get(ck + ':n') || 0);

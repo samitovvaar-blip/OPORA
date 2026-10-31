@@ -23,7 +23,8 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
   const [birthday, setBirthday] = useState("");
   const [links, setLinks] = useState<Links>({});
   const [exec, setExec] = useState("");
-  const [key, setKey] = useState(genKey);
+  const [sheetLink, setSheetLink] = useState("");
+  const key = (sheetLink || links.sheet || "").match(/\/spreadsheets\/d\/([\w-]{20,})/)?.[1] || "";
   const [dir, setDir] = useState("");
   const [check, setCheck] = useState<{ ok: boolean; lines: string[] } | null>(null);
   const [checking, setChecking] = useState(false);
@@ -41,7 +42,7 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
     getDocs(collection(db, "users", u.uid, "products")).then((q) => setProducts(q.docs.map((d) => d.data() as Product).sort((a, b) => (a.order || 0) - (b.order || 0)))).catch(() => {}); }, []);
 
   const base = exec.trim().replace(/\?.*$/, "");
-  const pnlUrl = base ? `${base}?key=${encodeURIComponent(key)}&dir=${encodeURIComponent(dir.trim())}` : "";
+  const pnlUrl = base && key ? `${base}?key=${encodeURIComponent(key)}&dir=${encodeURIComponent(dir.trim())}` : "";
   const items = STAGES.flatMap((s) => s.items).filter((it) => shown(it, flags)).length;
 
   // «Проверить подключение»: открываем скрипт и объясняем, что не так
@@ -51,7 +52,7 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
     setChecking(true); setCheck(null);
     try {
       const j = await (await fetch(pnlUrl + "&fresh=1")).json();
-      if (j.error) setCheck({ ok: false, lines: ["❌ " + j.error, /ключ/i.test(j.error) ? "→ в скрипте строка var KEY = '" + key + "';" : ""].filter(Boolean) });
+      if (j.error) setCheck({ ok: false, lines: ["❌ " + j.error, /ключ/i.test(j.error) ? "→ ссылка на таблицу должна быть той же, где стоит скрипт" : ""].filter(Boolean) });
       else setCheck({ ok: true, lines: [
         `✅ Таблица «${j.title || ""}» отвечает`,
         `✅ Найдено операций по направлению «${dir}»: ${j.matched ?? "—"} из ${j.scanned ?? "—"}`,
@@ -105,7 +106,9 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
       <ol className="small wiz-ol">
         <li>Создай таблицу клиента из шаблона: <a className="linkbtn" href={`https://docs.google.com/spreadsheets/d/${TEMPLATE_ID}/copy`} target="_blank" rel="noopener noreferrer">📄 Создать копию шаблона</a>
           <span className="muted"> — назови её по клиенту и заполни базу.</span></li>
-        <li>В копии: Расширения → Apps Script. В строке <code>var KEY</code> поставь ключ: <b>{key}</b> <button type="button" className="ghost small" onClick={() => navigator.clipboard?.writeText(`var KEY = '${key}';`)}>📋 скопировать строку</button> <button type="button" className="ghost small" onClick={() => setKey(genKey())}>↻ другой</button></li>
+        <li>Скрипт в таблице — общий для всех клиентов (код с GitHub, ничего менять не нужно). Ключом служит ID таблицы.</li>
+        <li>Ссылка на таблицу клиента: <input value={sheetLink || links.sheet || ""} onChange={(e) => setSheetLink(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…/edit" style={{ width: "100%" }} />
+          {key ? <span className="muted"> 🔑 {key}</span> : null}</li>
         <li>Развёртывание → Новое развёртывание → «Веб-приложение», доступ «Все» → скопируй ссылку <code>…/exec</code>.</li>
       </ol>
       <input placeholder="Ссылка на скрипт: https://script.google.com/macros/s/…/exec" value={exec} onChange={(e) => setExec(e.target.value)} style={{ width: "100%" }} />
