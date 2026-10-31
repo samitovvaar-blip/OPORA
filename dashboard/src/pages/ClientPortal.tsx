@@ -347,8 +347,15 @@ export default function ClientPortal() {
 
       {view === "an" && pnl && cur != null && (() => {
         // Аналитика: ключевые строки ОПиУ за 3 или 6 месяцев (до выбранного включительно)
-        const idx = anMode === "cmp" ? [prevIdx, cur].filter((x): x is number => x != null) : filled.filter(({ i }) => i <= cur).slice(-anN).map(({ i }) => i);
-        const M = pnl.metrics || {}, a = (arr?: (number | null)[]) => idx.map((i) => arr?.[i] ?? null);
+        // Календарные месяцы: «Год» — январь…декабрь года выбранного месяца, 3/6 — подряд до выбранного.
+        // Месяцы без данных в таблице показываем прочерками («нет данных»).
+        const curMk = pnl.months[cur].mk || "", [cy, cm] = curMk.split("-").map(Number);
+        const shift = (k: number) => { const d = new Date(cy, cm - 1 + k, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+        const mks = anMode === "cmp" ? [prevIdx != null ? pnl.months[prevIdx].mk! : shift(-1), curMk]
+          : anN === 12 ? Array.from({ length: 12 }, (_, k) => `${cy}-${String(k + 1).padStart(2, "0")}`)
+          : Array.from({ length: anN }, (_, k) => shift(k - anN + 1));
+        const idx = mks.map((mk) => { const i = pnl.months.findIndex((m) => m.mk === mk); return i >= 0 && pnl.revenue[i] != null ? i : null; });
+        const M = pnl.metrics || {}, a = (arr?: (number | null)[]) => idx.map((i) => i == null ? null : arr?.[i] ?? null);
         const neg = (arr: (number | null)[]) => arr.map((x) => x == null ? null : Math.abs(x));
         const rows: [string, (number | null)[], string][] = [
           ["Выручка", a(pnl.revenue), "an-key"],
@@ -366,7 +373,8 @@ export default function ClientPortal() {
               <button className={`chipbtn ${anMode === "cmp" ? "on" : ""}`} onClick={() => setAnMode("cmp")}>± К прошлому месяцу</button>
               {[3, 6, 12].map((n) => <button key={n} className={`chipbtn ${anMode === "months" && anN === n ? "on" : ""}`} onClick={() => { setAnMode("months"); setAnN(n); }}>{n === 3 ? "3 месяца" : n === 6 ? "Полгода" : "Год"}</button>)}</span></div>
           <table className="pnl-table" style={{ marginTop: 10 }}>
-            <thead><tr><th />{idx.map((i) => <th key={i}>{pnl.months[i].label}<div className="small" style={{ opacity: .8 }}>{pnl.months[i].closed ? "✓ сдано" : "предв."}</div></th>)}<th>{anMode === "cmp" ? "Отклонение" : "Итого"}</th></tr></thead>
+            <thead><tr><th />{mks.map((mk, k) => { const i = idx[k]; const [, mm] = mk.split("-").map(Number);
+              return <th key={mk} style={{ opacity: i == null ? .55 : 1 }}>{MONTHS[mm - 1]}<div className="small" style={{ opacity: .8 }}>{i == null ? "нет данных" : pnl.months[i].closed ? "✓ сдано" : "предв."}</div></th>; })}<th>{anMode === "cmp" ? "Отклонение" : "Итого"}</th></tr></thead>
             <tbody>
               {rows.map(([l, vals, cls]) => <tr key={l} className={cls.includes("an-key") ? "pnl-key" : ""}>
                 <td className={cls.includes("profit") ? "profit" : cls === "an-sec" ? "an-sec" : ""} style={{ paddingLeft: cls ? undefined : 22 }}>{l}</td>
@@ -379,7 +387,7 @@ export default function ClientPortal() {
                   return <td className={good == null ? "muted" : good ? "ok" : "error"}><b>{v != null && pv != null ? (v - pv >= 0 ? "+" : "−") + rub(Math.abs(v - pv)) : "—"}</b>
                     <div className="small">{d == null ? "" : (d > 0 ? "▲ " : d < 0 ? "▼ " : "") + Math.abs(d) + "%"}</div></td>;
                 })() : <td><b>{rub(sum(vals))}</b></td>}</tr>)}
-              <tr><td>Рентабельность</td>{idx.map((i, k) => <td key={k}>{pct(profs[k], revs[k]) != null ? pct(profs[k], revs[k]) + "%" : "—"}</td>)}
+              <tr><td>Рентабельность</td>{idx.map((_, k) => <td key={k}>{pct(profs[k], revs[k]) != null ? pct(profs[k], revs[k]) + "%" : "—"}</td>)}
                 <td><b>{anMode === "cmp" ? "" : pct(sum(profs), sum(revs)) != null ? pct(sum(profs), sum(revs)) + "%" : "—"}</b></td></tr>
             </tbody>
           </table>
