@@ -25,6 +25,8 @@ export default function Tasks() {
   const { wsId, isOwner, ws, ready } = useWorkspace();
   const [items, setItems] = useState<Assignment[]>([]);
   const [error, setError] = useState("");
+  const [moreDay, setMoreDay] = useState(false);
+  const [moreOver, setMoreOver] = useState(false);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [selDay, setSelDay] = useState(today());
   const [openId, setOpenId] = useState<string | null>(null);
@@ -89,6 +91,20 @@ export default function Tasks() {
     <>
       <h1>Задания {isOwner ? <span className="badge">{ws?.open ? "🔓 доступ открыт" : "🔒 доступ закрыт"}</span> : null}</h1>
       {error && <div className="error">{error}</div>}
+      {(() => {
+        // просроченные сроки по проектам: первые 5, остальное — по кнопке
+        const t = today(), over = deadlines.filter((x) => !x.done && x.date < t).sort((a, b) => a.date.localeCompare(b.date));
+        if (!over.length) return null;
+        return <div className="card" style={{ marginBottom: 14, borderLeft: "4px solid var(--lost)" }}>
+          <h3 style={{ marginTop: 0 }}>⚠ Просрочено по проектам <span className="notif-count" style={{ background: "var(--lost)" }}>{over.length}</span></h3>
+          {over.slice(0, moreOver ? 999 : 5).map((x) => (
+            <label key={x.key} className="task row" style={{ cursor: "pointer" }}>
+              <span style={{ display: "flex", gap: 8 }}><input type="checkbox" onChange={() => setMark(x.pid, x.itemId, { done: true, doneBy: user!.email || "", doneAt: stamp() })} />
+                <span><span className="tagc">{x.project}</span> {x.title}</span></span>
+              <span className="small error">{Number(x.date.slice(8))}.{x.date.slice(5, 7)}</span>
+            </label>))}
+          {over.length > 5 && <button className="ghost" onClick={() => setMoreOver(!moreOver)}>{moreOver ? "Свернуть" : `Посмотреть ещё (${over.length - 5})`}</button>}
+        </div>; })()}
       <div className="cal-wrap">
         <div className="card">
           <div className="row">
@@ -158,15 +174,14 @@ export default function Tasks() {
           ))}
           {!dayItems.length && !deadlines.some((x) => x.date === selDay) && <div className="muted small">На этот день заданий нет</div>}
           {deadlines.some((x) => x.date === selDay) && <h3 style={{ marginTop: 16 }}>◆ Сроки по проектам</h3>}
-          {deadlines.filter((x) => x.date === selDay).map((x) => (
+          {deadlines.filter((x) => x.date === selDay).slice(0, moreDay ? 999 : 5).map((x) => (
             <label key={x.key} className={`task row ${x.done ? "done" : ""}`} style={{ justifyContent: "flex-start", gap: 8, cursor: "pointer" }}>
               <input type="checkbox" checked={x.done} onChange={() => setMark(x.pid, x.itemId, x.done
                 ? { done: false, doneBy: "", doneAt: "" } : { done: true, doneBy: user!.email || "", doneAt: stamp() })} />
-              <span><span className="tagc">{x.project}</span> {x.title}
-                {isOwner && <span className="muted small"> {x.open ? "🔓" : "🔒"}</span>}</span>
+              <span><span className="tagc">{x.project}</span> {x.title}</span>
             </label>
           ))}
-          {deadlines.some((x) => x.date === selDay) && <div className="muted small">Весь чек-лист — в <a href={isOwner ? "#/projects" : "#/monthly"}>{isOwner ? "Проектах" : "Ежемесячных"}</a>. 🔓/🔒 видит ли сотрудник — переключается в проекте.</div>}
+          {deadlines.filter((x) => x.date === selDay).length > 5 && <button className="ghost" onClick={() => setMoreDay(!moreDay)}>{moreDay ? "Свернуть" : `Посмотреть ещё (${deadlines.filter((x) => x.date === selDay).length - 5})`}</button>}
 
           {isOwner && (
             <form onSubmit={add} className="newtask">
