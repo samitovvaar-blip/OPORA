@@ -74,7 +74,7 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
             <FlagPicker flags={p.flags || {}} onChange={(f) => upd({ flags: f })} />
             <LinkEditor key={p.id} links={p.links} onChange={(l) => upd({ links: l })} />
             <ClientAccess p={p} wsId={wsId!} /></div>}
-          <LinkButtons links={p.links} />
+          {isOwner && <LinkButtons links={p.links} />}
           {isOwner && <details style={{ marginTop: 10 }}><summary className="small"><b>💰 Услуги и оплата</b></summary>
             <Payments projectId={p.id} projectName={p.name} /></details>}
           {report && <ClientReport p={p} mk={mk} marks={marks[p.id] || {}} onClose={() => setReport(false)} />}
