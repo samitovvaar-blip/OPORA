@@ -1,7 +1,8 @@
 // Владелец: доступ клиента к кабинету, ссылка на P&L из таблицы, план на следующий месяц
-import { FormEvent, useState } from "react";
-import { arrayRemove, arrayUnion, deleteDoc, doc, setDoc, updateDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { FormEvent, useEffect, useState } from "react";
+import { arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
+import { auth, db } from "../lib/firebase";
+import type { Product } from "../pages/Products";
 import { ClientProject, monthKey } from "../lib/catalog";
 import { sliceMonth } from "../lib/sheetPnl";
 import { addMonths, parseAmount } from "../lib/money";
@@ -45,6 +46,16 @@ export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: stri
     await updateDoc(ref, { closedMonths: arrayUnion(mk) });
   }
 
+  // Тариф клиента: выбираешь из своих продуктов — копируем название, цену и что входит в карточку клиента
+  const [products, setProducts] = useState<Product[]>([]);
+  useEffect(() => { const u = auth.currentUser; if (!u) return;
+    getDocs(collection(db, "users", u.uid, "products")).then((q) => setProducts(q.docs.map((d) => d.data() as Product).sort((a, b) => (a.order || 0) - (b.order || 0)))).catch(() => {}); }, []);
+  const pickTariff = (title: string) => {
+    const pr = products.find((x) => x.title === title); if (!pr) return updateDoc(ref, { tariff: deleteField() });
+    const items = (pr.sections?.length ? pr.sections.flatMap((x) => x.items) : pr.includes) || [];
+    updateDoc(ref, { tariff: { name: pr.title, price: pr.price, period: pr.period || "в месяц", payDay: p.tariff?.payDay ?? null, items } });
+  };
+
   return (
     <div className="card" style={{ background: "var(--bg)", marginTop: 8 }}>
       <div className="row"><b>👤 Кабинет клиента</b>
@@ -59,6 +70,17 @@ export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: stri
       <label className="small" style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>📑 Ссылка на P&L из таблицы (Apps Script)
         <input key={p.pnlUrl || ""} defaultValue={p.pnlUrl || ""} placeholder="https://script.google.com/macros/s/…/exec?key=СЕКРЕТ&dir=Кубики"
           onBlur={(e) => { const v = e.target.value.trim(); if (v !== (p.pnlUrl || "")) updateDoc(ref, { pnlUrl: v }); }} /></label>
+      <div className="small" style={{ marginTop: 10 }}><b>💳 Тариф клиента</b> <span className="muted">— клиент видит внизу меню</span></div>
+      <div className="inline" style={{ margin: "4px 0" }}>
+        <select value={p.tariff?.name || ""} onChange={(e) => pickTariff(e.target.value)}>
+          <option value="">— не выбран —</option>{products.map((x) => <option key={x.title} value={x.title}>{x.title}</option>)}</select>
+        {p.tariff && <>
+          <input type="number" style={{ width: 120 }} key={"tp" + p.tariff.price} defaultValue={p.tariff.price} title="Сумма оплаты"
+            onBlur={(e) => updateDoc(ref, { "tariff.price": Number(e.target.value) || 0 })} />
+          <input type="number" min={1} max={31} style={{ width: 90 }} key={"td" + (p.tariff.payDay ?? "")} defaultValue={p.tariff.payDay ?? ""} placeholder="день оплаты"
+            onBlur={(e) => updateDoc(ref, { "tariff.payDay": e.target.value ? Number(e.target.value) : null })} />
+        </>}
+      </div>
       <div className="small" style={{ marginTop: 10 }}><b>✓ Сдано клиенту</b> <span className="muted">— отметь месяц после созвона. Цифры месяца замораживаются: правки в таблице их больше не меняют.</span></div>
       {freezing && <div className="small muted">🧊 Сохраняю цифры месяца…</div>}
       <div className="chips" style={{ margin: "4px 0" }}>

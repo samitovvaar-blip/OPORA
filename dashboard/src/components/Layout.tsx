@@ -85,8 +85,7 @@ export default function Layout() {
   return (
     <div className="shell">
       <aside className="side">
-        <div className="logo"><img src="logo.png" alt="" />ОПОРА
-          <button className="ghost side-refresh" title="Обновить данные" onClick={refresh}>↻</button></div>
+        <div className="logo" onClick={refresh} title="Обновить данные" style={{ cursor: "pointer" }}><img src="logo.png" alt="" />ОПОРА</div>
         {clientOf && <div id="side-slot" />}
         {menu}
         {foot}

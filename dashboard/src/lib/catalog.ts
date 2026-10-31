@@ -106,6 +106,7 @@ export interface ClientProject {
   workStatus?: Record<string, { loadedTo?: string; reportsDone?: boolean; taxesPaid?: boolean; reportsDoneFor?: string; taxesPaidFor?: string; callNote?: string }>;
   calls?: { id: string; at: string; text: string; archived?: boolean }[];
   sales?: Record<string, number>;
+  tariff?: { name: string; price: number; period?: string; payDay?: number | null; items: string[] };
   planSales?: Record<string, number>;
   payCal?: Record<string, { start?: number | null; revenue?: number | null; items?: PayItem[] }>;
   plans?: Record<string, { d1?: number; d2?: number; d3?: number; d4?: number; d5?: number; note?: string }>;

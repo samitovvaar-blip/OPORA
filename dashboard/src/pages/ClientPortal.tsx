@@ -121,7 +121,13 @@ export default function ClientPortal() {
             && <button className="m-pdf" onClick={() => window.print()}>📄 PDF</button>}</span>
         </div> : null;
         const nameSlot = document.getElementById("side-name");
-        return <>{slot && !preview && createPortal(ctl, slot)}{nameSlot && !preview && createPortal(<>{p.name}</>, nameSlot)}
+        // тариф — скромно внизу меню; нажал — раскрылась сумма, день оплаты и что входит
+        const tariffEl = p.tariff ? <details className="tariff"><summary>Тариф: {p.tariff.name}</summary>
+          <div className="t-price">{rub(p.tariff.price)} <span>{p.tariff.period || "в месяц"}</span></div>
+          {p.tariff.payDay ? <div className="t-pay">оплата до {p.tariff.payDay}-го числа</div> : null}
+          {p.tariff.items.length > 0 && <ul>{p.tariff.items.map((x, k) => <li key={k}>{x}</li>)}</ul>}
+        </details> : null;
+        return <>{slot && !preview && createPortal(ctl, slot)}{nameSlot && !preview && createPortal(<>{p.name}{tariffEl}</>, nameSlot)}
           {(preview || view === "dash" || view === "pnl" || view === "dds" || view === "an") && <div className="month-top">{ctl}</div>}</>;
       })()}
       {preview && <h1>{p.name}</h1>}

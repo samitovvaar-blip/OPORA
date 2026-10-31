@@ -448,3 +448,10 @@ input,select,textarea{border-radius:12px}
 .confetti{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
 .confetti i{position:absolute;top:-12px;width:8px;height:14px;border-radius:2px;animation:conf 2.6s ease-in forwards}
 @keyframes conf{to{transform:translateY(105vh) rotate(720deg);opacity:.2}}
+/* тариф внизу меню клиента */
+.tariff{margin-top:6px;font-size:12px;font-weight:400;color:#c9d4ec}
+.tariff summary{cursor:pointer;opacity:.8;list-style:none}.tariff summary::-webkit-details-marker{display:none}
+.tariff[open] summary{opacity:1}
+.tariff .t-price{color:#fff;font-size:16px;font-weight:800;margin-top:6px}.tariff .t-price span{font-size:11px;font-weight:400;opacity:.8}
+.tariff .t-pay{opacity:.85;margin:2px 0 4px}.tariff ul{margin:4px 0 0;padding-left:16px;line-height:1.4}
+.side .logo:active img{transform:rotate(180deg);transition:transform .4s}
