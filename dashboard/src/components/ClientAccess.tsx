@@ -5,6 +5,7 @@ import { auth, db } from "../lib/firebase";
 import type { Product } from "../pages/Products";
 import { ClientProject, monthKey } from "../lib/catalog";
 import { sliceMonth } from "../lib/sheetPnl";
+import ReportConnect from "./ReportConnect";
 import { addMonths, parseAmount } from "../lib/money";
 
 export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: string }) {
@@ -67,9 +68,7 @@ export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: stri
         <input type="email" placeholder="Почта клиента" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
         <button>+ Клиент</button>
       </form>
-      <label className="small" style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>📑 Ссылка на P&L из таблицы (Apps Script)
-        <input key={p.pnlUrl || ""} defaultValue={p.pnlUrl || ""} placeholder="https://script.google.com/macros/s/…/exec?key=СЕКРЕТ&dir=Кубики"
-          onBlur={(e) => { const v = e.target.value.trim(); if (v !== (p.pnlUrl || "")) updateDoc(ref, { pnlUrl: v }); }} /></label>
+      <ReportConnect p={p} wsId={wsId} />
       <div className="small" style={{ marginTop: 10 }}><b>💳 Тариф клиента</b> <span className="muted">— клиент видит внизу меню</span></div>
       <div className="inline" style={{ margin: "4px 0" }}>
         <select value={p.tariff?.name || ""} onChange={(e) => pickTariff(e.target.value)}>

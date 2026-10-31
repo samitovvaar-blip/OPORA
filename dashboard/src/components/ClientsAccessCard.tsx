@@ -43,9 +43,9 @@ export default function ClientsAccessCard() {
             <span className={days != null && days <= 3 ? "pill pill-wait" : "pill pill-info"}>
               {nd ? <>оплата {nd.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}{days === 0 ? " · сегодня" : ` · через ${days} дн.`}</> : "день оплаты не указан"}</span>
           </div>
-          {(() => { const k = p.pnlUrl?.match(/[?&]key=([^&]+)/)?.[1];
+          {(() => { const k = p.pnlUrl?.match(/[?&]key=([^&]+)/)?.[1] || p.scriptKey;
             return <div className="small" style={{ marginTop: 4 }}>🔑 {k ? <><code>{decodeURIComponent(k)}</code> <button className="ghost small" title="Скопировать строку для скрипта"
-              onClick={() => navigator.clipboard?.writeText(`var KEY = '${decodeURIComponent(k)}';`)}>📋</button></> : <span className="muted">отчётность не подключена</span>}</div>; })()}
+              onClick={() => navigator.clipboard?.writeText(`var KEY = '${decodeURIComponent(k)}';`)}>📋</button></> : <a href={"#/projects?p=" + p.id}>подключить отчётность →</a>}</div>; })()}
           <div className="small" style={{ marginTop: 4 }}>🎂 <input type="date" defaultValue={p.birthday || ""} key={"b" + (p.birthday || "")}
               onBlur={(e) => e.target.value !== (p.birthday || "") && updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { birthday: e.target.value })} />
             {bdayText(p.birthday) && <span className="muted"> {bdayText(p.birthday)}</span>}</div>
