@@ -502,3 +502,4 @@ input,select,textarea{border-radius:12px}
 .neyla-toast .loader-spiral{margin-left:4px}
 .adm-client{border-top:1px solid var(--border);padding:10px 0}
 .adm-pay{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+.mrow.archived{opacity:.45}.mrow.archived b{text-decoration:line-through}

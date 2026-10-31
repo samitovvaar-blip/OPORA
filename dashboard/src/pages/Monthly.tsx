@@ -81,7 +81,7 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
           {isOwner && <details style={{ marginTop: 10 }}><summary className="small"><b>💰 Услуги и оплата</b></summary>
             <Payments projectId={p.id} projectName={p.name} /></details>}
           {report && <ClientReport p={p} mk={mk} marks={marks[p.id] || {}} onClose={() => setReport(false)} />}
-          <Checklist p={p} mk={mk} marks={marks[p.id] || {}} setMark={(id, m) => setMark(p.id, id, m)} />
+          <Checklist p={p} mk={mk} marks={marks[p.id] || {}} setMark={(id, m) => setMark(p.id, id, m)} onEdit={isOwner ? (patch) => upd(patch) : undefined} />
         </div>}
       </>}
     </>

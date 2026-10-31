@@ -106,6 +106,8 @@ export interface ClientProject {
   workStatus?: Record<string, { loadedTo?: string; reportsDone?: boolean; taxesPaid?: boolean; reportsDoneFor?: string; taxesPaidFor?: string; callNote?: string }>;
   calls?: { id: string; at: string; text: string; archived?: boolean }[];
   sales?: Record<string, number>;
+  hiddenItems?: string[];   // задачи чек-листа в архиве (не видят сотрудник и клиент)
+  customItems?: { id: string; stage: string; title: string; hint?: string; due?: number | null }[];   // свои задачи владельца
   tariff?: { name: string; price: number; period?: string; payDay?: number | null; items: string[] };
   planSales?: Record<string, number>;
   payCal?: Record<string, { start?: number | null; revenue?: number | null; items?: PayItem[] }>;
