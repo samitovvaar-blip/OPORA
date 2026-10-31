@@ -104,11 +104,11 @@ export default function ClientPortal() {
           <span className="ni">📅</span>
           <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
             {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
-          <span className={`m-pill ${pnl.months[cur].closed ? "m-ok" : "m-pre"}`}>{pnl.months[cur].closed ? "✓ Сдано" : "Предварительно"}</span>
+          <span className="m-sub"><span className={`m-pill ${pnl.months[cur].closed ? "m-ok" : "m-pre"}`}>{pnl.months[cur].closed ? "✓ Сдано" : "Предварительно"}</span>
           {/* PDF — только по сданной отчётности (в аналитике — все месяцы периода сданы) */}
           {(view === "pnl" || view === "dds" || view === "an") && (view === "an"
             ? filled.filter(({ i }) => i <= cur).slice(-anN).every(({ m }) => m.closed) : pnl.months[cur].closed)
-            && <button className="m-pdf" onClick={() => window.print()}>📄 PDF</button>}
+            && <button className="m-pdf" onClick={() => window.print()}>📄 PDF</button>}</span>
         </div> : null;
         const nameSlot = document.getElementById("side-name");
         return <>{slot && !preview && createPortal(ctl, slot)}{nameSlot && !preview && createPortal(<>{p.name}</>, nameSlot)}
@@ -361,19 +361,30 @@ export default function ClientPortal() {
         </div>;
       })()}
 
-      {view === "dash" && pnl && cur != null && !hideNeyla && rev != null && (() => {
+      {(view === "pnl" || view === "dds" || view === "an") && pnl && cur != null && !hideNeyla && rev != null && (() => {
         // Вывод от Нейлы: 2–3 строки простым языком по выбранному месяцу
         const lines: string[] = [];
+        if (view === "an") {
+          // вывод по периоду аналитики
+          const ids = filled.filter(({ i }) => i <= cur).slice(-anN).map(({ i }) => i);
+          const rs = ids.map((i) => pnl.revenue[i] || 0), ps = ids.map((i) => pnl.profit[i] || 0);
+          const best = ids[ps.indexOf(Math.max(...ps))], tr = rs.length > 1 ? delta(rs[rs.length - 1], rs[0]) : null;
+          if (tr != null) lines.push(tr >= 0 ? `За период выручка выросла на ${tr}% 🚀` : `За период выручка снизилась на ${Math.abs(tr)}%.`);
+          lines.push(`Самый прибыльный месяц — ${pnl.months[best].label.toLowerCase()}: ${rub(Math.max(...ps))}.`);
+          const sr = rs.reduce((a, b) => a + b, 0), sp = ps.reduce((a, b) => a + b, 0);
+          if (sr) lines.push(`Средняя рентабельность за период — ${Math.round(sp / sr * 100)}%.`);
+        } else {
         const d = delta(rev, prevRev);
         if (d != null) lines.push(d >= 0 ? `Выручка выросла на ${d}% к прошлому месяцу 👍` : `Выручка снизилась на ${Math.abs(d)}% к прошлому месяцу — стоит разобрать причины.`);
         const m = pct(prof, rev);
         if (m != null) lines.push(m >= 20 ? `Рентабельность ${m}% — это хороший уровень.` : m >= 0 ? `Рентабельность ${m}% — есть куда расти, посмотрите на крупные расходы.` : `Месяц в минусе: расходы больше выручки на ${rub(Math.abs(prof || 0))}.`);
         const big = pnl.depts.map((x) => ({ n: x.name.replace(/^\d+\.\s*/, ""), v: Math.abs(x.values[cur] || 0) })).sort((a, b) => b.v - a.v)[0];
         if (big && rev) { const sh = Math.round(big.v / rev * 100); lines.push(`Больше всего уходит на «${big.n}» — ${sh}% выручки${/маркетинг/i.test(big.n) && sh > 30 ? ", это выше нормы" : ""}.`); }
+        }
         return <div className="neyla-insight no-print">
           <button className="ghost ni-close" onClick={() => setHideNeyla(true)}>✕</button>
           <img src="neyla.jpg" alt="" />
-          <div><b>Нейла · вывод за {pnl.months[cur].label.toLowerCase()}</b>{lines.slice(0, 3).map((l, k) => <p key={k}>{l}</p>)}</div>
+          <div><b>Нейла · {view === "an" ? `вывод за ${anN === 12 ? "год" : anN === 6 ? "полгода" : "3 месяца"}` : `вывод за ${pnl.months[cur].label.toLowerCase()}`}</b>{lines.slice(0, 3).map((l, k) => <p key={k}>{l}</p>)}</div>
         </div>;
       })()}
 

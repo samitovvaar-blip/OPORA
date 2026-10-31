@@ -436,3 +436,8 @@ input,select,textarea{border-radius:12px}
 }
 .pdf-btn{margin:0!important}.pdf-btn:disabled{background:#9aa6b8!important;cursor:not-allowed}
 .m-pdf{background:rgba(255,255,255,.15)!important;color:#fff!important;font-size:12px;padding:4px 10px!important;border-radius:999px!important;white-space:nowrap}@media print{.m-pdf{display:none!important}}
+/* месяц в меню: название целиком, статус и PDF — строкой ниже, мельче */
+.month-ctl{flex-wrap:wrap;row-gap:4px}
+.month-ctl select{flex:1 1 calc(100% - 40px);min-width:0;font-weight:700}
+.m-sub{display:flex;gap:6px;align-items:center;flex-basis:100%;padding-left:34px}
+.m-sub .m-pill,.m-sub .m-pdf{font-size:10px!important;padding:2px 8px!important}
