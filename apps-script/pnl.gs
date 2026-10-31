@@ -176,8 +176,14 @@ function readGoods(ss) {
     if (!inSh && /товар.*поставк/.test(nm)) inSh = sheets[i];
     if (!outSh && /товар.*реализац/.test(nm)) outSh = sheets[i];
     if (!invSh && /инвентаризац/.test(nm)) invSh = sheets[i]; }
-  if (!inSh && !outSh && !sh) return Object.keys(groups).length ? { groups: groups, items: {}, months: [] } : null;
+  if (!inSh && !outSh && !invSh && !sh) return Object.keys(groups).length ? { groups: groups, items: {}, months: [] } : null;
   var items = {}, months = {}, errs = [];
+  // название товара: «наименование…» или «номенклатурный номер» — берём то, что есть в справочнике товаров
+  var nameOf = function (row, cN, cNum) {
+    var a = cN >= 0 ? String(row[cN] || '').trim() : '', b = cNum >= 0 ? String(row[cNum] || '').trim() : '';
+    if (b && groups[b] !== undefined) return b; if (a && groups[a] !== undefined) return a;
+    return a || b;
+  };
   var readMoves = function (sheet, dir) {
     var v = sheet.getDataRange().getValues(), hr = 0;
     for (var r = 0; r < Math.min(6, v.length); r++) if (v[r].map(norm).some(function (x) { return /^кол/.test(x); })) { hr = r; break; }
@@ -185,10 +191,10 @@ function readGoods(ss) {
     var col = function (re) { for (var i = 0; i < h.length; i++) if (re.test(h[i])) return i; return -1; };
     var cN = col(/наименован/); if (cN < 0) cN = col(/^номенклатур(?!ный)/); if (cN < 0) cN = col(/^товар/);
     var cD = col(/дата для отч/); if (cD < 0) cD = col(/^дата/);
-    var cQ = col(/^кол/), cS = col(/сумм/), cT = col(/приход\s*\/|тип|операц/);
+    var cQ = col(/^кол/), cS = col(/сумм/), cT = col(/приход\s*\/|тип|операц/), cNum = col(/номенкла.*номер|номенклатурн/);
     if (cN < 0 || cQ < 0) { errs.push('На листе «' + sheet.getName() + '» не нашла колонки «наименование» или «Количество»'); return; }
     for (var r = hr + 1; r < v.length; r++) {
-      var row = v[r], name = String(row[cN] || '').trim(); if (!name) continue;
+      var row = v[r], name = nameOf(row, cN, cNum); if (!name) continue;
       var d = toDate(cD >= 0 ? row[cD] : null); if (!d) continue;
       var mk = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); months[mk] = true;
       var it = items[name] = items[name] || {}; var m = it[mk] = it[mk] || { inQ: 0, outQ: 0, inS: 0, outS: 0 };
@@ -208,10 +214,10 @@ function readGoods(ss) {
     for (var r = 0; r < Math.min(6, v.length); r++) if (v[r].map(norm).some(function (x) { return /^кол|факт/.test(x); })) { hr = r; break; }
     var h = v[hr].map(norm), c = function (re) { for (var i = 0; i < h.length; i++) if (re.test(h[i])) return i; return -1; };
     var cN = c(/наименован/); if (cN < 0) cN = c(/^номенклатур(?!ный)/); if (cN < 0) cN = c(/^товар/);
-    var cQ = c(/факт/); if (cQ < 0) cQ = c(/^кол/);
+    var cQ = c(/факт/); if (cQ < 0) cQ = c(/^кол/); var cNum2 = c(/номенкла.*номер|номенклатурн/);
     var cD = c(/дата для отч/); if (cD < 0) cD = c(/^дата/);
     if (cN >= 0 && cQ >= 0) for (var r = hr + 1; r < v.length; r++) {
-      var n = String(v[r][cN] || '').trim(), d = toDate(cD >= 0 ? v[r][cD] : null); if (!n || !d || v[r][cQ] === '') continue;
+      var n = nameOf(v[r], cN, cNum2), d = toDate(cD >= 0 ? v[r][cD] : null); if (!n || !d || v[r][cQ] === '') continue;
       var mk = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); months[mk] = true;
       inv[mk] = inv[mk] || {}; inv[mk][n] = toNum(v[r][cQ]);
     }
