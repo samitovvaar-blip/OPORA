@@ -411,3 +411,5 @@ input,select,textarea{border-radius:12px}
 .notif-count{display:inline-block;min-width:22px;padding:0 6px;border-radius:999px;background:#e8883a;color:#fff;font-size:12px;text-align:center;margin-left:6px}
 .notif-row{display:block;padding:8px 0;border-bottom:1px solid var(--border);color:inherit;text-decoration:none}
 .notif-row:last-of-type{border-bottom:0}
+/* без градиента на блоках кабинета клиента — чистые белые карточки */
+.dash-grid .card:not(.stat),.soft-card{background:var(--surface)!important;border:0}
