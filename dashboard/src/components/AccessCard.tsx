@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { parseDays, Pay } from "../lib/pay";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
+import { COURSES } from "../pages/Knowledge";
 
 export default function AccessCard() {
   const { wsId, ws, isOwner } = useWorkspace();
@@ -39,6 +40,11 @@ export default function AccessCard() {
                 onBlur={(e) => e.target.value.trim() !== p.system && save({ system: e.target.value.trim() })} style={{ flex: 1, minWidth: 220 }} />
               <input key={"d" + p.paydays.join()} defaultValue={p.paydays.join(", ")} placeholder="Дни ЗП: 10, 25"
                 onBlur={(e) => save({ paydays: parseDays(e.target.value) })} style={{ width: 130 }} />
+            </div>
+            <div className="inline" style={{ margin: "6px 0 0" }}>
+              {COURSES.map((c) => { const on = (p.courses || []).includes(c.id);
+                return <button key={c.id} className={on ? "" : "ghost"} title={on ? "Курс открыт — нажми, чтобы закрыть" : "Открыть курс сотруднику"}
+                  onClick={() => save({ courses: on ? (p.courses || []).filter((x) => x !== c.id) : [...(p.courses || []), c.id] })}>{on ? "🔓 " : "🔒 "}{c.name}</button>; })}
             </div>
           </div>);
       })}

@@ -1,5 +1,5 @@
 // Система оплаты сотрудника: workspaces/{ws}/staff/{email}. Видят владелец и сам сотрудник.
-export interface Pay { system: string; paydays: number[]; note?: string; }
+export interface Pay { system: string; paydays: number[]; note?: string; courses?: string[]; }
 
 // Ближайшая дата выплаты (сегодня или позже)
 export function nextPayday(days: number[], from = new Date()) {

@@ -1,12 +1,15 @@
 // База знаний: обучение для сотрудников. Ведёт владелец, сотрудник смотрит.
 // workspaces/{ws}/kb/{id}
 import { FormEvent, useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { auth, db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { normUrl } from "../components/ProjectLinks";
 
-interface Lesson { id: string; title: string; url: string; description?: string; section?: string; order: number; }
+interface Lesson { id: string; title: string; url: string; description?: string; section?: string; course?: string; order: number; }
+
+// Курсы: владелец выбирает курс у каждого урока, сотруднику открывает курс целиком (Админка)
+export const COURSES = [{ id: "buh", name: "Курс «Бухгалтерия»", icon: "📒" }, { id: "fin", name: "Курс «Финансы»", icon: "📈" }];
 
 // YouTube / RuTube / VK Видео / Loom — встраиваем плеер; остальное — ссылкой
 function embedUrl(u: string) {
@@ -23,11 +26,24 @@ export default function Knowledge() {
   const [list, setList] = useState<Lesson[]>([]);
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<string | null>(null);
-  const [f, setF] = useState({ title: "", url: "", description: "", section: "" });
+  const [f, setF] = useState({ title: "", url: "", description: "", section: "", course: "buh" });
   const col = wsId ? collection(db, "workspaces", wsId, "kb") : null;
 
-  useEffect(() => col ? onSnapshot(col, (s) => setList(s.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Lesson, "id">) })).sort((a, b) => a.order - b.order)),
-    (e) => setErr(e.code === "permission-denied" ? (isOwner ? "Firebase не пускает: опубликуй свежие правила Firestore" : "Доступ закрыт владельцем") : e.message)) : undefined, [wsId]);
+  const me = (auth.currentUser?.email || "").toLowerCase();
+  const [myCourses, setMyCourses] = useState<string[] | null>(isOwner ? COURSES.map((c) => c.id) : null);
+  const [course, setCourse] = useState<string | null>(null);
+  // сотрудник: какие курсы ему открыты (карточка staff/{email})
+  useEffect(() => wsId && !isOwner && me ? onSnapshot(doc(db, "workspaces", wsId, "staff", me),
+    (s) => setMyCourses((s.data()?.courses as string[]) || []), () => setMyCourses([])) : undefined, [wsId, isOwner, me]);
+  useEffect(() => {
+    if (!col || !myCourses) return;
+    const err = (e: any) => setErr(e.code === "permission-denied" ? (isOwner ? "Firebase не пускает: опубликуй свежие правила Firestore" : "Доступ закрыт владельцем") : e.message);
+    const parts: Record<string, Lesson[]> = {};
+    const put = (k: string) => (s: any) => { parts[k] = s.docs.map((d: any) => ({ id: d.id, ...d.data() })); setList(Object.values(parts).flat().sort((a, b) => a.order - b.order)); };
+    const subs = isOwner ? [onSnapshot(col, put("all"), err)] : myCourses.map((c) => onSnapshot(query(col, where("course", "==", c)), put(c), err));
+    if (!subs.length) setList([]);
+    return () => subs.forEach((u) => u());
+  }, [wsId, isOwner, (myCourses || []).join()]);
 
   if (!isOwner && ws && !ws.open) return <><h1>База знаний</h1><div className="card">🔒 Доступ сейчас закрыт.</div></>;
 
@@ -35,7 +51,7 @@ export default function Knowledge() {
     e.preventDefault(); const url = normUrl(f.url);
     if (!f.title.trim() || !url) return alert("Нужны название и ссылка (https://…)");
     try {
-      await addDoc(col!, { title: f.title.trim(), url, description: f.description.trim(), section: f.section.trim(), order: Date.now(), createdAt: serverTimestamp() });
+      await addDoc(col!, { title: f.title.trim(), url, description: f.description.trim(), section: f.section.trim(), course: f.course, order: Date.now(), createdAt: serverTimestamp() });
       setF({ ...f, title: "", url: "", description: "" }); setErr("");
     } catch (x: any) {
       setErr(x?.code === "permission-denied"
@@ -43,18 +59,27 @@ export default function Knowledge() {
         : "Не удалось сохранить: " + (x?.message || x));
     }
   }
-  const sections = [...new Set(list.map((l) => l.section || "Общее"))];
+  const avail = COURSES.filter((c) => (myCourses || []).includes(c.id));
+  const cur = course && avail.some((c) => c.id === course) ? course : null;
+  const shown = list.filter((l) => cur ? l.course === cur : isOwner && !l.course);
+  const sections = [...new Set(shown.map((l) => l.section || "Общее"))];
 
   return (
     <>
       <h1>База знаний</h1>
       {err && <div className="error">{err}</div>}
-      {!list.length && <div className="card muted">{isOwner ? "Добавь первый урок ниже 👇" : "Уроки скоро появятся 🙂"}</div>}
-      {sections.map((sec) => (
+      <div className="course-btns">
+        {avail.map((c) => <button key={c.id} className={`course-btn ${cur === c.id ? "on" : ""}`} onClick={() => setCourse(cur === c.id ? null : c.id)}>
+          <span>{c.icon}</span><b>{c.name}</b><small>{list.filter((l) => l.course === c.id).length} уроков</small></button>)}
+      </div>
+      {!isOwner && myCourses && !avail.length && <div className="card muted">Курсы пока не открыты. Попроси Арину открыть доступ 🙂</div>}
+      {cur && !shown.length && <div className="card muted">{isOwner ? "В этом курсе пока нет уроков — добавь ниже 👇" : "Уроки скоро появятся 🙂"}</div>}
+      {isOwner && !cur && shown.length > 0 && <h3>Без курса (сотрудники не видят)</h3>}
+      {(cur || isOwner) && sections.map((sec) => (
         <div key={sec} style={{ marginBottom: 18 }}>
           <h3>{sec}</h3>
           <div className="kb-grid">
-            {list.filter((l) => (l.section || "Общее") === sec).map((l, i, arr) => {
+            {shown.filter((l) => (l.section || "Общее") === sec).map((l, i, arr) => {
               const emb = embedUrl(l.url);
               return (
                 <div key={l.id} className="card kb">
@@ -79,13 +104,15 @@ export default function Knowledge() {
       {isOwner && (
         <form className="card" onSubmit={submit} style={{ maxWidth: 640, display: "flex", flexDirection: "column", gap: 8 }}>
           <h3>+ Новый урок</h3>
+          <div className="inline" style={{ margin: 0 }}>{COURSES.map((c) =>
+            <button type="button" key={c.id} className={f.course === c.id ? "" : "ghost"} onClick={() => setF({ ...f, course: c.id })}>{c.icon} {c.name}</button>)}</div>
           <input placeholder="Название урока" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
           <input placeholder="Ссылка на видео (YouTube, RuTube, VK, Loom, Яндекс Диск…)" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} />
           <input list="kbsec" placeholder="Раздел, например «1С» или «Первая неделя»" value={f.section} onChange={(e) => setF({ ...f, section: e.target.value })} />
           <datalist id="kbsec">{sections.map((s) => <option key={s} value={s} />)}</datalist>
           <textarea placeholder="Что в уроке (необязательно)" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} />
           <button style={{ alignSelf: "flex-start" }}>Добавить урок</button>
-          <div className="muted small">Сотрудник видит базу знаний, когда в Админке открыт доступ.</div>
+          <div className="muted small">Сотрудник видит курс, который ты открыла ему в Админке (кнопки «Курс» у сотрудника).</div>
         </form>
       )}
     </>

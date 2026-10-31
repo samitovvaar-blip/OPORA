@@ -44,8 +44,10 @@ service cloud.firestore {
     }
 
     // База знаний: ведёт владелец, сотрудник смотрит
+    // сотрудник видит уроки только тех курсов, что владелец открыл ему (staff/{email}.courses)
     match /workspaces/{ws}/kb/{id} {
-      allow read: if isOwner(ws) || isMember(ws);
+      allow read: if isOwner(ws) || (isMember(ws) && resource.data.get("course", "") in
+        get(/databases/$(database)/documents/workspaces/$(ws)/staff/$(request.auth.token.email.lower())).data.get("courses", []));
       allow write: if isOwner(ws);
     }
 
