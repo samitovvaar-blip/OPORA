@@ -31,6 +31,10 @@ const NEYLA_URL = "https://t.me/dsmitovvaservbot";
 const SpiralLogo = () => <svg width="30" height="30" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
   <path d="M16 16c0-1.5 1.8-2.2 3-1.2 1.6 1.4.8 4.2-1.4 4.8-3 .8-5.6-1.8-5-4.8.8-3.8 5.4-5.4 8.6-3.4 4 2.6 3.8 8.6-.2 11.2-4.6 3-10.8.6-12.4-4.6C7 12 10.4 6.4 16 6c5.6-.4 10 4 10 9.6" /></svg>;
 
+// Секретики Нейлы: нажми на неё 5 раз 🙂
+const JOKES = ["Деньги любят счёт. А я люблю ваши отчёты 💙", "Совет дня: сначала заплати себе — отложи в фонд 💰", "Кассовый разрыв боится тех, кто ведёт платёжный календарь 📅",
+  "Прибыль — это не то, что пришло, а то, что осталось 😉", "Я не сплю, я сверяю остатки 🌀", "Хороший учёт — как спортзал: результат видно через 3 месяца 💪"];
+
 const DEPT_NAMES = ["1. Производственный отдел", "2. Отдел продаж", "3. Отдел маркетинга", "4. Админ-хоз отдел и Руководство", "5. Финансовый отдел"];
 
 export default function ClientPortal() {
@@ -45,6 +49,7 @@ export default function ClientPortal() {
   const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op">("dash");
   const [anN, setAnN] = useState(3);
   const [hideNeyla, setHideNeyla] = useState(false);
+  const [taps, setTaps] = useState(0);
   const [rep, setRep] = useState<"pnl" | "dds" | "an">("pnl");
   const loc = useLocation();
   useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
@@ -386,10 +391,17 @@ export default function ClientPortal() {
         const big = pnl.depts.map((x) => ({ n: x.name.replace(/^\d+\.\s*/, ""), v: Math.abs(x.values[cur] || 0) })).sort((a, b) => b.v - a.v)[0];
         if (big && rev) { const sh = Math.round(big.v / rev * 100); lines.push(`Больше всего уходит на «${big.n}» — ${sh}% выручки${/маркетинг/i.test(big.n) && sh > 30 ? ", это выше нормы" : ""}.`); }
         }
-        return <div className="neyla-insight no-print">
+        // 🎉 пасхалки: рекорд прибыли, выполненная цель, 5 тапов по Нейле
+        const profs = filled.map(({ i }) => pnl.profit[i] || 0);
+        const record = view !== "an" && filled.length > 1 && (prof || 0) > 0 && (prof || 0) >= Math.max(...profs);
+        const goal = p.planSales?.[pnl.months[cur].mk || ""], goalDone = view !== "an" && !!goal && (rev || 0) >= goal;
+        if (goalDone) lines.unshift("🎯 Цель месяца взята! Вы молодцы!");
+        if (record) lines.unshift("🏆 Это ваш рекорд по прибыли! Так держать!");
+        return <div className={`neyla-insight no-print ${goalDone ? "ni-dance" : ""}`}>
+          {(record || goalDone) && <div className="confetti">{Array.from({ length: 24 }, (_, k) => <i key={k} style={{ left: (k * 37) % 100 + "%", animationDelay: (k % 8) * 0.15 + "s", background: ["#e8883a", "#16a34a", "#3b6db3", "#9aa6d6", "#facc15"][k % 5] }} />)}</div>}
           <button className="ghost ni-close" onClick={() => setHideNeyla(true)}>✕</button>
-          <img src="neyla.jpg" alt="" />
-          <div><b>Нейла · {view === "an" ? `вывод за ${anN === 12 ? "год" : anN === 6 ? "полгода" : "3 месяца"}` : `вывод за ${pnl.months[cur].label.toLowerCase()}`}</b>{lines.slice(0, 3).map((l, k) => <p key={k}>{l}</p>)}</div>
+          <img src="neyla.jpg" alt="" onClick={() => setTaps((t) => t + 1)} style={{ cursor: "pointer" }} />
+          <div>{taps >= 5 && <p className="ni-joke">{JOKES[taps % JOKES.length]}</p>}<b>Нейла · {view === "an" ? `вывод за ${anN === 12 ? "год" : anN === 6 ? "полгода" : "3 месяца"}` : `вывод за ${pnl.months[cur].label.toLowerCase()}`}</b>{lines.slice(0, 3).map((l, k) => <p key={k}>{l}</p>)}</div>
         </div>;
       })()}
 

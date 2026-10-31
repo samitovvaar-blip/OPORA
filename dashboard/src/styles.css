@@ -441,3 +441,10 @@ input,select,textarea{border-radius:12px}
 .month-ctl select{flex:1 1 calc(100% - 40px);min-width:0;font-weight:700}
 .m-sub{display:flex;gap:6px;align-items:center;flex-basis:100%;padding-left:34px}
 .m-sub .m-pill,.m-sub .m-pdf{font-size:10px!important;padding:2px 8px!important}
+/* пасхалки Нейлы */
+.ni-dance img{animation:ni-jump .6s ease-in-out infinite!important}
+@keyframes ni-jump{0%,100%{transform:translateY(0) rotate(0)}30%{transform:translateY(-10px) rotate(-10deg)}60%{transform:translateY(0) rotate(10deg)}}
+.ni-joke{background:rgba(255,255,255,.12);border-radius:10px;padding:6px 8px;color:#ffe9a8}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
+.confetti i{position:absolute;top:-12px;width:8px;height:14px;border-radius:2px;animation:conf 2.6s ease-in forwards}
+@keyframes conf{to{transform:translateY(105vh) rotate(720deg);opacity:.2}}
