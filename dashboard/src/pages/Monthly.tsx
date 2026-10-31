@@ -11,7 +11,7 @@ import { useClientProjects, useMarks } from "../lib/clients";
 import { monthKey } from "../lib/catalog";
 import Checklist from "../components/Checklist";
 import FlagPicker from "../components/FlagPicker";
-import { LinkButtons, LinkEditor } from "../components/ProjectLinks";
+import { LINK_FIELDS, LinkButtons, LinkEditor } from "../components/ProjectLinks";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 
@@ -36,11 +36,18 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
   return (
     <>
       {!embedded && <h1>{isOwner ? "Ежемесячные задачи" : "Мои клиенты"}</h1>}
-      {error && <div className="error">{error}</div>}
+      {error && !list.length && <div className="error">{error}</div>}
       {!list.length ? <div className="card">{isOwner ? <>Пока нет проектов. Создай первый кнопкой «+ Новый проект» — список задач подберётся сам.</> : "Пока нет открытых тебе клиентов."}</div>
       : !isOwner && !opened ? <div className="bento">{list.map((x) =>
-          <button key={x.id} className="card client-card" onClick={() => { setSel(x.id); setOpened(true); }}>
-            <b>{x.name}</b><span className="small muted">Чек-лист · таблица · документы · чат →</span></button>)}</div>
+          <div key={x.id} className="card client-card">
+            <b>{x.name}</b>
+            <div className="client-btns">
+              <button onClick={() => { setSel(x.id); setOpened(true); }}>✅ Чек-лист</button>
+              {LINK_FIELDS.map(([k, label]) => x.links?.[k]
+                ? <a key={k} className="linkbtn" href={x.links[k]} target="_blank" rel="noopener noreferrer">{label}</a>
+                : <span key={k} className="linkbtn off">{label}</span>)}
+            </div>
+          </div>)}</div>
       : <>
         {!isOwner && <button className="ghost" onClick={() => setOpened(false)}>← Все мои клиенты</button>}
         {isOwner && <div className="chips">{list.map((x) =>
