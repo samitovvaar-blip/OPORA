@@ -195,10 +195,13 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   const lowMt = Object.fromEntries(Object.entries(mt).map(([a, m]) => [a.trim().toLowerCase(), m]));
   [...new Set(Object.values(mt))].forEach((tag) => { tagMetrics[tag] = sumOf(j.rows.filter((r) => lowMt[r.article.trim().toLowerCase()] === tag)); });
   const types = j.dirMeta?.types || {};
-  if (Object.keys(types).length) {
+  // Простой справочник: колонка A — сразу ТИП (Доход / Переменные / Постоянные / Фонд / Не учитывать), B — статьи
+  const TYPE_RE = /^(доход|выручк|переменн|постоянн|фонд|не учит)/i;
+  const simple = j.rows.some((r) => TYPE_RE.test(r.process.trim()) && !/^доход/i.test(r.process.trim()));
+  if (Object.keys(types).length || simple) {
     // Справочник с типами групп (колонка C) — отчёт строится строго по нему
     const lowT = Object.fromEntries(Object.entries(types).map(([g, t]) => [g.trim().toLowerCase(), t.toLowerCase()]));
-    const kind = (r: DbRow) => { const t = lowT[r.process.trim().toLowerCase()] || "";
+    const kind = (r: DbRow) => { const t = lowT[r.process.trim().toLowerCase()] || (TYPE_RE.test(r.process.trim()) ? r.process.trim().toLowerCase() : "");
       if (/доход|выруч|поступл/.test(t)) return "inc"; if (/перемен/.test(t)) return "var"; if (/постоян/.test(t)) return "fix";
       if (/фонд/.test(t)) return "fund"; if (/не уч|исключ|не ву/.test(t)) return "skip";
       return isIncome(r) ? "inc" : notExpense(r) ? "skip" : isFund(r) ? "fund" : "fix"; };
@@ -209,6 +212,8 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
     const groupsOf = (list: DbRow[]) => [...new Set(list.map((r) => r.process || "Без группы"))].sort((a, b) => {
       const ia = order.indexOf(a.trim().toLowerCase()), ib = order.indexOf(b.trim().toLowerCase()); return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || a.localeCompare(b, "ru"); });
     const block = (list: DbRow[]) => groupsOf(list).forEach((g) => { const inG = list.filter((r) => (r.process || "Без группы") === g);
+      // группа = сам тип (простой справочник) — статьи сразу под разделом, без промежуточной строки
+      if (TYPE_RE.test(g.trim())) { inG.sort((a, b) => a.article.localeCompare(b.article, "ru")).forEach((r) => add(r.article, sumOf([r]), { sub: "Процесс" })); return; }
       add(g, sumOf(inG), { sub: "Итого", total: true });
       inG.sort((a, b) => a.article.localeCompare(b.article, "ru")).forEach((r) => add(r.article, sumOf([r]), { sub: "Процесс" })); });
     add("Доходы", mks.map(() => null), { section: true });
@@ -224,7 +229,10 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
     const none = mks.map(() => null);
     return { metrics: { dividends: none, taxes: none, outsource: none, refunds: none, salary: none, d1: tagMetrics["Себестоимость"] || none, d2: none, d3: tagMetrics["Маркетинг"] || none, d4: none, d5: none },
       tagMetrics, ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at,
-      revenue: revT, profit: profT, variable: vS, fixed: fS, depts: rows.filter((r) => r.total) };
+      revenue: revT, profit: profT, variable: vS, fixed: fS,
+      // структура расходов: группы, а в простом справочнике — сами статьи расходов
+      depts: rows.some((r) => r.total) ? rows.filter((r) => r.total)
+        : [...varT, ...fixT].map((r) => ({ name: r.article, sub: "Итого", total: true, section: false, values: sumOf([r]) })) };
   }
   if (!numbered) {
     // Универсально: каждая группа (процесс) из справочника — строка расходов, внутри статьи
