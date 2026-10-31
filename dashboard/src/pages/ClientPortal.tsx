@@ -61,6 +61,8 @@ export default function ClientPortal() {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState("");
   const [showArch, setShowArch] = useState(false);
+  // вывод Нейлы — временный: показывается при смене отчёта/месяца и сам исчезает через 12 секунд
+  useEffect(() => { setHideNeyla(false); const t = setTimeout(() => setHideNeyla(true), 12000); return () => clearTimeout(t); }, [tab, rep, mi, anMode, anN]);
   const [reload, setReload] = useState(0);
   // снимки сданных месяцев (заморозка цифр)
   const [snaps, setSnaps] = useState<Record<string, MonthSnap>>({});

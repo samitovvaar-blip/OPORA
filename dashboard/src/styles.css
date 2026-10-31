@@ -479,3 +479,8 @@ input,select,textarea{border-radius:12px}
   .mnav .m-logo:active img{transform:rotate(180deg);transition:transform .4s}
   .mnav .navlink{padding:8px 2px!important;font-size:10px!important}
 }
+.install-hint{position:fixed;left:12px;right:12px;bottom:100px;z-index:45;display:flex;gap:12px;background:#16304f;color:#fff;padding:14px;border-radius:20px;box-shadow:0 16px 40px rgba(22,48,79,.35);animation:nt-in2 .5s}
+.install-hint img{width:44px;height:44px;border-radius:12px}.install-hint p{margin:4px 0 0;font-size:13px}
+.install-hint button.ghost{color:#c9d4ec}
+.neyla-insight{animation:nt-in2 .5s cubic-bezier(.2,1.3,.4,1),ni-out .6s 11.4s forwards}
+@keyframes ni-out{to{opacity:0;transform:translateY(20px)}}

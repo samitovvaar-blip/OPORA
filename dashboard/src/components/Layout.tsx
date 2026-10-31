@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useWorkspace } from "../lib/workspace";
 import PullToRefresh from "./PullToRefresh";
 import { startPresence } from "../lib/presence";
+import InstallHint from "./InstallHint";
 
 interface Item { to: string; label: string; icon: string; staff?: boolean; staffOnly?: boolean; }
 interface Group { id: string; title: string; items: Item[]; }
@@ -99,7 +100,7 @@ export default function Layout() {
       </nav>
       {more && <div className="msheet-back" onClick={() => setMore(false)}>
         <div className="msheet" onClick={(e) => e.stopPropagation()}>{menu}{foot}</div></div>}
-      <main className="main"><PullToRefresh /><Outlet /></main>
+      <main className="main"><PullToRefresh /><InstallHint /><Outlet /></main>
     </div>
   );
 }
