@@ -115,7 +115,14 @@ export default function ClientPortal() {
         {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["an", "📈 Аналитика"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || k !== "op").map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>}
-      {(tab === "rep" || tab === "an") && pnl && <button className="pdf-btn no-print" onClick={() => window.print()}>📄 Скачать PDF</button>}
+      {(tab === "rep" || tab === "an") && pnl && cur != null && (() => {
+        // PDF — только по сданным месяцам: отчётность — выбранный месяц, аналитика — все месяцы периода
+        const ok = tab === "rep" ? pnl.months[cur].closed : filled.filter(({ i }) => i <= cur).slice(-anN).every(({ m }) => m.closed);
+        return <div className="no-print" style={{ marginTop: 10 }}>
+          <button className="pdf-btn" disabled={!ok} onClick={() => window.print()}>📄 Скачать PDF</button>
+          {!ok && <span className="small muted" style={{ marginLeft: 10 }}>🔒 Скачать можно после сдачи отчётности{tab === "an" ? " за все месяцы периода" : " за этот месяц"}</span>}
+        </div>;
+      })()}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
         {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"]] as const).map(([k, l]) =>
           <button key={k} className={`chipbtn ${rep === k ? "on" : ""}`} onClick={() => setRep(k)}>{l}</button>)}
