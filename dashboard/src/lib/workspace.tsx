@@ -9,7 +9,7 @@ import { useAuth } from "./auth";
 // все остальные — максимум «Задания» (если приглашены и доступ открыт).
 const OWNER = ((import.meta.env.VITE_OWNER_EMAIL as string) || "").toLowerCase();
 
-export interface Workspace { members: string[]; open: boolean; }
+export interface Workspace { members: string[]; open: boolean; courses?: { id: string; name: string; icon: string }[]; }
 interface Ctx { wsId: string | null; isOwner: boolean; ws: Workspace | null; ready: boolean; clientOf?: string; }
 const NONE: Ctx = { wsId: null, isOwner: false, ws: null, ready: true };
 const C = createContext<Ctx>({ ...NONE, ready: false });

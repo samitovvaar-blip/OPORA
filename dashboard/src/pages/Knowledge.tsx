@@ -30,7 +30,18 @@ export default function Knowledge() {
   const col = wsId ? collection(db, "workspaces", wsId, "kb") : null;
 
   const me = (auth.currentUser?.email || "").toLowerCase();
-  const [myCourses, setMyCourses] = useState<string[] | null>(isOwner ? COURSES.map((c) => c.id) : null);
+  // курсы ведёт владелец (workspace.courses); по умолчанию — «Бухгалтерия» и «Финансы»
+  const courseList = ws?.courses ?? COURSES;
+  const [staffMap, setStaffMap] = useState<Record<string, { courses?: string[] }>>({});
+  const [prog, setProg] = useState<Record<string, string[]>>({});
+  useEffect(() => wsId && isOwner ? onSnapshot(collection(db, "workspaces", wsId, "staff"), (s) => setStaffMap(Object.fromEntries(s.docs.map((d) => [d.id, d.data() as any]))), () => {}) : undefined, [wsId, isOwner]);
+  useEffect(() => wsId && isOwner ? onSnapshot(collection(db, "workspaces", wsId, "progress"), (s) => setProg(Object.fromEntries(s.docs.map((d) => [d.id, (d.data().done as string[]) || []]))), () => {}) : undefined, [wsId, isOwner]);
+  const [newCourse, setNewCourse] = useState("");
+  const saveCourses = (c: typeof courseList) => updateDoc(doc(db, "workspaces", wsId!), { courses: c });
+  const toggleStaff = (email: string, cid: string) => { const cur = staffMap[email]?.courses || [];
+    setDoc(doc(db, "workspaces", wsId!, "staff", email), { courses: cur.includes(cid) ? cur.filter((x) => x !== cid) : [...cur, cid] }, { merge: true }); };
+  const [myCourses, setMyCourses] = useState<string[] | null>(isOwner ? null : null);
+  useEffect(() => { if (isOwner) setMyCourses(courseList.map((c) => c.id)); }, [isOwner, courseList.map((c) => c.id).join()]);
   const [course, setCourse] = useState<string | null>(null);
   // прогресс сотрудника: какие уроки просмотрены (progress/{email}.done)
   const [doneIds, setDoneIds] = useState<string[]>([]);
@@ -64,7 +75,7 @@ export default function Knowledge() {
         : "Не удалось сохранить: " + (x?.message || x));
     }
   }
-  const avail = COURSES.filter((c) => (myCourses || []).includes(c.id));
+  const avail = courseList.filter((c) => (myCourses || []).includes(c.id));
   const cur = course && avail.some((c) => c.id === course) ? course : null;
   const shown = list.filter((l) => cur ? l.course === cur : isOwner && !l.course);
   const sections = [...new Set(shown.map((l) => l.section || "Общее"))];
@@ -82,6 +93,19 @@ export default function Knowledge() {
               <div className="progress" style={{ width: "100%", margin: "6px 0 0", background: "rgba(255,255,255,.2)" }}><div style={{ width: (ls.length ? d / ls.length * 100 : 0) + "%", background: "#7ee0a8" }} /></div></>; })()}
           </button>)}
       </div>
+      {isOwner && cur && (() => { const c = courseList.find((x) => x.id === cur)!; const ls = list.filter((l) => l.course === cur);
+        return <div className="card" style={{ maxWidth: 760, marginBottom: 14 }}>
+          <div className="row" style={{ padding: 0 }}><h3 style={{ margin: 0 }}>👥 Кому открыт «{c.name}»</h3>
+            <button className="ghost" onClick={() => confirm(`Удалить курс «${c.name}»? Уроки останутся в разделе «Без курса».`) && saveCourses(courseList.filter((x) => x.id !== cur)).then(() => setCourse(null))}>🗑 Удалить курс</button></div>
+          {(ws?.members || []).map((em) => { const on = (staffMap[em]?.courses || []).includes(cur); const d = ls.filter((l) => (prog[em] || []).includes(l.id)).length;
+            return <div key={em} className="row"><span>{em}{on && <span className="muted small"> · пройдено {d} из {ls.length}</span>}</span>
+              <button className={on ? "" : "ghost"} onClick={() => toggleStaff(em, cur)}>{on ? "🔓 Открыт" : "🔒 Закрыт"}</button></div>; })}
+          {!(ws?.members || []).length && <div className="muted small">Сотрудников пока нет (Админка)</div>}
+        </div>; })()}
+      {isOwner && <form className="inline" style={{ maxWidth: 760 }} onSubmit={(e) => { e.preventDefault(); const n = newCourse.trim(); if (!n) return;
+        saveCourses([...courseList, { id: "c" + Date.now().toString(36), name: n, icon: "📘" }]); setNewCourse(""); }}>
+        <input placeholder="Название нового курса" value={newCourse} onChange={(e) => setNewCourse(e.target.value)} />
+        <button>+ Добавить курс</button></form>}
       {!isOwner && myCourses && !avail.length && <div className="card muted">Курсы пока не открыты. Попроси Арину открыть доступ 🙂</div>}
       {cur && !shown.length && <div className="card muted">{isOwner ? "В этом курсе пока нет уроков — добавь ниже 👇" : "Уроки скоро появятся 🙂"}</div>}
       {isOwner && !cur && shown.length > 0 && <h3>Без курса (сотрудники не видят)</h3>}
@@ -115,7 +139,7 @@ export default function Knowledge() {
       {isOwner && (
         <form className="card" onSubmit={submit} style={{ maxWidth: 640, display: "flex", flexDirection: "column", gap: 8 }}>
           <h3>+ Новый урок</h3>
-          <div className="inline" style={{ margin: 0 }}>{COURSES.map((c) =>
+          <div className="inline" style={{ margin: 0 }}>{courseList.map((c) =>
             <button type="button" key={c.id} className={f.course === c.id ? "" : "ghost"} onClick={() => setF({ ...f, course: c.id })}>{c.icon} {c.name}</button>)}</div>
           <input placeholder="Название урока" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
           <input placeholder="Ссылка на видео (YouTube, RuTube, VK, Loom, Яндекс Диск…)" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} />
