@@ -20,12 +20,13 @@ import VerifyEmail from "./pages/VerifyEmail";
 import { WorkspaceProvider, useWorkspace } from "./lib/workspace";
 import Clients from "./pages/Clients";
 import Projects from "./pages/Projects";
-import Admin from "./pages/Admin";
+import { AdminClients, AdminStaff } from "./pages/Admin";
 import Hub from "./components/Hub";
 import StudentHome from "./pages/StudentHome";
 // объединённые разделы: Клиенты | Проекты и Финансы (P&L | Отчёт)
 const CLI = [{ to: "/projects", label: "◆ Проекты", el: <Projects /> }, { to: "/clients", label: "◉ Клиенты и воронка", el: <Clients /> }];
-const FIN = [{ to: "/pnl", label: "₽ P&L", el: <PnL /> }, { to: "/report", label: "📊 Отчёт", el: <Report /> }, { to: "/wallet", label: "👛 Личные деньги", el: <Wallet /> }];
+const FIN = [{ to: "/pnl", label: "₽ P&L", el: <PnL /> }, { to: "/wallet", label: "👛 Личные деньги", el: <Wallet /> }];
+const ADM = [{ to: "/admin", label: "👥 Сотрудники", el: <AdminStaff /> }, { to: "/team-clients", label: "💼 Клиенты", el: <AdminClients /> }, { to: "/report", label: "📊 Отчётность", el: <Report /> }];
 import "./styles.css";
 
 function Protected() {
@@ -85,8 +86,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="pnl" element={<OwnerOnly><Hub tabs={FIN} /></OwnerOnly>} />
             <Route path="clients" element={<OwnerOnly><Hub tabs={CLI} /></OwnerOnly>} />
             <Route path="projects" element={<OwnerOnly><Hub tabs={CLI} /></OwnerOnly>} />
-            <Route path="report" element={<OwnerOnly><Hub tabs={FIN} /></OwnerOnly>} />
-            <Route path="admin" element={<OwnerOnly><Admin /></OwnerOnly>} />
+            <Route path="report" element={<OwnerOnly><Hub tabs={ADM} /></OwnerOnly>} />
+            <Route path="team-clients" element={<OwnerOnly><Hub tabs={ADM} /></OwnerOnly>} />
+            <Route path="admin" element={<OwnerOnly><Hub tabs={ADM} /></OwnerOnly>} />
             {modules.map((m) => <Route key={m.id} path={m.path} element={<OwnerOnly><m.component /></OwnerOnly>} />)}
           </Route>
         </Routes>

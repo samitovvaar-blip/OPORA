@@ -58,7 +58,7 @@ export default function Layout() {
   const link = (n: Item) => (
     <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => {
       // разделы кабинета клиента — по ?t=…; без параметра активен «Мой кабинет»
-      const alias: Record<string, string[]> = { "/projects": ["/clients"], "/pnl": ["/report", "/wallet"] };   // вкладки одного раздела
+      const alias: Record<string, string[]> = { "/projects": ["/clients"], "/pnl": ["/wallet"], "/admin": ["/team-clients", "/report"] };   // вкладки одного раздела
       const on = n.to.includes("?t=") ? (loc.search || "?t=dash") === n.to.slice(n.to.indexOf("?")) : isActive || (alias[n.to] || []).some((a) => loc.pathname.startsWith(a));
       return "navlink" + (on ? " active" : "");
     }}><span className="ni">{n.icon}</span>{n.label}</NavLink>

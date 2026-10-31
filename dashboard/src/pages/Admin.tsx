@@ -5,15 +5,14 @@ import AccessCard from "../components/AccessCard";
 import ClientsAccessCard from "../components/ClientsAccessCard";
 import StudentsCard from "../components/StudentsCard";
 
-export default function Admin() {
+// вкладки Админки: Сотрудники (и ученики) · Клиенты · Отчётность (main.tsx)
+export function AdminStaff() { return <><AccessCard /><StudentsCard /><Service /></>; }
+export function AdminClients() { return <><ClientsAccessCard /><Service /></>; }
+
+function Service() {
   const { user } = useAuth();
   return (
     <>
-      <h1>Админка</h1>
-      <div className="home-2col adm-cols">
-        <div><AccessCard /><StudentsCard /></div>
-        <ClientsAccessCard />
-      </div>
       <div className="adm-service small muted">
         <div><b>Контуры данных:</b> личное — Firebase ✓ · заявки — Yandex Cloud (отдельный вход)</div>
         <div><b>Аккаунт:</b> {user?.email}</div>
@@ -22,3 +21,5 @@ export default function Admin() {
     </>
   );
 }
+
+export default AdminStaff;
