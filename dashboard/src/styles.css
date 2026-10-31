@@ -500,3 +500,5 @@ input,select,textarea{border-radius:12px}
 .loader-spiral{width:26px!important;height:26px!important;border-radius:0!important;animation:spiral-spin 1s linear infinite!important;order:3}
 .btn-spiral{width:20px!important;height:20px!important;vertical-align:middle;filter:brightness(1.6)}
 .neyla-toast .loader-spiral{margin-left:4px}
+.adm-client{border-top:1px solid var(--border);padding:10px 0}
+.adm-pay{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}

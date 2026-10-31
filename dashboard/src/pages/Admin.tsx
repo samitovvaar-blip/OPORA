@@ -1,6 +1,7 @@
 import { modules } from "../lib/modules";
 import { useAuth } from "../lib/auth";
 import AccessCard from "../components/AccessCard";
+import ClientsAccessCard from "../components/ClientsAccessCard";
 
 export default function Admin() {
   const { user } = useAuth();
@@ -19,6 +20,7 @@ export default function Admin() {
           <div className="muted small">UID: {user?.uid}</div>
         </div>
         <AccessCard />
+        <ClientsAccessCard />
         <div className="card wide">
           <h3>Модули из других репозиториев</h3>
           {modules.length ? modules.map((m) => <div key={m.id} className="row"><span>{m.icon} {m.title}</span><code>{m.source || "/" + m.path}</code></div>)
