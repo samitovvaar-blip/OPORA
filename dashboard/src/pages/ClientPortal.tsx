@@ -193,6 +193,7 @@ export default function ClientPortal() {
               <b className={kp[f] == null ? "muted" : ""}>{kp[f] ?? "нет информации от ОП"}</b></div>;
             return <><div className="card span2">
               <h3 style={{ marginTop: 0 }}>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
+              <div className="small muted" style={{ marginBottom: 6 }}>Откуда цифры: суммы расходов по «Справочнику» таблицы — колонка A (тип: переменные / постоянные) и колонка B (отдел). Процент — доля от выручки месяца.</div>
               {(() => {
                 // Точка безубыточности: постоянные / (1 − переменные / выручка)
                 const vr = Math.abs(pnl.variable[cur] || 0), fx = Math.abs(pnl.fixed[cur] || 0), share = rev ? vr / rev : null;
@@ -215,7 +216,7 @@ export default function ClientPortal() {
             <div className="card span4">
               <h3 style={{ marginTop: 0 }}>Себестоимость и клиенты · {pnl.months[cur].label}</h3>
               <Row l="Себестоимость продаж" v={cost ? rub(cost) : "—"} />
-              <Num f="units" l="Количество проданных кубиков" />
+              <Num f="units" l="Количество проданных товаров" />
               <Row l="Себестоимость на единицу" v={per(cost, kp.units)} />
               <Num f="newClients" l="Новых клиентов (доставлено)" />
               <Num f="orders" l="Заказов всего (доставлено)" />
@@ -450,7 +451,7 @@ export default function ClientPortal() {
         const mks = [...new Set([...(pnl?.months.map((m) => m.mk!).filter(Boolean) || []), ...[1, 0, -1, -2].map((k) => monthKey(new Date(new Date().getFullYear(), new Date().getMonth() + k, 1)))])].sort().reverse();
         const cols: [string, string, (mk: string) => number | undefined][] = [
           ["sales", "Выручка (факт продаж ОП), ₽", (mk) => p.sales?.[mk]], ["prepay", "Факт предоплат, ₽", (mk) => p.prepay?.[mk]],
-          ["kpi.units", "Продано кубиков", (mk) => p.kpi?.[mk]?.units], ["kpi.newClients", "Новых клиентов (доставлено)", (mk) => p.kpi?.[mk]?.newClients],
+          ["kpi.units", "Продано товаров", (mk) => p.kpi?.[mk]?.units], ["kpi.newClients", "Новых клиентов (доставлено)", (mk) => p.kpi?.[mk]?.newClients],
           ["kpi.orders", "Заказов всего (доставлено)", (mk) => p.kpi?.[mk]?.orders]];
         const save = (path: string, mk: string, v: string) => {
           const field = path.startsWith("kpi.") ? `kpi.${mk}.${path.slice(4)}` : `${path}.${mk}`;
