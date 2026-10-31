@@ -455,3 +455,10 @@ input,select,textarea{border-radius:12px}
 .tariff .t-price{color:#fff;font-size:16px;font-weight:800;margin-top:6px}.tariff .t-price span{font-size:11px;font-weight:400;opacity:.8}
 .tariff .t-pay{opacity:.85;margin:2px 0 4px}.tariff ul{margin:4px 0 0;padding-left:16px;line-height:1.4}
 .side .logo:active img{transform:rotate(180deg);transition:transform .4s}
+/* Тёмная тема: блоки и таблицы чуть светлее фона — больше контраста, но остаётся тёмным */
+:root[data-theme="dark"]{--bg:#0b1320;--surface:#1a2a40;--border:#2a3d58}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1320;--surface:#1a2a40;--border:#2a3d58}}
+:root[data-theme="dark"] .soft-card .pnl-table,:root[data-theme="dark"] .pnl-table{background:#213450}
+:root[data-theme="dark"] .pnl-key td{background:#25395a}
+:root[data-theme="dark"] .home-client,:root[data-theme="dark"] .client-btns .linkbtn,:root[data-theme="dark"] .work-progress{background:#24385a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pnl-table{background:#213450}:root:not([data-theme="light"]) .pnl-key td{background:#25395a}}
