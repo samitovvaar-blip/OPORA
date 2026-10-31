@@ -65,8 +65,6 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
               return <button key={em} className={on ? "" : "ghost"} title={on ? "Клиент открыт сотруднику — нажми, чтобы закрыть" : "Открыть клиента сотруднику"}
                 onClick={() => upd({ staffEmails: on ? arrayRemove(em) : arrayUnion(em) })}>{on ? "🔓 " : "🔒 "}{em}</button>; })
               : <span className="small muted">сотрудников пока нет (Админка)</span>}
-            <button className={p.calendarOpen ? "" : "ghost"} onClick={() => upd({ calendarOpen: !p.calendarOpen })}>
-              {p.calendarOpen ? "🔓 Сроки в календаре сотрудника" : "🔒 Сроки только у меня"}</button>
             <button onClick={() => setReport(true)}>📄 Отчёт клиенту</button>
             <button className="ghost" onClick={() => setEditFlags(!editFlags)}>⚙ Данные и ссылки</button>
             <button className="ghost" onClick={() => confirm(`Удалить проект «${p.name}»?`) && deleteDoc(doc(db, "workspaces", wsId!, "clients", p.id))}>✕ Удалить</button>

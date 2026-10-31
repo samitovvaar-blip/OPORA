@@ -59,7 +59,7 @@ export default function StaffHome() {
     } else updateDoc(doc(col, a.id), { status: "done" });
   };
   const doneToday = (a: any) => isRecurring(a) && (a.doneDates || []).includes(d);
-  const calProjects = projects.filter((p) => p.calendarOpen);
+  const calProjects = projects;   // сроки — по своим клиентам сотрудника
   const dl = projectDeadlines(calProjects, marks, mk).filter((x) => !x.done && x.date <= d).sort((a, b) => a.date.localeCompare(b.date));
   const soon = projectDeadlines(calProjects, marks, mk).filter((x) => !x.done && x.date > d).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
   const checklists = projects.filter((p) => (p.staffEmails || []).includes((auth.currentUser?.email || "").toLowerCase()));

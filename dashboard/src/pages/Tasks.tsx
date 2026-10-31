@@ -53,7 +53,7 @@ export default function Tasks() {
   // Ежемесячные задачи со сроком из проектов — в календарь
   const mk = monthKey(month);
   const { list: projects } = useClientProjects();
-  const calProjects = projects.filter((p) => isOwner || p.calendarOpen);
+  const calProjects = projects;   // у сотрудника в списке только его клиенты
   const { marks, setMark } = useMarks(calProjects.map((p) => p.id), mk);
   const deadlines = calProjects.flatMap((p) => STAGES.flatMap((st) => st.items
     .filter((it) => it.due != null && shown(it, p.flags || {}))
