@@ -11,6 +11,8 @@ import type { Product } from "../pages/Products";
 import { rub } from "../lib/money";
 
 const STEPS = ["Клиент", "Ссылки", "Отчётность", "Доступ и тариф", "Готово"];
+// Таблица-шаблон ОПОРЫ («ФИНАНСЫ Шаблон Бот»): ссылка /copy сразу предлагает «Создать копию»
+const TEMPLATE_ID = "1FR7LnQUPY8TDpzTfhU-zwudGutPraDPUv2PABAtVEBM";
 const genKey = () => "opora-" + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
 
 export default function NewClientWizard({ onClose, defaultName = "" }: { onClose: () => void; defaultName?: string }) {
@@ -101,7 +103,8 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
     {step === 2 && <>
       <h3>Отчётность из Google-таблицы</h3>
       <ol className="small wiz-ol">
-        <li>Сделай копию таблицы-шаблона (Файл → Создать копию) и заполни базу клиента.</li>
+        <li>Создай таблицу клиента из шаблона: <a className="linkbtn" href={`https://docs.google.com/spreadsheets/d/${TEMPLATE_ID}/copy`} target="_blank" rel="noopener noreferrer">📄 Создать копию шаблона</a>
+          <span className="muted"> — назови её по клиенту и заполни базу.</span></li>
         <li>В копии: Расширения → Apps Script. В строке <code>var KEY</code> поставь ключ: <b>{key}</b> <button type="button" className="ghost small" onClick={() => navigator.clipboard?.writeText(`var KEY = '${key}';`)}>📋 скопировать строку</button> <button type="button" className="ghost small" onClick={() => setKey(genKey())}>↻ другой</button></li>
         <li>Развёртывание → Новое развёртывание → «Веб-приложение», доступ «Все» → скопируй ссылку <code>…/exec</code>.</li>
       </ol>
