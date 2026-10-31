@@ -513,3 +513,4 @@ input,select,textarea{border-radius:12px}
 .adm-line input{padding:4px 8px;font-size:13px}
 .adm-client input[type=date]{padding:2px 6px;font-size:12px}
 .adm-service{margin-top:18px;display:flex;flex-direction:column;gap:4px}
+.home-tiles a.tile{color:#fff;text-decoration:none}@media (max-width:720px){.home-tiles{grid-template-columns:repeat(2,minmax(0,1fr))!important}}

@@ -74,6 +74,12 @@ export default function Home() {
           {overdue > 0 && <Link to="/tasks">⚠ Просрочено: <b>{overdue}</b></Link>}
           {waiting > 0 && <Link to="/projects">⏳ Ждём ответ: <b>{waiting}</b></Link>}
         </div>)}
+      <div className="dash-grid home-tiles" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 14 }}>
+        <Link to="/pnl" className="card stat g-blue tile"><span className="tile-ico">💰</span><div className="muted">Доход месяца</div><b>{rub(biz.income)}</b></Link>
+        <Link to="/pnl" className="card stat g-orange tile"><span className="tile-ico">⏳</span><div className="muted">Ждём оплату</div><b>{rub(waitPay)}</b></Link>
+        <Link to="/pnl" className="card stat g-green tile"><span className="tile-ico">💎</span><div className="muted">Чистая прибыль</div><b>{rub(biz.profit)}</b></Link>
+        <Link to="/projects" className="card stat g-orange t-light tile"><span className="tile-ico">◆</span><div className="muted">Проекты в работе</div><b>{projects.length}</b></Link>
+      </div>
       <div className="home-2col">
         <div className="card">
           <h3 style={{ marginTop: 0 }}>💸 Кто не оплатил {unpaid.length > 0 && <span className="notif-count" style={{ background: "var(--lost)" }}>{unpaid.length}</span>}</h3>

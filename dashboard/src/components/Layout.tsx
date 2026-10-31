@@ -16,16 +16,14 @@ interface Group { id: string; title: string; items: Item[]; }
 const groups = (): Group[] => [
   { id: "mgmt", title: "Управление", items: [
     { to: "/", label: "Главная", icon: "◧", staff: true },
-    { to: "/pnl", label: "P&L", icon: "₽" },
-    { to: "/report", label: "Отчёт", icon: "📊" },
+    { to: "/pnl", label: "Финансы", icon: "₽" },
     { to: "/wallet", label: "Личные деньги", icon: "👛" },
   ] },
   { id: "mkt", title: "Маркетинг", items: [
     ...modules.map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })),
-    { to: "/clients", label: "Клиенты", icon: "◉" },
   ] },
   { id: "ops", title: "Операционка", items: [
-    { to: "/projects", label: "Проекты", icon: "◆" },
+    { to: "/projects", label: "Клиенты и проекты", icon: "◆" },
     { to: "/tasks", label: "Задания", icon: "▦", staff: true },
     { to: "/monthly", label: "Мои клиенты", icon: "👥", staff: true, staffOnly: true },
   ] },
@@ -36,7 +34,7 @@ const groups = (): Group[] => [
   ] },
 ];
 // Нижняя панель на телефоне
-const MOBILE = ["/", "/clients", "/tasks", "/projects"];
+const MOBILE = ["/", "/projects", "/tasks", "/pnl"];
 
 
 export default function Layout() {
@@ -61,7 +59,8 @@ export default function Layout() {
   const link = (n: Item) => (
     <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => {
       // разделы кабинета клиента — по ?t=…; без параметра активен «Мой кабинет»
-      const on = n.to.includes("?t=") ? (loc.search || "?t=dash") === n.to.slice(n.to.indexOf("?")) : isActive;
+      const alias: Record<string, string> = { "/projects": "/clients", "/pnl": "/report" };   // вкладки одного раздела
+      const on = n.to.includes("?t=") ? (loc.search || "?t=dash") === n.to.slice(n.to.indexOf("?")) : isActive || (!!alias[n.to] && loc.pathname.startsWith(alias[n.to]));
       return "navlink" + (on ? " active" : "");
     }}><span className="ni">{n.icon}</span>{n.label}</NavLink>
   );

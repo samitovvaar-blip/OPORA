@@ -21,6 +21,10 @@ import { WorkspaceProvider, useWorkspace } from "./lib/workspace";
 import Clients from "./pages/Clients";
 import Projects from "./pages/Projects";
 import Admin from "./pages/Admin";
+import Hub from "./components/Hub";
+// объединённые разделы: Клиенты | Проекты и Финансы (P&L | Отчёт)
+const CLI = [{ to: "/projects", label: "◆ Проекты", el: <Projects /> }, { to: "/clients", label: "◉ Клиенты и воронка", el: <Clients /> }];
+const FIN = [{ to: "/pnl", label: "₽ P&L", el: <PnL /> }, { to: "/report", label: "📊 Отчёт", el: <Report /> }];
 import "./styles.css";
 
 function Protected() {
@@ -76,10 +80,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="monthly" element={<MemberGate><Monthly /></MemberGate>} />
             <Route path="products" element={<OwnerOnly><Products /></OwnerOnly>} />
             <Route path="wallet" element={<OwnerOnly><Wallet /></OwnerOnly>} />
-            <Route path="pnl" element={<OwnerOnly><PnL /></OwnerOnly>} />
-            <Route path="clients" element={<OwnerOnly><Clients /></OwnerOnly>} />
-            <Route path="projects" element={<OwnerOnly><Projects /></OwnerOnly>} />
-            <Route path="report" element={<OwnerOnly><Report /></OwnerOnly>} />
+            <Route path="pnl" element={<OwnerOnly><Hub tabs={FIN} /></OwnerOnly>} />
+            <Route path="clients" element={<OwnerOnly><Hub tabs={CLI} /></OwnerOnly>} />
+            <Route path="projects" element={<OwnerOnly><Hub tabs={CLI} /></OwnerOnly>} />
+            <Route path="report" element={<OwnerOnly><Hub tabs={FIN} /></OwnerOnly>} />
             <Route path="admin" element={<OwnerOnly><Admin /></OwnerOnly>} />
             {modules.map((m) => <Route key={m.id} path={m.path} element={<OwnerOnly><m.component /></OwnerOnly>} />)}
           </Route>
