@@ -25,7 +25,7 @@ import Hub from "./components/Hub";
 import StudentHome from "./pages/StudentHome";
 // объединённые разделы: Клиенты | Проекты и Финансы (P&L | Отчёт)
 const CLI = [{ to: "/projects", label: "◆ Проекты", el: <Projects /> }, { to: "/clients", label: "◉ Клиенты и воронка", el: <Clients /> }];
-const FIN = [{ to: "/pnl", label: "₽ P&L", el: <PnL /> }, { to: "/report", label: "📊 Отчёт", el: <Report /> }];
+const FIN = [{ to: "/pnl", label: "₽ P&L", el: <PnL /> }, { to: "/report", label: "📊 Отчёт", el: <Report /> }, { to: "/wallet", label: "👛 Личные деньги", el: <Wallet /> }];
 import "./styles.css";
 
 function Protected() {
@@ -81,7 +81,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="kb" element={<MemberGate><Knowledge /></MemberGate>} />
             <Route path="monthly" element={<MemberGate><Monthly /></MemberGate>} />
             <Route path="products" element={<OwnerOnly><Products /></OwnerOnly>} />
-            <Route path="wallet" element={<OwnerOnly><Wallet /></OwnerOnly>} />
+            <Route path="wallet" element={<OwnerOnly><Hub tabs={FIN} /></OwnerOnly>} />
             <Route path="pnl" element={<OwnerOnly><Hub tabs={FIN} /></OwnerOnly>} />
             <Route path="clients" element={<OwnerOnly><Hub tabs={CLI} /></OwnerOnly>} />
             <Route path="projects" element={<OwnerOnly><Hub tabs={CLI} /></OwnerOnly>} />
