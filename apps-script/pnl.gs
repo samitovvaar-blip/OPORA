@@ -169,24 +169,37 @@ function readGoods(ss) {
       var n = String(dv[r][nc] || '').trim(); if (n) groups[n] = g || 'Без группы';
     }
   }
-  if (!sh) return Object.keys(groups).length ? { groups: groups, items: {}, months: [] } : null;
-  var v = sh.getDataRange().getValues(), h = v[0].map(norm);
-  var col = function (re) { for (var i = 0; i < h.length; i++) if (re.test(h[i])) return i; return -1; };
-  var cD = col(/^дата/), cN = col(/номенклатур|^товар/), cT = col(/приход\s*\/|тип|операц/), cIn = col(/^приход$/), cOut = col(/^расход$/),
-      cQ = col(/^кол/), cS = col(/^сумм/);
-  if (cN < 0) return { groups: groups, items: {}, months: [], error: 'На листе товаров не нашла колонку «Номенклатура»' };
-  var items = {}, months = {};
-  for (var r = 1; r < v.length; r++) {
-    var row = v[r], name = String(row[cN] || '').trim(); if (!name) continue;
-    var d = toDate(cD >= 0 ? row[cD] : null); if (!d) continue;
-    var mk = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); months[mk] = true;
-    var it = items[name] = items[name] || {}; var m = it[mk] = it[mk] || { inQ: 0, outQ: 0, inS: 0, outS: 0 };
-    var sum = cS >= 0 ? Math.abs(toNum(row[cS])) : 0;
-    if (cIn >= 0 || cOut >= 0) { var qi = cIn >= 0 ? toNum(row[cIn]) : 0, qo = cOut >= 0 ? toNum(row[cOut]) : 0; m.inQ += Math.abs(qi); m.outQ += Math.abs(qo); if (qi) m.inS += sum; if (qo) m.outS += sum; }
-    else { var q = Math.abs(toNum(cQ >= 0 ? row[cQ] : 0)); var out = cT >= 0 ? /расход|списан|продаж|отгруз/i.test(String(row[cT])) : toNum(row[cQ]) < 0;
-      if (out) { m.outQ += q; m.outS += sum; } else { m.inQ += q; m.inS += sum; } }
-  }
-  return { groups: groups, items: items, months: Object.keys(months).sort(), sheet: sh.getName() };
+  // Два листа: «Товары Поставки» — приход (закупка), «Товары Реализации» — расход (продажа).
+  // Колонки по заголовкам: «наименование…» (или «Номенклатура»), «Количество», «Сумма…», «Дата для отчета».
+  var sheets = ss.getSheets(), inSh = null, outSh = null;
+  for (var i = 0; i < sheets.length; i++) { var nm = norm(sheets[i].getName());
+    if (!inSh && /товар.*поставк/.test(nm)) inSh = sheets[i];
+    if (!outSh && /товар.*реализац/.test(nm)) outSh = sheets[i]; }
+  if (!inSh && !outSh && !sh) return Object.keys(groups).length ? { groups: groups, items: {}, months: [] } : null;
+  var items = {}, months = {}, errs = [];
+  var readMoves = function (sheet, dir) {
+    var v = sheet.getDataRange().getValues(), hr = 0;
+    for (var r = 0; r < Math.min(6, v.length); r++) if (v[r].map(norm).some(function (x) { return /^кол/.test(x); })) { hr = r; break; }
+    var h = v[hr].map(norm);
+    var col = function (re) { for (var i = 0; i < h.length; i++) if (re.test(h[i])) return i; return -1; };
+    var cN = col(/наименован/); if (cN < 0) cN = col(/^номенклатур(?!ный)/); if (cN < 0) cN = col(/^товар/);
+    var cD = col(/дата для отч/); if (cD < 0) cD = col(/^дата/);
+    var cQ = col(/^кол/), cS = col(/сумм/), cT = col(/приход\s*\/|тип|операц/);
+    if (cN < 0 || cQ < 0) { errs.push('На листе «' + sheet.getName() + '» не нашла колонки «наименование» или «Количество»'); return; }
+    for (var r = hr + 1; r < v.length; r++) {
+      var row = v[r], name = String(row[cN] || '').trim(); if (!name) continue;
+      var d = toDate(cD >= 0 ? row[cD] : null); if (!d) continue;
+      var mk = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); months[mk] = true;
+      var it = items[name] = items[name] || {}; var m = it[mk] = it[mk] || { inQ: 0, outQ: 0, inS: 0, outS: 0 };
+      var q = Math.abs(toNum(row[cQ])), sum = cS >= 0 ? Math.abs(toNum(row[cS])) : 0;
+      var out = dir ? dir === 'out' : (cT >= 0 ? /расход|списан|продаж|отгруз|реализ/i.test(String(row[cT])) : toNum(row[cQ]) < 0);
+      if (out) { m.outQ += q; m.outS += sum; } else { m.inQ += q; m.inS += sum; }
+    }
+  };
+  if (inSh) readMoves(inSh, 'in');
+  if (outSh) readMoves(outSh, 'out');
+  if (!inSh && !outSh && sh) readMoves(sh, '');
+  return { groups: groups, items: items, months: Object.keys(months).sort(), error: errs.join('; ') || undefined };
 }
 
 function fmtD(d) { return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); }
