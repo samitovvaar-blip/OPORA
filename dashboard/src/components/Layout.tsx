@@ -91,7 +91,9 @@ export default function Layout() {
         {foot}
       </aside>
       <nav className="mnav">
+        <button className="navlink m-logo" title="Обновить" onClick={refresh}><img src="logo.png" alt="" />ОПОРА</button>
         {mobile.map(link)}
+        <button className="navlink" title="Светлая / тёмная тема" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><span className="ni">{theme === "dark" ? "☀️" : "🌙"}</span>Тема</button>
         {isOwner && <button className={`navlink ${more ? "active" : ""}`} onClick={() => setMore(!more)}><span className="ni">☰</span>Ещё</button>}
         {!isOwner && <button className="navlink" onClick={() => confirm("Выйти из кабинета?") && signOut(auth)}><span className="ni">⎋</span>Выйти</button>}
       </nav>
