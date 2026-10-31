@@ -102,7 +102,7 @@ export default function ClientPortal() {
 
   const v = (arr: (number | null)[], i?: number) => (i == null ? null : arr[i]);
   const rev = v(pnl?.revenue || [], cur ?? undefined), prof = v(pnl?.profit || [], cur ?? undefined);
-  const exp = rev != null && prof != null ? rev - prof : null;
+  const exp = prof != null ? (rev || 0) - prof : null;
   const prevRev = v(pnl?.revenue || [], prevIdx), prevProf = v(pnl?.profit || [], prevIdx);
   const series = filled.map(({ m, i }) => ({ label: m.label.slice(0, 3), rev: pnl!.revenue[i] || 0, prof: pnl!.profit[i] || 0, closed: m.closed }));
   const max = Math.max(1, ...series.map((s) => s.rev));
@@ -157,7 +157,7 @@ export default function ClientPortal() {
           <div style={{ display: "contents" }}>
           <div className="card stat g-blue tile tile-link" onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico">💰</span><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
           <div className="card stat g-orange tile tile-link" onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico">💸</span><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
-          <div className="card stat g-green tile tile-link" onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico">💎</span><div className="muted">Чистая прибыль</div><b className={prof != null && prof < 0 ? "error" : "ok"}>{prof != null ? rub(prof) : "—"}</b><Delta v={delta(prof, prevProf)} /></div>
+          <div className={`card stat ${prof != null && prof < 0 ? "g-red" : "g-green"} tile tile-link`} onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico">{prof != null && prof < 0 ? "🔻" : "💎"}</span><div className="muted">{prof != null && prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{prof != null ? rub(prof) : "—"}</b>{prof != null && prof > 0 && prevProf != null && prevProf > 0 && <Delta v={delta(prof, prevProf)} />}</div>
           <div className="card stat g-orange t-light tile tile-link" onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico">📈</span><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
 
           {pnl.depts.length > 0 && <div className="card span2">
@@ -193,6 +193,13 @@ export default function ClientPortal() {
               <b className={kp[f] == null ? "muted" : ""}>{kp[f] ?? "нет информации от ОП"}</b></div>;
             return <><div className="card span2">
               <h3 style={{ marginTop: 0 }}>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
+              {(() => {
+                // Точка безубыточности: постоянные / (1 − переменные / выручка)
+                const vr = Math.abs(pnl.variable[cur] || 0), fx = Math.abs(pnl.fixed[cur] || 0), share = rev ? vr / rev : null;
+                const be = share != null && share < 1 ? fx / (1 - share) : null;
+                const txt = !fx ? "укажи в справочнике, какие расходы постоянные" : !rev ? "нужна выручка за месяц" : be == null ? "переменные расходы больше выручки" : rub(Math.round(be)) + (rev >= be ? " ✓ пройдена" : ` · не хватает ${rub(Math.round(be - rev))}`);
+                return <Row l="⚖️ Выручка безубыточности" v={txt} c={be != null && rev != null && rev >= be ? "#16a34a" : "#b02a2a"} />;
+              })()}
               {pnl.tagMetrics && Object.keys(pnl.tagMetrics).length ? Object.entries(pnl.tagMetrics).map(([tag, vals]) => {
                 // метрики из справочника: доля от выручки и сумма
                 const x = vals[cur]; return <Row key={tag} l={tag} v={x != null ? `${rev ? (x / rev * 100).toFixed(1) + "% · " : ""}${rub(x)}` : "—"} />; })

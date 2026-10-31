@@ -521,3 +521,5 @@ input,select,textarea{border-radius:12px}
 .wiz-steps span.on{background:#16304f;color:#fff;font-weight:700}.wiz-steps span.done{color:var(--won)}
 .wiz-ol{padding-left:18px;line-height:1.6}.wiz-ol code{background:var(--bg);padding:1px 6px;border-radius:6px}
 .key-line{background:#16304f;color:#fff;padding:6px 10px;border-radius:8px;font-size:13px;user-select:all}
+
+.tile.g-red{background:#c0392b;color:#fff;border:0}.g-red .muted,.g-red b{color:#fff}
