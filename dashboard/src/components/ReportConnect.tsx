@@ -17,7 +17,8 @@ const parse = (u?: string) => {
 export default function ReportConnect({ p, wsId }: { p: ClientProject; wsId: string }) {
   const cur = parse(p.pnlUrl);
   const [sheet, setSheet] = useState(p.links?.sheet || "");
-  const key = cur.key || sheetId(sheet) || p.scriptKey || "";
+  // ключ = ID таблицы (единый скрипт); старый ключ — только если ссылки на таблицу нет
+  const key = sheetId(sheet) || cur.key || p.scriptKey || "";
   const [base, setBase] = useState(cur.base);
   const [dir, setDir] = useState(cur.dir);
   const [msg, setMsg] = useState<string[] | null>(null);
