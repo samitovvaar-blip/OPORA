@@ -22,7 +22,7 @@ function embedUrl(u: string) {
 }
 
 export default function Knowledge() {
-  const { wsId, isOwner, ws } = useWorkspace();
+  const { wsId, isOwner, ws, student } = useWorkspace();
   const [list, setList] = useState<Lesson[]>([]);
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export default function Knowledge() {
   useEffect(() => progRef && !isOwner ? onSnapshot(progRef, (s) => setDoneIds((s.data()?.done as string[]) || []), () => {}) : undefined, [wsId, me, isOwner]);
   const toggleDone = (id: string) => progRef && setDoc(progRef, { done: doneIds.includes(id) ? arrayRemove(id) : arrayUnion(id) }, { merge: true });
   // сотрудник: какие курсы ему открыты (карточка staff/{email})
-  useEffect(() => wsId && !isOwner && me ? onSnapshot(doc(db, "workspaces", wsId, "staff", me),
+  useEffect(() => wsId && !isOwner && me ? onSnapshot(doc(db, "workspaces", wsId, student ? "students" : "staff", me),
     (s) => setMyCourses((s.data()?.courses as string[]) || []), () => setMyCourses([])) : undefined, [wsId, isOwner, me]);
   useEffect(() => {
     if (!col || !myCourses) return;
@@ -61,7 +61,7 @@ export default function Knowledge() {
     return () => subs.forEach((u) => u());
   }, [wsId, isOwner, (myCourses || []).join()]);
 
-  if (!isOwner && ws && !ws.open) return <><h1>База знаний</h1><div className="card">🔒 Доступ сейчас закрыт.</div></>;
+  if (!isOwner && !student && ws && !ws.open) return <><h1>База знаний</h1><div className="card">🔒 Доступ сейчас закрыт.</div></>;
 
   async function submit(e: FormEvent) {
     e.preventDefault(); const url = normUrl(f.url);

@@ -10,7 +10,7 @@ import { useAuth } from "./auth";
 const OWNER = ((import.meta.env.VITE_OWNER_EMAIL as string) || "").toLowerCase();
 
 export interface Workspace { members: string[]; open: boolean; courses?: { id: string; name: string; icon: string }[]; }
-interface Ctx { wsId: string | null; isOwner: boolean; ws: Workspace | null; ready: boolean; clientOf?: string; }
+interface Ctx { wsId: string | null; isOwner: boolean; ws: Workspace | null; ready: boolean; clientOf?: string; student?: boolean; }
 const NONE: Ctx = { wsId: null, isOwner: false, ws: null, ready: true };
 const C = createContext<Ctx>({ ...NONE, ready: false });
 
@@ -33,6 +33,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         if (ci?.exists()) {
           const c = ci.data() as { ws: string; cid: string };
           setState({ wsId: c.ws, isOwner: false, ws: null, ready: true, clientOf: c.cid });
+          return;
+        }
+        // Ученик: владелец добавил его в «Ученики» (studentIndex/{email})
+        const si = await getDoc(doc(db, "studentIndex", email)).catch(() => null);
+        if (si?.exists()) {
+          const w = si.data() as { ws: string };
+          unsub = onSnapshot(doc(db, "workspaces", w.ws), (s) => setState({ wsId: w.ws, isOwner: false, ws: s.data() as Workspace, ready: true, student: true }),
+            () => setState({ wsId: w.ws, isOwner: false, ws: null, ready: true, student: true }));
           return;
         }
         const inv = await getDocs(query(collection(db, "workspaces"), where("members", "array-contains", email)))

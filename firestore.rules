@@ -19,7 +19,7 @@ service cloud.firestore {
 
     match /workspaces/{ws} {
       allow read: if isOwner(ws)
-        || (verified() && request.auth.token.email.lower() in resource.data.members);
+        || (verified() && request.auth.token.email.lower() in resource.data.members) || isStudent(ws);
       allow write: if isOwner(ws);
 
       match /assignments/{id} {
@@ -54,8 +54,8 @@ service cloud.firestore {
 
     // Прогресс по курсам: сотрудник отмечает просмотренные уроки (только свои), смотрит владелец
     match /workspaces/{ws}/progress/{email} {
-      allow read: if isOwner(ws) || (isMember(ws) && request.auth.token.email.lower() == email);
-      allow write: if isMember(ws) && request.auth.token.email.lower() == email
+      allow read: if isOwner(ws) || ((isMember(ws) || isStudent(ws)) && request.auth.token.email.lower() == email);
+      allow write: if (isMember(ws) || isStudent(ws)) && request.auth.token.email.lower() == email
         && request.resource.data.keys().hasOnly(["done"]) && request.resource.data.done is list && request.resource.data.done.size() <= 500;
     }
 
@@ -63,8 +63,27 @@ service cloud.firestore {
     // сотрудник видит уроки только тех курсов, что владелец открыл ему (staff/{email}.courses)
     match /workspaces/{ws}/kb/{id} {
       allow read: if isOwner(ws) || (isMember(ws) && resource.data.get("course", "") in
-        get(/databases/$(database)/documents/workspaces/$(ws)/staff/$(request.auth.token.email.lower())).data.get("courses", []));
+        get(/databases/$(database)/documents/workspaces/$(ws)/staff/$(request.auth.token.email.lower())).data.get("courses", []))
+        || (isStudent(ws) && resource.data.get("course", "") in
+        get(/databases/$(database)/documents/workspaces/$(ws)/students/$(request.auth.token.email.lower())).data.get("courses", []));
       allow write: if isOwner(ws);
+    }
+
+    // Ученик: где его кабинет (пишет владелец, читает сам ученик)
+    match /studentIndex/{email} {
+      allow read: if verified() && request.auth.token.email.lower() == email;
+      allow create: if request.auth != null && request.resource.data.ws == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.ws == request.auth.uid;
+    }
+    function isStudent(ws) {
+      return verified() && exists(/databases/$(database)/documents/workspaces/$(ws)/students/$(request.auth.token.email.lower()));
+    }
+    // Карточка ученика: курсы и домашки ведёт владелец; ученик отмечает только «сдано» (hwDone)
+    match /workspaces/{ws}/students/{email} {
+      allow read: if isOwner(ws) || (verified() && request.auth.token.email.lower() == email);
+      allow write: if isOwner(ws);
+      allow update: if verified() && request.auth.token.email.lower() == email
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["hwDone"]);
     }
 
     // Клиент: где его кабинет (пишет владелец, читает сам клиент)

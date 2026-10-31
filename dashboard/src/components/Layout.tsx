@@ -23,7 +23,7 @@ const groups = (): Group[] => [
     ...modules.map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })),
   ] },
   { id: "ops", title: "Операционка", items: [
-    { to: "/projects", label: "Клиенты и проекты", icon: "◆" },
+    { to: "/projects", label: "Клиенты", icon: "◆" },
     { to: "/tasks", label: "Задания", icon: "▦", staff: true },
     { to: "/monthly", label: "Мои клиенты", icon: "👥", staff: true, staffOnly: true },
   ] },
@@ -39,7 +39,7 @@ const MOBILE = ["/", "/projects", "/tasks", "/pnl"];
 
 export default function Layout() {
   const { user } = useAuth();
-  const { isOwner, clientOf } = useWorkspace();
+  const { isOwner, clientOf, student } = useWorkspace();
   const loc = useLocation();
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem("theme") || "light"; } catch { return "light"; } });
   const [more, setMore] = useState(false);
@@ -50,9 +50,9 @@ export default function Layout() {
   useEffect(() => setMore(false), [loc.pathname]);
   // сотрудник: отмечаем онлайн и рабочее время
   const { wsId } = useWorkspace();
-  useEffect(() => !isOwner && wsId && user?.email ? startPresence(wsId, user.email) : undefined, [isOwner, clientOf, wsId, user?.email]);   // сотрудник и клиент
+  useEffect(() => !isOwner && !student && wsId && user?.email ? startPresence(wsId, user.email) : undefined, [isOwner, clientOf, wsId, user?.email]);   // сотрудник и клиент
 
-  const visible = clientOf ? [{ id: "client", title: "", items: [{ to: "/?t=dash", label: "Мой кабинет", icon: "◎" }, { to: "/?t=rep", label: "Отчётность", icon: "📑" },
+  const visible = student ? [{ id: "st", title: "", items: [{ to: "/", label: "Домашние задания", icon: "📝" }, { to: "/kb", label: "Курсы", icon: "🎓" }] }] : clientOf ? [{ id: "client", title: "", items: [{ to: "/?t=dash", label: "Мой кабинет", icon: "◎" }, { to: "/?t=rep", label: "Отчётность", icon: "📑" },
     { to: "/?t=work", label: "Ход работы", icon: "🛠" }, { to: "/?t=plan", label: "Планирование", icon: "🎯" }] }] : groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly : i.staff) })).filter((g) => g.items.length);
   const flat = visible.flatMap((g) => g.items);
   const mobile = isOwner ? flat.filter((i) => MOBILE.includes(i.to)) : flat;

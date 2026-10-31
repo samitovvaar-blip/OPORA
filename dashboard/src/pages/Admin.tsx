@@ -3,6 +3,7 @@ import { modules } from "../lib/modules";
 import { useAuth } from "../lib/auth";
 import AccessCard from "../components/AccessCard";
 import ClientsAccessCard from "../components/ClientsAccessCard";
+import StudentsCard from "../components/StudentsCard";
 
 export default function Admin() {
   const { user } = useAuth();
@@ -10,7 +11,7 @@ export default function Admin() {
     <>
       <h1>Админка</h1>
       <div className="home-2col adm-cols">
-        <AccessCard />
+        <div><AccessCard /><StudentsCard /></div>
         <ClientsAccessCard />
       </div>
       <div className="adm-service small muted">

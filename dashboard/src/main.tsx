@@ -22,6 +22,7 @@ import Clients from "./pages/Clients";
 import Projects from "./pages/Projects";
 import Admin from "./pages/Admin";
 import Hub from "./components/Hub";
+import StudentHome from "./pages/StudentHome";
 // объединённые разделы: Клиенты | Проекты и Финансы (P&L | Отчёт)
 const CLI = [{ to: "/projects", label: "◆ Проекты", el: <Projects /> }, { to: "/clients", label: "◉ Клиенты и воронка", el: <Clients /> }];
 const FIN = [{ to: "/pnl", label: "₽ P&L", el: <PnL /> }, { to: "/report", label: "📊 Отчёт", el: <Report /> }];
@@ -42,9 +43,10 @@ function OwnerOnly({ children }: { children: JSX.Element }) {
 
 // Главная: у владельца своя, у сотрудника своя
 function HomeSwitch() {
-  const { isOwner, ready, clientOf } = useWorkspace();
+  const { isOwner, ready, clientOf, student } = useWorkspace();
   if (!ready) return <NeylaLoading />;
   if (clientOf) return <ClientPortal />;
+  if (student) return <StudentHome />;
   return isOwner ? <Home /> : <MemberGate><StaffHome /></MemberGate>;
 }
 
