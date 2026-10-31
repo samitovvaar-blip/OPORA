@@ -492,7 +492,7 @@ input,select,textarea{border-radius:12px}
 }
 /* спираль ОПОРЫ — крутится как загрузка */
 .mnav .m-logo img{border-radius:0!important}
-.m-logo.spin img{animation:spiral-spin .8s linear infinite}
+.m-logo.spin img{animation:spiral-spin .8s linear 2}
 .spin-slow{animation:spiral-spin 1s linear 2}
 .install-hint img{border-radius:0!important}
 @keyframes spiral-spin{to{transform:rotate(360deg)}}
