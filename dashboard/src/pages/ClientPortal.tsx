@@ -42,10 +42,12 @@ export default function ClientPortal() {
   const cid = preview ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
   const [p, setP] = useState<ClientProject | null>(null);
   const [err, setErr] = useState("");
-  const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op">("dash");
+  const [tab, setTab] = useState<"work" | "rep" | "an" | "dash" | "plan" | "op">("dash");
+  const [anN, setAnN] = useState(3);
+  const [hideNeyla, setHideNeyla] = useState(false);
   const [rep, setRep] = useState<"pnl" | "dds">("pnl");
   const loc = useLocation();
-  useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
+  useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "an", "work", "plan", "op"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
   const [pnl, setPnl] = useState<Pnl | null>(null);
   const [pnlErr, setPnlErr] = useState("");
   const [mi, setMi] = useState<number | null>(null);
@@ -102,16 +104,18 @@ export default function ClientPortal() {
           <span className="ni">📅</span>
           <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
             {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
+          <span className={`m-pill ${pnl.months[cur].closed ? "m-ok" : "m-pre"}`}>{pnl.months[cur].closed ? "✓ Сдано" : "Предварительно"}</span>
         </div> : null;
         const nameSlot = document.getElementById("side-name");
         return <>{slot && !preview && createPortal(ctl, slot)}{nameSlot && !preview && createPortal(<>{p.name}</>, nameSlot)}
-          {(preview || view === "dash" || view === "pnl" || view === "dds") && <div className="month-top">{ctl}</div>}</>;
+          {(preview || view === "dash" || view === "pnl" || view === "dds" || view === "an") && <div className="month-top">{ctl}</div>}</>;
       })()}
       {preview && <h1>{p.name}</h1>}
       {preview && <div className="chips" style={{ marginTop: 12 }}>
-        {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || k !== "op").map(([k, l]) =>
+        {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["an", "📈 Аналитика"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || k !== "op").map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>}
+      {(tab === "rep" || tab === "an") && pnl && <button className="pdf-btn no-print" onClick={() => window.print()}>📄 Скачать PDF</button>}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
         {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"]] as const).map(([k, l]) =>
           <button key={k} className={`chipbtn ${rep === k ? "on" : ""}`} onClick={() => setRep(k)}>{l}</button>)}
@@ -228,10 +232,12 @@ export default function ClientPortal() {
             <tbody>{tree.map((t, i) => {
               if (t.lvl >= 1 && !open[t.k0]) return null;
               if (t.lvl === 2 && !open[t.k1]) return null;
-              const v = t.r.values[cur], kids = hasKids(i);
+              if (/^Проверка/.test(t.r.name) && !open["chk"]) return null;   // сверка раскрывается по нажатию на «Факт предоплат»
+              const isPre = t.r.name === "Факт предоплат";
+              const v = t.r.values[cur], kids = hasKids(i) || isPre;
               return <tr key={i} className={t.lvl === 0 && big(t.r.name) ? "pnl-key" : t.lvl === 0 ? "pnl-sec" : t.lvl === 2 ? "small" : ""}
-                style={{ cursor: kids ? "pointer" : undefined }} onClick={() => kids && setOpen((o) => ({ ...o, [t.key]: !o[t.key] }))}>
-                <td style={{ paddingLeft: [8, 24, 44][t.lvl] }} className={/прибыль/i.test(t.r.name) && t.lvl === 0 ? "profit" : ""}>{kids ? (open[t.key] ? "▾ " : "▸ ") : ""}{t.lvl === 2 ? t.r.sub : t.r.name}</td>
+                style={{ cursor: kids ? "pointer" : undefined }} onClick={() => isPre ? setOpen((o) => ({ ...o, chk: !o.chk })) : kids && setOpen((o) => ({ ...o, [t.key]: !o[t.key] }))}>
+                <td style={{ paddingLeft: [8, 24, 44][t.lvl] }} className={/прибыль/i.test(t.r.name) && t.lvl === 0 ? "profit" : ""}>{kids ? ((isPre ? open.chk : open[t.key]) ? "▾ " : "▸ ") : ""}{t.lvl === 2 ? t.r.sub : t.r.name}</td>
                 <td className={/^Проверка/.test(t.r.name) ? (Math.abs(v || 0) < 1 ? "ok" : "error") : /прибыль/i.test(t.r.name) && t.lvl === 0 ? ((v || 0) < 0 ? "error profit" : "profit") : (v || 0) < 0 ? "neg" : ""}>{v != null ? (/^Проверка/.test(t.r.name) && Math.abs(v) < 1 ? "✓ " : "") + rub(v) : "—"}</td>
                 <td className="small muted">{v != null && rev ? (Math.abs(v) / rev * 100).toFixed(1) + "%" : ""}</td>
               </tr>;
@@ -319,6 +325,54 @@ export default function ClientPortal() {
           {isOwner && !B && startBal == null && <div className="muted small">Впиши остаток на начало первого месяца (как в твоём ДДС) — дальше остатки посчитаются сами.</div>}
         </div>;
       })() : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
+
+      {tab === "an" && pnl && cur != null && (() => {
+        // Аналитика: ключевые строки ОПиУ за 3 или 6 месяцев (до выбранного включительно)
+        const idx = filled.filter(({ i }) => i <= cur).slice(-anN).map(({ i }) => i);
+        const M = pnl.metrics || {}, a = (arr?: (number | null)[]) => idx.map((i) => arr?.[i] ?? null);
+        const neg = (arr: (number | null)[]) => arr.map((x) => x == null ? null : Math.abs(x));
+        const rows: [string, (number | null)[], string][] = [
+          ["Выручка", a(pnl.revenue), "an-key"],
+          ["Переменные расходы", neg(a(pnl.variable)), "an-sec"],
+          ["1. Производственный отдел", neg(a(M.d1)), ""], ["2. Отдел продаж", neg(a(M.d2)), ""], ["3. Отдел маркетинга", neg(a(M.d3)), ""],
+          ["Постоянные расходы", neg(a(pnl.fixed)), "an-sec"],
+          ["4. Админ-хоз отдел и Руководство", neg(a(M.d4)), ""], ["5. Финансовый отдел", neg(a(M.d5)), ""],
+          ["Чистая прибыль", a(pnl.profit), "an-key profit"],
+        ];
+        const sum = (arr: (number | null)[]) => arr.reduce((x: number, y) => x + (y || 0), 0);
+        const revs = a(pnl.revenue), profs = a(pnl.profit);
+        return <div className="card soft-card print-area" style={{ overflowX: "auto", maxWidth: 1000 }}>
+          <div className="row"><h3 style={{ margin: 0 }}>📈 Аналитика по месяцам</h3>
+            <span className="chips no-print">{[3, 6].map((n) => <button key={n} className={`chipbtn ${anN === n ? "on" : ""}`} onClick={() => setAnN(n)}>{n === 3 ? "3 месяца" : "Полгода"}</button>)}</span></div>
+          <table className="pnl-table" style={{ marginTop: 10 }}>
+            <thead><tr><th />{idx.map((i) => <th key={i}>{pnl.months[i].label}<div className="small" style={{ opacity: .8 }}>{pnl.months[i].closed ? "✓ сдано" : "предв."}</div></th>)}<th>Итого</th></tr></thead>
+            <tbody>
+              {rows.map(([l, vals, cls]) => <tr key={l} className={cls.includes("an-key") ? "pnl-key" : ""}>
+                <td className={cls.includes("profit") ? "profit" : cls === "an-sec" ? "an-sec" : ""} style={{ paddingLeft: cls ? undefined : 22 }}>{l}</td>
+                {vals.map((v, k) => <td key={k} className={cls.includes("profit") ? ((v || 0) < 0 ? "error profit" : "profit") : ""}>{v != null ? rub(v) : "—"}</td>)}
+                <td><b>{rub(sum(vals))}</b></td></tr>)}
+              <tr><td>Рентабельность</td>{idx.map((i, k) => <td key={k}>{pct(profs[k], revs[k]) != null ? pct(profs[k], revs[k]) + "%" : "—"}</td>)}
+                <td><b>{pct(sum(profs), sum(revs)) != null ? pct(sum(profs), sum(revs)) + "%" : "—"}</b></td></tr>
+            </tbody>
+          </table>
+        </div>;
+      })()}
+
+      {view === "dash" && pnl && cur != null && !hideNeyla && rev != null && (() => {
+        // Вывод от Нейлы: 2–3 строки простым языком по выбранному месяцу
+        const lines: string[] = [];
+        const d = delta(rev, prevRev);
+        if (d != null) lines.push(d >= 0 ? `Выручка выросла на ${d}% к прошлому месяцу 👍` : `Выручка снизилась на ${Math.abs(d)}% к прошлому месяцу — стоит разобрать причины.`);
+        const m = pct(prof, rev);
+        if (m != null) lines.push(m >= 20 ? `Рентабельность ${m}% — это хороший уровень.` : m >= 0 ? `Рентабельность ${m}% — есть куда расти, посмотрите на крупные расходы.` : `Месяц в минусе: расходы больше выручки на ${rub(Math.abs(prof || 0))}.`);
+        const big = pnl.depts.map((x) => ({ n: x.name.replace(/^\d+\.\s*/, ""), v: Math.abs(x.values[cur] || 0) })).sort((a, b) => b.v - a.v)[0];
+        if (big && rev) { const sh = Math.round(big.v / rev * 100); lines.push(`Больше всего уходит на «${big.n}» — ${sh}% выручки${/маркетинг/i.test(big.n) && sh > 30 ? ", это выше нормы" : ""}.`); }
+        return <div className="neyla-insight no-print">
+          <button className="ghost ni-close" onClick={() => setHideNeyla(true)}>✕</button>
+          <img src="neyla.jpg" alt="" />
+          <div><b>Нейла · вывод за {pnl.months[cur].label.toLowerCase()}</b>{lines.slice(0, 3).map((l, k) => <p key={k}>{l}</p>)}</div>
+        </div>;
+      })()}
 
       {tab === "op" && isOwner && (() => {
         const ref = doc(db, "workspaces", wsId!, "clients", p.id);

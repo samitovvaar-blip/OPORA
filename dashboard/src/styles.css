@@ -414,3 +414,23 @@ input,select,textarea{border-radius:12px}
 /* без градиента на блоках кабинета клиента — чистые белые карточки */
 .dash-grid .card:not(.stat),.soft-card{background:var(--surface)!important;border:0}
 .dash-grid .span4{grid-column:1/-1;margin:0}.goal-pc{font-size:20px;font-weight:800;color:#3b6db3}.goal-pc.ok{color:#16a34a}
+.m-pill{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.m-ok{background:#16a34a;color:#fff}.m-pre{background:#e8883a;color:#fff}
+/* Аналитика */
+.an-sec{font-weight:800;color:#3b6db3}
+/* Вывод Нейлы — справа снизу */
+.neyla-insight{position:fixed;right:20px;bottom:20px;z-index:40;max-width:360px;display:flex;gap:10px;align-items:flex-start;background:#16304f;color:#fff;
+  padding:14px 16px;border-radius:20px;box-shadow:0 16px 40px rgba(22,48,79,.35);animation:nt-in2 .5s cubic-bezier(.2,1.3,.4,1)}
+.neyla-insight img{width:46px;height:46px;border-radius:50%;flex-shrink:0;animation:nt-bob 1.8s ease-in-out infinite}
+.neyla-insight b{color:#8fd6ff;font-size:13px}.neyla-insight p{margin:6px 0 0;font-size:13px;line-height:1.35}
+.ni-close{position:absolute;top:4px;right:6px;color:#fff!important;padding:2px 6px!important}
+@keyframes nt-in2{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@media (max-width:900px){.neyla-insight{left:12px;right:12px;bottom:96px;max-width:none}}
+/* PDF */
+.pdf-btn{margin:10px 0 0;background:#e8883a!important}
+@media print{
+  .side,.mnav,.no-print,.chips,.neyla-toast,.neyla-insight,.month-top,.msheet-back,button{display:none!important}
+  body,.main{background:#fff!important;padding:0!important}
+  .card{box-shadow:none!important;break-inside:avoid}
+  .pnl-table thead th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
