@@ -117,11 +117,13 @@ function readBalances(ss) {
 function readDirRows(ss) {
   var sh = ss.getSheetByName(DIRECTORY);
   if (!sh) return [];
-  var cols = Math.min(4, Math.max(2, sh.getLastColumn()));
+  var cols = Math.min(3, Math.max(2, sh.getLastColumn()));   // читаем только A–C (рядом может быть «Товарный учёт»)
   var v = sh.getRange(1, 1, sh.getLastRow(), cols).getDisplayValues(), out = [];
-  var three = /^тип/.test(norm(v[0][0]));
+  // строка заголовков может быть не первой (сверху бывает название «Учет финансов»): ищем «Тип» в колонке A
+  var head = 0, three = false;
+  for (var h = 0; h < Math.min(6, v.length); h++) if (/(^|\s)тип/.test(norm(v[h][0]))) { head = h; three = true; break; }
   var type = '', dept = '';
-  for (var r = 1; r < v.length; r++) {
+  for (var r = head + 1; r < v.length; r++) {
     var a = String(v[r][0] || '').trim(), b = String(v[r][1] || '').trim(), c = cols > 2 ? String(v[r][2] || '').trim() : '';
     if (three) {
       if (a) { type = a; dept = ''; }

@@ -134,7 +134,7 @@ export function buildDds(d0: { months: string[]; rows: DbRow[] }, accounts?: str
   });
   // Приход — только процесс «Доходы». Все остальные процессы — расход (их плюсы, напр. выручка СДЭК, уменьшают расход).
   // Отдельно внизу: фонды, «Для ДДС», «Не выяснено», переводы между счетами.
-  const isOther = (r: DbRow) => /^\s*\*\*|для ддс|не выяснен|между сч|внутрен|субсч|фонд|^\s*6\./i.test(r.process + " | " + r.article);
+  const isOther = (r: DbRow) => /^\s*\*\*|для ддс|не выяснен|между сч|внутрен|субсч|фонд|^\s*6\.|^\s*прочее/i.test(r.process + " | " + r.article);
   const ins = d.rows.filter((r) => !isOther(r) && /^\s*(доход|выручк|поступлен)/i.test(r.process));
   const outs = d.rows.filter((r) => !isOther(r) && !/^\s*(доход|выручк|поступлен)/i.test(r.process));
   const others = d.rows.filter(isOther);
@@ -196,14 +196,14 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   [...new Set(Object.values(mt))].forEach((tag) => { tagMetrics[tag] = sumOf(j.rows.filter((r) => lowMt[r.article.trim().toLowerCase()] === tag)); });
   const types = j.dirMeta?.types || {};
   // Простой справочник: колонка A — сразу ТИП (Доход / Переменные / Постоянные / Фонд / Не учитывать), B — статьи
-  const TYPE_RE = /^(доход|выручк|переменн|постоянн|фонд|не учит)/i;
+  const TYPE_RE = /^(доход|выручк|переменн|постоянн|фонд|не учит|проч)/i;
   const simple = j.rows.some((r) => TYPE_RE.test(r.process.trim()) && !/^доход/i.test(r.process.trim()));
   if (Object.keys(types).length || simple) {
     // Справочник с типами групп (колонка C) — отчёт строится строго по нему
     const lowT = Object.fromEntries(Object.entries(types).map(([g, t]) => [g.trim().toLowerCase(), t.toLowerCase()]));
     const kind = (r: DbRow) => { const t = lowT[r.process.trim().toLowerCase()] || (TYPE_RE.test(r.process.trim()) ? r.process.trim().toLowerCase() : "");
       if (/доход|выруч|поступл/.test(t)) return "inc"; if (/перемен/.test(t)) return "var"; if (/постоян/.test(t)) return "fix";
-      if (/фонд/.test(t)) return "fund"; if (/не уч|исключ|не ву/.test(t)) return "skip";
+      if (/фонд/.test(t)) return "fund"; if (/не уч|исключ|не ву|проч/.test(t)) return "skip";   // «Прочее» (капитал, займы, ошибочные возвраты) — не в ОПиУ
       return isIncome(r) ? "inc" : notExpense(r) ? "skip" : isFund(r) ? "fund" : "fix"; };
     // выручку пересчитываем по типам (строки выручки уже добавлены выше — перестраиваем отчёт с нуля)
     rows.length = 0;
