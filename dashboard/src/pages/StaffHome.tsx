@@ -69,6 +69,7 @@ export default function StaffHome() {
   return (
     <>
       <h1>Привет! 👋</h1>
+      <Notifs tasks={tasks} clients={checklists} lessons={lessons} deadlines={[...dl, ...soon]} />
       <div className="muted" style={{ marginTop: -12, marginBottom: 20 }}>{date}{worked != null ? ` · ⏱ сегодня в работе: ${fmtMin(worked)}` : ""}</div>
       <div className="staff-top">
         <div className="staff-left">
@@ -134,4 +135,44 @@ export default function StaffHome() {
       </div>
     </>
   );
+}
+
+// 🔔 Уведомления: новые задания, новые клиенты, новые уроки, сроки сегодня/завтра.
+// «Прочитано» запоминается в этом браузере. Если разрешить — ещё и системное уведомление на телефоне/компьютере.
+function Notifs({ tasks, clients, lessons, deadlines }: { tasks: any[]; clients: any[]; lessons: any[]; deadlines: { key: string; date: string; title: string; project: string }[] }) {
+  const read = (k: string): string[] => { try { return JSON.parse(localStorage.getItem("seen:" + k) || "[]"); } catch { return []; } };
+  const [seen, setSeen] = useState(() => ({ t: read("t"), c: read("c"), l: read("l"), d: read("d") }));
+  const d0 = today(), d1 = (() => { const x = new Date(); x.setDate(x.getDate() + 1); return x.toLocaleDateString("sv-SE"); })();
+  const items = [
+    ...tasks.filter((a) => a.status !== "done" && !seen.t.includes(a.id)).map((a) => ({ k: "t", id: a.id, text: `📋 Новое задание: ${a.title}`, to: "/tasks" })),
+    ...clients.filter((p) => !seen.c.includes(p.id)).map((p) => ({ k: "c", id: p.id, text: `👥 Вам открыт клиент: ${p.name}`, to: "/monthly?p=" + p.id })),
+    ...lessons.filter((l) => !seen.l.includes(l.id)).map((l) => ({ k: "l", id: l.id, text: `🎓 Новый урок: ${l.title}`, to: "/kb" })),
+    ...deadlines.filter((x) => (x.date === d0 || x.date === d1) && !seen.d.includes(x.key + x.date))
+      .map((x) => ({ k: "d", id: x.key + x.date, text: `⏰ Срок ${x.date === d0 ? "сегодня" : "завтра"}: ${x.project} — ${x.title}`, to: "/monthly" })),
+  ];
+  const ids = items.map((i) => i.id).join();
+  // системное уведомление — один раз на каждое новое событие
+  useEffect(() => {
+    if (!items.length || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    let shown: string[] = []; try { shown = JSON.parse(localStorage.getItem("pushed") || "[]"); } catch {}
+    const fresh = items.filter((i) => !shown.includes(i.id));
+    if (!fresh.length) return;
+    navigator.serviceWorker?.ready.then((r) => fresh.slice(0, 3).forEach((i) => r.showNotification("ОПОРА", { body: i.text, icon: "icon-192.png", tag: i.id })))
+      .catch(() => fresh.slice(0, 3).forEach((i) => new Notification("ОПОРА", { body: i.text })));
+    try { localStorage.setItem("pushed", JSON.stringify([...shown, ...fresh.map((i) => i.id)].slice(-300))); } catch {}
+  }, [ids]);
+  const markAll = () => {
+    const next = { ...seen };
+    items.forEach((i) => { (next as any)[i.k] = [...(next as any)[i.k], i.id].slice(-300); });
+    Object.entries(next).forEach(([k, v]) => { try { localStorage.setItem("seen:" + k, JSON.stringify(v)); } catch {} });
+    setSeen(next);
+  };
+  const canAsk = typeof Notification !== "undefined" && Notification.permission === "default";
+  if (!items.length && !canAsk) return null;
+  return <div className="card notif-card">
+    <div className="row" style={{ padding: 0 }}><h3 style={{ margin: 0 }}>🔔 Уведомления {items.length ? <span className="notif-count">{items.length}</span> : null}</h3>
+      {items.length > 0 && <button className="ghost" onClick={markAll}>Прочитано ✓</button>}</div>
+    {items.slice(0, 8).map((i) => <Link key={i.id} to={i.to} className="notif-row">{i.text}</Link>)}
+    {canAsk && <button className="ghost small" onClick={() => Notification.requestPermission()}>📲 Присылать уведомления на телефон</button>}
+  </div>;
 }
