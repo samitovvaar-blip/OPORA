@@ -8,7 +8,10 @@ import { Goods } from "../lib/sheetPnl";
 import { rub } from "../lib/money";
 
 export default function GoodsReport({ g, mk, label, p, wsId, isOwner }: { g: Goods; mk: string; label: string; p: ClientProject; wsId: string; isOwner: boolean }) {
-  const inv = p.inventory || {};
+  // инвентаризация: из таблицы (лист «Товары Инвентаризация»), а если там нет — введённая в кабинете
+  const sheetInv = g.inventory || {};
+  const inv: Record<string, Record<string, number>> = {};
+  [...new Set([...Object.keys(p.inventory || {}), ...Object.keys(sheetInv)])].forEach((m) => { inv[m] = { ...(p.inventory?.[m] || {}), ...(sheetInv[m] || {}) }; });
   const names = [...new Set([...Object.keys(g.groups), ...Object.keys(g.items)])];
   const rows = names.map((n) => {
     let bal = 0, start = 0, cur = { inQ: 0, outQ: 0, inS: 0, outS: 0 };
@@ -40,11 +43,11 @@ export default function GoodsReport({ g, mk, label, p, wsId, isOwner }: { g: Goo
           <td className="ok">{r.inQ ? "+" + r.inQ : "—"}{r.inS ? <div className="small muted">{rub(r.inS)}</div> : null}</td>
           <td className="neg">{r.outQ ? "−" + r.outQ : "—"}{r.outS ? <div className="small muted">{rub(r.outS)}</div> : null}</td>
           <td><b>{r.calc}</b></td>
-          <td>{isOwner ? <input type="number" style={{ width: 90 }} key={mk + r.n + (r.fact ?? "")} defaultValue={r.fact ?? ""} onBlur={(e) => e.target.value !== String(r.fact ?? "") && save(r.n, e.target.value)} /> : r.fact ?? "—"}</td>
+          <td>{sheetInv[mk]?.[r.n] != null ? <b title="из таблицы">{r.fact}</b> : isOwner ? <input type="number" style={{ width: 90 }} key={mk + r.n + (r.fact ?? "")} defaultValue={r.fact ?? ""} onBlur={(e) => e.target.value !== String(r.fact ?? "") && save(r.n, e.target.value)} /> : r.fact ?? "—"}</td>
           <td className={r.diff ? "error" : r.diff === 0 ? "ok" : "muted"}>{r.diff == null ? "—" : r.diff === 0 ? "✓ 0" : (r.diff > 0 ? "+" : "") + r.diff}</td>
         </tr>)}
       </Fragment>)}</tbody>
     </table>
-    {isOwner && <div className="small muted" style={{ marginTop: 6 }}>Впиши факт по итогам пересчёта на конец месяца — со следующего месяца остаток пойдёт от факта.</div>}
+    {isOwner && <div className="small muted" style={{ marginTop: 6 }}>Факт берётся с листа «Товары Инвентаризация». Если там нет строки — можно вписать здесь. Со следующего месяца остаток идёт от факта.</div>}
   </div>;
 }

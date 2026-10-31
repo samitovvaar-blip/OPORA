@@ -171,10 +171,11 @@ function readGoods(ss) {
   }
   // Два листа: «Товары Поставки» — приход (закупка), «Товары Реализации» — расход (продажа).
   // Колонки по заголовкам: «наименование…» (или «Номенклатура»), «Количество», «Сумма…», «Дата для отчета».
-  var sheets = ss.getSheets(), inSh = null, outSh = null;
+  var sheets = ss.getSheets(), inSh = null, outSh = null, invSh = null;
   for (var i = 0; i < sheets.length; i++) { var nm = norm(sheets[i].getName());
     if (!inSh && /товар.*поставк/.test(nm)) inSh = sheets[i];
-    if (!outSh && /товар.*реализац/.test(nm)) outSh = sheets[i]; }
+    if (!outSh && /товар.*реализац/.test(nm)) outSh = sheets[i];
+    if (!invSh && /инвентаризац/.test(nm)) invSh = sheets[i]; }
   if (!inSh && !outSh && !sh) return Object.keys(groups).length ? { groups: groups, items: {}, months: [] } : null;
   var items = {}, months = {}, errs = [];
   var readMoves = function (sheet, dir) {
@@ -199,7 +200,23 @@ function readGoods(ss) {
   if (inSh) readMoves(inSh, 'in');
   if (outSh) readMoves(outSh, 'out');
   if (!inSh && !outSh && sh) readMoves(sh, '');
-  return { groups: groups, items: items, months: Object.keys(months).sort(), error: errs.join('; ') || undefined };
+  // Лист «Товары Инвентаризация»: наименование · Количество (факт) · Дата — факт на конец месяца этой даты.
+  // Остатки на старте учёта — та же инвентаризация, датой последнего дня месяца перед началом.
+  var inv = {};
+  if (invSh) {
+    var v = invSh.getDataRange().getValues(), hr = 0;
+    for (var r = 0; r < Math.min(6, v.length); r++) if (v[r].map(norm).some(function (x) { return /^кол|факт/.test(x); })) { hr = r; break; }
+    var h = v[hr].map(norm), c = function (re) { for (var i = 0; i < h.length; i++) if (re.test(h[i])) return i; return -1; };
+    var cN = c(/наименован/); if (cN < 0) cN = c(/^номенклатур(?!ный)/); if (cN < 0) cN = c(/^товар/);
+    var cQ = c(/факт/); if (cQ < 0) cQ = c(/^кол/);
+    var cD = c(/дата для отч/); if (cD < 0) cD = c(/^дата/);
+    if (cN >= 0 && cQ >= 0) for (var r = hr + 1; r < v.length; r++) {
+      var n = String(v[r][cN] || '').trim(), d = toDate(cD >= 0 ? v[r][cD] : null); if (!n || !d || v[r][cQ] === '') continue;
+      var mk = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); months[mk] = true;
+      inv[mk] = inv[mk] || {}; inv[mk][n] = toNum(v[r][cQ]);
+    }
+  }
+  return { groups: groups, items: items, inventory: inv, months: Object.keys(months).sort(), error: errs.join('; ') || undefined };
 }
 
 function fmtD(d) { return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); }
