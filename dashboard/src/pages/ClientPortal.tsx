@@ -91,7 +91,7 @@ export default function ClientPortal() {
   }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify([p?.sales, p?.prepay]), reload, snapsKey]);
 
   // последний сданный месяц и предыдущий
-  const filled = useMemo(() => pnl ? pnl.months.map((m, i) => ({ m, i })).filter(({ i }) => pnl.revenue[i] != null) : [], [pnl]);
+  const filled = useMemo(() => pnl ? pnl.months.map((m, i) => ({ m, i })).filter(({ i }) => pnl.revenue[i] != null || pnl.rows.some((r) => r.values[i] != null)) : [], [pnl]);
   const closed = filled.filter(({ m }) => m.closed);
   const cur = mi ?? (closed.length ? closed[closed.length - 1].i : filled.length ? filled[filled.length - 1].i : null);
   const prevIdx = cur != null ? filled.filter(({ i }) => i < cur).slice(-1)[0]?.i : undefined;
@@ -365,7 +365,7 @@ export default function ClientPortal() {
         const mks = anMode === "cmp" ? [prevIdx != null ? pnl.months[prevIdx].mk! : shift(-1), curMk]
           : anN === 12 ? Array.from({ length: 12 }, (_, k) => `${cy}-${String(k + 1).padStart(2, "0")}`)
           : Array.from({ length: anN }, (_, k) => shift(k - anN + 1));
-        const idx = mks.map((mk) => { const i = pnl.months.findIndex((m) => m.mk === mk); return i >= 0 && pnl.revenue[i] != null ? i : null; });
+        const idx = mks.map((mk) => { const i = pnl.months.findIndex((m) => m.mk === mk); return i >= 0 && (pnl.revenue[i] != null || pnl.rows.some((r) => r.values[i] != null)) ? i : null; });
         const M = pnl.metrics || {}, a = (arr?: (number | null)[]) => idx.map((i) => i == null ? null : arr?.[i] ?? null);
         const neg = (arr: (number | null)[]) => arr.map((x) => x == null ? null : Math.abs(x));
         // строки берём из самого ОПиУ: выручка, переменные/постоянные (или расходы итого), отделы, прибыль — для любого справочника
