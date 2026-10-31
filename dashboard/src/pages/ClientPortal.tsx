@@ -42,12 +42,12 @@ export default function ClientPortal() {
   const cid = preview ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
   const [p, setP] = useState<ClientProject | null>(null);
   const [err, setErr] = useState("");
-  const [tab, setTab] = useState<"work" | "rep" | "an" | "dash" | "plan" | "op">("dash");
+  const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op">("dash");
   const [anN, setAnN] = useState(3);
   const [hideNeyla, setHideNeyla] = useState(false);
-  const [rep, setRep] = useState<"pnl" | "dds">("pnl");
+  const [rep, setRep] = useState<"pnl" | "dds" | "an">("pnl");
   const loc = useLocation();
-  useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "an", "work", "plan", "op"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
+  useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
   const [pnl, setPnl] = useState<Pnl | null>(null);
   const [pnlErr, setPnlErr] = useState("");
   const [mi, setMi] = useState<number | null>(null);
@@ -105,6 +105,10 @@ export default function ClientPortal() {
           <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
             {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
           <span className={`m-pill ${pnl.months[cur].closed ? "m-ok" : "m-pre"}`}>{pnl.months[cur].closed ? "✓ Сдано" : "Предварительно"}</span>
+          {/* PDF — только по сданной отчётности (в аналитике — все месяцы периода сданы) */}
+          {(view === "pnl" || view === "dds" || view === "an") && (view === "an"
+            ? filled.filter(({ i }) => i <= cur).slice(-anN).every(({ m }) => m.closed) : pnl.months[cur].closed)
+            && <button className="m-pdf" onClick={() => window.print()}>📄 PDF</button>}
         </div> : null;
         const nameSlot = document.getElementById("side-name");
         return <>{slot && !preview && createPortal(ctl, slot)}{nameSlot && !preview && createPortal(<>{p.name}</>, nameSlot)}
@@ -112,19 +116,11 @@ export default function ClientPortal() {
       })()}
       {preview && <h1>{p.name}</h1>}
       {preview && <div className="chips" style={{ marginTop: 12 }}>
-        {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["an", "📈 Аналитика"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || k !== "op").map(([k, l]) =>
+        {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || k !== "op").map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>}
-      {(tab === "rep" || tab === "an") && pnl && cur != null && (() => {
-        // PDF — только по сданным месяцам: отчётность — выбранный месяц, аналитика — все месяцы периода
-        const ok = tab === "rep" ? pnl.months[cur].closed : filled.filter(({ i }) => i <= cur).slice(-anN).every(({ m }) => m.closed);
-        return <div className="no-print" style={{ marginTop: 10 }}>
-          <button className="pdf-btn" disabled={!ok} onClick={() => window.print()}>📄 Скачать PDF</button>
-          {!ok && <span className="small muted" style={{ marginLeft: 10 }}>🔒 Скачать можно после сдачи отчётности{tab === "an" ? " за все месяцы периода" : " за этот месяц"}</span>}
-        </div>;
-      })()}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
-        {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"]] as const).map(([k, l]) =>
+        {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"], ["an", "Аналитика"]] as const).map(([k, l]) =>
           <button key={k} className={`chipbtn ${rep === k ? "on" : ""}`} onClick={() => setRep(k)}>{l}</button>)}
       </div>}
 
@@ -333,7 +329,7 @@ export default function ClientPortal() {
         </div>;
       })() : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
 
-      {tab === "an" && pnl && cur != null && (() => {
+      {view === "an" && pnl && cur != null && (() => {
         // Аналитика: ключевые строки ОПиУ за 3 или 6 месяцев (до выбранного включительно)
         const idx = filled.filter(({ i }) => i <= cur).slice(-anN).map(({ i }) => i);
         const M = pnl.metrics || {}, a = (arr?: (number | null)[]) => idx.map((i) => arr?.[i] ?? null);
@@ -350,7 +346,7 @@ export default function ClientPortal() {
         const revs = a(pnl.revenue), profs = a(pnl.profit);
         return <div className="card soft-card print-area" style={{ overflowX: "auto", maxWidth: 1000 }}>
           <div className="row"><h3 style={{ margin: 0 }}>📈 Аналитика по месяцам</h3>
-            <span className="chips no-print">{[3, 6].map((n) => <button key={n} className={`chipbtn ${anN === n ? "on" : ""}`} onClick={() => setAnN(n)}>{n === 3 ? "3 месяца" : "Полгода"}</button>)}</span></div>
+            <span className="chips no-print">{[3, 6, 12].map((n) => <button key={n} className={`chipbtn ${anN === n ? "on" : ""}`} onClick={() => setAnN(n)}>{n === 3 ? "3 месяца" : n === 6 ? "Полгода" : "Год"}</button>)}</span></div>
           <table className="pnl-table" style={{ marginTop: 10 }}>
             <thead><tr><th />{idx.map((i) => <th key={i}>{pnl.months[i].label}<div className="small" style={{ opacity: .8 }}>{pnl.months[i].closed ? "✓ сдано" : "предв."}</div></th>)}<th>Итого</th></tr></thead>
             <tbody>

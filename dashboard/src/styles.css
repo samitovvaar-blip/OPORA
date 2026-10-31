@@ -435,3 +435,4 @@ input,select,textarea{border-radius:12px}
   .pnl-table thead th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 .pdf-btn{margin:0!important}.pdf-btn:disabled{background:#9aa6b8!important;cursor:not-allowed}
+.m-pdf{background:rgba(255,255,255,.15)!important;color:#fff!important;font-size:12px;padding:4px 10px!important;border-radius:999px!important;white-space:nowrap}@media print{.m-pdf{display:none!important}}
