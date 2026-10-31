@@ -31,7 +31,8 @@ export default function Home() {
   const assignments = useAssignments();
   const newLeads = useNewLeads();
   const { map: billing } = useBilling();
-  const paidNow = usePaid(mk), paidNext = usePaid(nk);
+  const pk = addMonths(mk, -1); const paidPrev = usePaid(pk), paidNow = usePaid(mk), paidNext = usePaid(nk);
+  const [moreToday, setMoreToday] = useState(false);
   const biz = useBusinessProfit()(mk);
   const saves = useCollection<{ amount: number; date: string }>("walletSave").items;
   const [savePct, setSavePct] = useState(50);
@@ -48,9 +49,12 @@ export default function Home() {
   const overdue = todayList.filter((t) => t.date < d).length;
 
   // Внимание: неоплаты (срок прошёл), просрочки, «ждём ответ»
+  // «убрать оплату» (неактуальна) — отметка skip, оплата пропадает из списка
+  const pend = (m: any) => !m?.paid && !m?.skip;
   const unpaid = [
-    ...expected(mk, projects, billing).filter((x) => !paidNow.marks[x.key]?.paid),
-    ...expected(nk, projects, billing).filter((x) => !paidNext.marks[x.key]?.paid),
+    ...expected(pk, projects, billing).filter((x) => pend(paidPrev.marks[x.key])).map((x) => ({ ...x, src: paidPrev })),
+    ...expected(mk, projects, billing).filter((x) => pend(paidNow.marks[x.key])).map((x) => ({ ...x, src: paidNow })),
+    ...expected(nk, projects, billing).filter((x) => pend(paidNext.marks[x.key])).map((x) => ({ ...x, src: paidNext })),
   ].filter((x) => x.due < d);
   const waiting = projects.reduce((a, p) => a + Object.values(marks[p.id] || {}).filter((m) => m.comment && !m.done).length, 0);
   const waitPay = expected(mk, projects, billing).filter((x) => !paidNow.marks[x.key]?.paid).reduce((a, x) => a + x.price, 0);
@@ -70,18 +74,24 @@ export default function Home() {
           {overdue > 0 && <Link to="/tasks">⚠ Просрочено: <b>{overdue}</b></Link>}
           {waiting > 0 && <Link to="/projects">⏳ Ждём ответ: <b>{waiting}</b></Link>}
         </div>)}
-      {unpaid.length > 0 && <div className="card" style={{ marginBottom: 14 }}>
-        {unpaid.map((x) => {
-          const p = projects.find((q) => q.id === x.pid);
-          const late = Math.round((+new Date(d) - +new Date(x.due)) / 86400000);
-          return <div key={x.key} className="row small"><span><b>{x.project}</b> · {x.service} · {rub(x.price)} <span className="error">· просрочка {late} дн.</span></span>
-            {p?.links?.chat ? <a className="linkbtn" href={p.links.chat} target="_blank" rel="noopener noreferrer">💬 Написать</a> : <span className="muted">нет чата</span>}</div>;
-        })}</div>}
+      <div className="home-2col">
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>💸 Кто не оплатил {unpaid.length > 0 && <span className="notif-count" style={{ background: "var(--lost)" }}>{unpaid.length}</span>}</h3>
+          {unpaid.map((x) => {
+            const p = projects.find((q) => q.id === x.pid);
+            const late = Math.round((+new Date(d) - +new Date(x.due)) / 86400000);
+            return <div key={x.key} className="row small"><span><b>{x.project}</b> · {x.service} · {rub(x.price)} <span className="error">· {late} дн.</span></span>
+              <span style={{ display: "flex", gap: 6 }}>
+                {p?.links?.chat && <a className="linkbtn" href={p.links.chat} target="_blank" rel="noopener noreferrer">💬</a>}
+                {late > 30 && <button className="ghost" title="Оплата неактуальна — убрать из списка" onClick={() => confirm(`Убрать оплату «${x.project} · ${x.service}»? Она больше не будет висеть как неоплаченная.`) && x.src.set(x.key, { paid: false, amount: 0, date: "", skip: true })}>🗑 Убрать</button>}
+              </span></div>;
+          })}
+          {!unpaid.length && <div className="muted small">Все оплатили ✅</div>}
+        </div>
 
-      <div className="bento">
-        <div className="card wide2">
-          <h3>📋 Сегодня <span className="muted small">{todayList.length}</span></h3>
-          {todayList.map((t) => (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>{overdue ? "⚠ Просрочено и на сегодня" : "📋 Сегодня"} <span className="muted small">{todayList.length}</span></h3>
+          {todayList.slice(0, moreToday ? 999 : 5).map((t) => (
             <label key={t.key} className="row task" style={{ cursor: t.kind === "dl" ? "pointer" : undefined }}>
               <span style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                 {t.kind === "dl"
@@ -90,10 +100,13 @@ export default function Home() {
                 <span>{t.kind === "dl" && <span className="tagc">{t.x.project}</span>} {t.rec ? "🔁 " : ""}{t.title}</span></span>
               <span className={`small ${t.date < d ? "error" : "muted"}`}>{t.date < d ? "⚠ " + fmt(t.date) : t.time}</span>
             </label>))}
+          {todayList.length > 5 && <button className="ghost" onClick={() => setMoreToday(!moreToday)}>{moreToday ? "Свернуть" : `Посмотреть ещё (${todayList.length - 5})`}</button>}
           {!todayList.length && <div className="muted small">Свободный день ✨</div>}
         </div>
 
-        <div className="card wide2">
+        <Goals />
+
+        <div className="card">
           <div className="row"><h3 style={{ margin: 0 }}>💰 Деньги месяца</h3><Link className="small" to="/pnl">P&L →</Link></div>
           <div className="row" style={{ marginTop: 8 }}><span>Доход</span><b className="ok">{rub(biz.income)}</b></div>
           <div className="row"><span>Расходы</span><span>{rub(biz.expenses)}</span></div>
@@ -105,18 +118,7 @@ export default function Home() {
 
         <Goals />
 
-        <div className="card wide2">
-          <div className="row"><h3 style={{ margin: 0 }}>📈 Воронка</h3><Link className="small" to="/clients">Клиенты →</Link></div>
-          <div className="funnel-mini">
-            <div><b>{funnel.leads || 0}</b><span>лиды</span></div>→
-            <div><b>{funnel.qualified || 0}</b><span>квал.</span></div>→
-            <div><b>{funnel.sales || 0}</b><span>продажи</span></div>
-            <div><b>{funnel.amount ? rub(funnel.amount) : "—"}</b><span>сумма</span></div>
-          </div>
-          <div className="row small"><Link to="/leads">✉ Новых заявок с сайта</Link><b>{newLeads ?? "—"}</b></div>
-        </div>
-
-        <div className="card wide2">
+        <div className="card home-full">
           <div className="row"><h3 style={{ margin: 0 }}>◆ Проекты</h3><Link className="small" to="/projects">все →</Link></div>
           {projects.map((p) => {
             const items = visibleItems(p); const done = items.filter((it) => marks[p.id]?.[it.id]?.done).length;

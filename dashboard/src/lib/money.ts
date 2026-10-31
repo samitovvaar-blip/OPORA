@@ -39,7 +39,7 @@ export function usePlan(mk: string) {
 // users/{uid}/billing/{projectId}: { services: Service[] }
 // users/{uid}/paid/{YYYY-MM}: { [projectId_serviceId]: PaidMark }
 export interface Service { id: string; title: string; price: number; day: number; from?: string; prepay?: boolean; }
-export interface PaidMark { paid: boolean; amount: number; date: string; }
+export interface PaidMark { paid: boolean; amount: number; date: string; skip?: boolean }
 
 import { collection } from "firebase/firestore";
 
