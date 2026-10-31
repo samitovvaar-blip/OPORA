@@ -30,11 +30,11 @@ export default function Login() {
   return (
     <div className="center">
       <form className="card login" onSubmit={submit}>
-        <div className="login-brand"><img src="spiral-orange.png" alt="" /><span>ОПОРА</span></div>
+        <div className="login-brand"><img src="spiral.png" alt="" /><span>ОПОРА</span></div>
         <input type="email" placeholder="Почта" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <input type="password" placeholder="Пароль" value={pw} onChange={(e) => setPw(e.target.value)} required />
         {err && <div className="error">{err}</div>}
-        <button disabled={busy}>{busy ? "…" : signup ? "Создать пароль и войти" : "Войти"}</button>
+        <button disabled={busy}>{busy ? <img src="spiral.png" alt="" className="loader-spiral btn-spiral" /> : signup ? "Создать пароль и войти" : "Войти"}</button>
         <button type="button" className="ghost" onClick={() => setSignup(!signup)}>
           {signup ? "У меня уже есть пароль" : "Первый вход"}
         </button>

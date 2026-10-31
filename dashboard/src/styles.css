@@ -496,3 +496,7 @@ input,select,textarea{border-radius:12px}
 .spin-slow{animation:spiral-spin 3s linear infinite}
 .install-hint img{border-radius:0!important}
 @keyframes spiral-spin{to{transform:rotate(360deg)}}
+/* все загрузки — крутящаяся спираль ОПОРЫ */
+.loader-spiral{width:26px!important;height:26px!important;border-radius:0!important;animation:spiral-spin 1s linear infinite!important;order:3}
+.btn-spiral{width:20px!important;height:20px!important;vertical-align:middle;filter:brightness(1.6)}
+.neyla-toast .loader-spiral{margin-left:4px}

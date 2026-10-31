@@ -5,6 +5,7 @@ export default function NeylaLoading({ text }: { text?: string }) {
   const t = text || PHRASES[Math.floor(Date.now() / 1000) % PHRASES.length];
   return <div className="neyla-toast">
     <img src="neyla.jpg" alt="" />
+    <img src="spiral.png" alt="" className="loader-spiral" />
     <div className="neyla-bubble"><b>Нейла</b><span>{t}<span className="dots"><i>.</i><i>.</i><i>.</i></span></span></div>
   </div>;
 }
