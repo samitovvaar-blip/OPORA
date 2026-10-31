@@ -133,8 +133,8 @@ export function buildDds(d0: { months: string[]; rows: DbRow[] }, accounts?: str
   // Приход — только процесс «Доходы». Все остальные процессы — расход (их плюсы, напр. выручка СДЭК, уменьшают расход).
   // Отдельно внизу: фонды, «Для ДДС», «Не выяснено», переводы между счетами.
   const isOther = (r: DbRow) => /^\s*\*\*|для ддс|не выяснен|между сч|внутрен|субсч|фонд|^\s*6\./i.test(r.process + " | " + r.article);
-  const ins = d.rows.filter((r) => !isOther(r) && /^\s*доход/i.test(r.process));
-  const outs = d.rows.filter((r) => !isOther(r) && !/^\s*доход/i.test(r.process));
+  const ins = d.rows.filter((r) => !isOther(r) && /^\s*(доход|выручк|поступлен)/i.test(r.process));
+  const outs = d.rows.filter((r) => !isOther(r) && !/^\s*(доход|выручк|поступлен)/i.test(r.process));
   const others = d.rows.filter(isOther);
   const inflow = sum(ins), outflow = sum(outs), other = sum(others);
   add("Поступления", mks.map(() => null), { section: true }); add("ПОСТУПЛЕНИЯ ИТОГО", inflow); group(ins);
@@ -156,14 +156,20 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   const isTax = (r: DbRow) => /налог/i.test(r.article) && !/фонд/i.test(r.article + r.process);
   // Оплата налогов — всегда в финансовый отдел (как в ОПиУ), даже если процесс в базе не указан
   const deptOf0 = (proc: string) => (proc.match(/^(\d)/) || [])[1] || "";
-  j = { ...j, rows: j.rows.map((r) => isTax(r) && deptOf0(r.process) !== "5" ? { ...r, process: "5.1. Процесс: Налоги, кредиты и займы" } : r) };
+  // Справочник с нумерованными отделами (1.x…6.x, как у ОПОРЫ) или свой (просто группы: «Доходы», «Расходы», …)
+  const numbered = j.rows.some((r) => /^[1-5]/.test(r.process.trim()));
+  if (numbered) j = { ...j, rows: j.rows.map((r) => isTax(r) && deptOf0(r.process) !== "5" ? { ...r, process: "5.1. Процесс: Налоги, кредиты и займы" } : r) };
   // «Выручка доставка СДЭК» — отдельной строкой рядом с «Выручка почта» (в производственном отделе)
   const postProc = j.rows.find((r) => /выручк.*почт/i.test(r.article))?.process;
   if (postProc) j = { ...j, rows: j.rows.map((r) => /выручк.*сдэк/i.test(r.article) ? { ...r, process: postProc } : r) };
   const deptOf = deptOf0;
   // Доход — только процесс «Доходы». Прочее без номера («Расходы: Вывел на личный счёт» и т.п.)
   // — это движение денег собственника, в ОПиУ не входит.
-  const income = j.rows.filter((r) => /^доход/i.test(r.process.trim()));
+  const isIncome = (r: DbRow) => /^(доход|выручк|поступлен)/i.test(r.process.trim());
+  const income = j.rows.filter(isIncome);
+  // не расходы бизнеса: переводы между своими счетами, вывод собственнику, фонды (они ниже прибыли)
+  const notExpense = (r: DbRow) => /между сч|внутрен|вывел|на личн/i.test(r.article + " " + r.process) || /^\s*\*\*|субсч/i.test(r.process);
+  const isFund = (r: DbRow) => /^6/.test(r.process.trim()) || /фондир|^фонд/i.test(r.process.trim());
   const byDept = (d: string) => j.rows.filter((r) => deptOf(r.process) === d);
   const variable = j.rows.filter((r) => ["1", "2", "3"].includes(deptOf(r.process)));
   const fixed = j.rows.filter((r) => ["4", "5"].includes(deptOf(r.process)));
@@ -181,6 +187,25 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   add("ВЫРУЧКА ИТОГО", revenue);
   articles(income);
   add("Расходы", mks.map(() => null), { section: true });
+  if (!numbered) {
+    // Универсально: каждая группа (процесс) из справочника — строка расходов, внутри статьи
+    const exp = j.rows.filter((r) => !isIncome(r) && !notExpense(r) && !isFund(r));
+    const expSum = sumOf(exp);
+    add("РАСХОДЫ ИТОГО", expSum);
+    [...new Set(exp.map((r) => r.process || "Без группы"))].sort((a, b) => a.localeCompare(b, "ru")).forEach((proc) => {
+      const inP = exp.filter((r) => (r.process || "Без группы") === proc);
+      add(proc, sumOf(inP), { sub: "Процесс" });
+      inP.sort((a, b) => a.article.localeCompare(b.article, "ru")).forEach((r) => add(r.article, sumOf([r]), { sub: r.article }));
+    });
+    const profitU = revenue.map((v, i) => (v || 0) + (expSum[i] || 0) || null);
+    add("ЧИСТАЯ ПРИБЫЛЬ", profitU);
+    const fondU = j.rows.filter((r) => !isIncome(r) && isFund(r));
+    if (fondU.length) { add("Фондирование (после прибыли)", sumOf(fondU)); articles(fondU); }
+    const none = mks.map(() => null);
+    const groups = [...new Set(exp.map((r) => r.process || "Без группы"))].map((proc) => ({ name: proc, sub: "Итого", total: true, section: false, values: sumOf(exp.filter((r) => (r.process || "Без группы") === proc)) }));
+    return { metrics: { dividends: none, taxes: sumOf(j.rows.filter(isTax)), outsource: none, refunds: none, salary: sumOf(exp.filter((r) => /зарплат|з\/п|\bзп\b|фот|оклад/i.test(r.article))), d1: none, d2: none, d3: none, d4: none, d5: none },
+      ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit: profitU, variable: expSum, fixed: none, depts: groups };
+  }
   const varSum = sumOf(variable);
   add("ПЕРЕМЕННЫЕ РАСХОДЫ", varSum);
   ["1", "2", "3"].forEach((d) => { const l = byDept(d); if (l.length) { add(DEPTS[d], sumOf(l), { sub: "Итого", total: true }); articles(l); } });

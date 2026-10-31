@@ -248,7 +248,7 @@ export default function ClientPortal() {
             return { r, lvl, k0: "p:" + l0, k1: "p:" + l1, key: lvl === 0 ? "p:" + r.name : "p:" + l0 + "/" + r.name };
           });
           const hasKids = (i: number) => tree[i + 1] && tree[i + 1].lvl > tree[i].lvl;
-          const big = (n: string) => /выручк|прибыль|переменн|постоянн/i.test(n) && !/\d\./.test(n);
+          const big = (n: string) => /выручк|прибыль|переменн|постоянн|расходы итого/i.test(n) && !/\d\./.test(n);
           return <table className="pnl-table">
             <thead><tr><th /><th>{pnl.months[cur].label}</th><th className="small">% выручки</th></tr></thead>
             <tbody>{tree.map((t, i) => {
