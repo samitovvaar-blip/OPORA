@@ -46,7 +46,9 @@ service cloud.firestore {
     // Онлайн и рабочее время сотрудника: пишет сам сотрудник (только свою карточку), смотрит владелец
     match /workspaces/{ws}/presence/{email} {
       allow read: if isOwner(ws) || (isMember(ws) && request.auth.token.email.lower() == email);
-      allow write: if isMember(ws) && request.auth.token.email.lower() == email
+      // пишет сам сотрудник или клиент этого кабинета (clientIndex/{email}.ws == ws) — только свою отметку
+      allow write: if request.auth != null && request.auth.token.email.lower() == email
+        && (isMember(ws) || (verified() && get(/databases/$(database)/documents/clientIndex/$(email)).data.ws == ws))
         && request.resource.data.keys().hasOnly(["lastSeen", "days"]);
     }
 

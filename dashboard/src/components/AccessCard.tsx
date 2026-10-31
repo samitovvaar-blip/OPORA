@@ -1,72 +1,75 @@
-// Владелец управляет доступом сотрудников к разделу «Задания»
-import { FormEvent, useState } from "react";
+// Админка: сотрудники — доступ, онлайн, оплата, дни ЗП, день рождения, открытые курсы (компактно)
+import { FormEvent, useEffect, useState } from "react";
 import { arrayRemove, arrayUnion, collection, doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
-import { useEffect } from "react";
 import { parseDays, Pay } from "../lib/pay";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
+import { COURSES } from "../pages/Knowledge";
 import { fmtMin } from "../pages/StaffHome";
-const dayKey = (back: number) => { const d = new Date(); d.setDate(d.getDate() - back); return d.toLocaleDateString("sv-SE"); };
+
+export const dayKey = (back: number) => { const d = new Date(); d.setDate(d.getDate() - back); return d.toLocaleDateString("sv-SE"); };
+// «был(а) N назад» по отметке присутствия
+export function seenText(last?: Date) {
+  if (!last) return { online: false, text: "⚪ ещё не заходил(а)" };
+  const ago = Math.round((Date.now() - +last) / 60000);
+  if (ago <= 2) return { online: true, text: "🟢 онлайн" };
+  return { online: false, text: `⚪ был(а) ${ago < 60 ? ago + " мин" : ago < 1440 ? Math.round(ago / 60) + " ч" : Math.round(ago / 1440) + " дн"} назад` };
+}
+// ближайший день рождения: «12 марта · через 5 дн.»
+export function bdayText(b?: string) {
+  if (!b) return null;
+  const [, m, d] = b.split("-").map(Number); if (!m || !d) return null;
+  const t = new Date(new Date().toDateString()); let n = new Date(t.getFullYear(), m - 1, d); if (n < t) n = new Date(t.getFullYear() + 1, m - 1, d);
+  const days = Math.round((+n - +t) / 86400000);
+  return `${n.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}${days === 0 ? " · сегодня 🎉" : days <= 14 ? ` · через ${days} дн.` : ""}`;
+}
 
 export default function AccessCard() {
   const { wsId, ws, isOwner } = useWorkspace();
   const [email, setEmail] = useState("");
-  const [pay, setPay] = useState<Record<string, Pay>>({});
+  const [staff, setStaff] = useState<Record<string, Pay & { birthday?: string }>>({});
   const [pres, setPres] = useState<Record<string, { lastSeen?: any; days?: Record<string, number> }>>({});
   const [, tick] = useState(0);
-  const [prog, setProg] = useState<Record<string, string[]>>({});
-  const [kb, setKb] = useState<{ id: string; course?: string }[]>([]);
-  useEffect(() => wsId && isOwner ? onSnapshot(collection(db, "workspaces", wsId, "progress"),
-    (s) => setProg(Object.fromEntries(s.docs.map((d) => [d.id, (d.data().done as string[]) || []])))) : undefined, [wsId, isOwner]);
-  useEffect(() => wsId && isOwner ? onSnapshot(collection(db, "workspaces", wsId, "kb"),
-    (s) => setKb(s.docs.map((d) => ({ id: d.id, course: d.data().course })))) : undefined, [wsId, isOwner]);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(t); }, []);
   useEffect(() => wsId && isOwner ? onSnapshot(collection(db, "workspaces", wsId, "presence"),
     (s) => setPres(Object.fromEntries(s.docs.map((d) => [d.id, d.data() as any])))) : undefined, [wsId, isOwner]);
   useEffect(() => wsId && isOwner ? onSnapshot(collection(db, "workspaces", wsId, "staff"),
-    (s) => setPay(Object.fromEntries(s.docs.map((d) => [d.id, d.data() as Pay])))) : undefined, [wsId, isOwner]);
+    (s) => setStaff(Object.fromEntries(s.docs.map((d) => [d.id, d.data() as any])))) : undefined, [wsId, isOwner]);
   if (!isOwner || !wsId || !ws) return null;
   const ref = doc(db, "workspaces", wsId);
-
+  const courses = ws.courses ?? COURSES;
   async function invite(e: FormEvent) {
     e.preventDefault(); const v = email.trim().toLowerCase(); if (!v) return;
     await updateDoc(ref, { members: arrayUnion(v) }); setEmail("");
   }
 
   return (
-    <div className="card wide">
-      <h3>Сотрудники: доступ и оплата</h3>
-      <div className="row">
-        <span>{ws.open ? "🔓 Доступ открыт" : "🔒 Доступ закрыт"}</span>
-        <button onClick={() => updateDoc(ref, { open: !ws.open })}>{ws.open ? "Закрыть доступ" : "Открыть доступ"}</button>
-      </div>
+    <div className="card">
+      <div className="row" style={{ padding: 0 }}><h3 style={{ margin: 0 }}>👥 Сотрудники</h3>
+        <button className={ws.open ? "" : "ghost"} onClick={() => updateDoc(ref, { open: !ws.open })}>{ws.open ? "🔓 Доступ открыт" : "🔒 Доступ закрыт"}</button></div>
       {ws.members.map((m) => {
-        const p = pay[m] || { system: "", paydays: [] };
-        const save = (patch: Partial<Pay>) => setDoc(doc(db, "workspaces", wsId, "staff", m), { ...p, ...patch });
+        const p = staff[m] || { system: "", paydays: [] };
+        const save = (patch: object) => setDoc(doc(db, "workspaces", wsId, "staff", m), patch, { merge: true });
+        const pr = pres[m] || {}; const st = seenText(pr.lastSeen?.toDate?.());
+        const myCourses = courses.filter((c) => (p.courses || []).includes(c.id));
         return (
-          <div key={m} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}>
-            {(() => { const pr = pres[m] || {}; const last = pr.lastSeen?.toDate?.() as Date | undefined;
-              const ago = last ? Math.round((Date.now() - +last) / 60000) : null; const online = ago != null && ago <= 2;
-              const days = pr.days || {}; const sum = (n: number) => Object.entries(days).filter(([k]) => k >= dayKey(-n)).reduce((a, [, v]) => a + v, 0);
-              return <div className="small" style={{ marginBottom: 4 }}>
-                <span className={online ? "ok" : "muted"}>{online ? "🟢 онлайн" : ago == null ? "⚪ ещё не заходил(а)" : `⚪ был(а) ${ago < 60 ? ago + " мин" : ago < 1440 ? Math.round(ago / 60) + " ч" : Math.round(ago / 1440) + " дн"} назад`}</span>
-                <span className="muted"> · сегодня {fmtMin(days[dayKey(0)] || 0)} · 7 дней {fmtMin(sum(6))} · 30 дней {fmtMin(sum(29))}</span>
-              </div>; })()}
-            <div className="row"><b>{m}</b>
-              <button className="ghost" onClick={() => updateDoc(ref, { members: arrayRemove(m) })}>Убрать</button></div>
-            <div className="inline" style={{ margin: "4px 0 0" }}>
-              <input key={"s" + p.system} defaultValue={p.system} placeholder="Система оплаты: оклад 10 000 + 15% с проекта"
-                onBlur={(e) => e.target.value.trim() !== p.system && save({ system: e.target.value.trim() })} style={{ flex: 1, minWidth: 220 }} />
-              <input key={"d" + p.paydays.join()} defaultValue={p.paydays.join(", ")} placeholder="Дни ЗП: 10, 25"
-                onBlur={(e) => save({ paydays: parseDays(e.target.value) })} style={{ width: 130 }} />
+          <div key={m} className="adm-client">
+            <div className="row" style={{ padding: 0 }}><b>{m}</b>
+              <button className="ghost small" onClick={() => confirm(`Убрать ${m}?`) && updateDoc(ref, { members: arrayRemove(m) })}>✕</button></div>
+            <div className="small"><span className={st.online ? "ok" : "muted"}>{st.text}</span> <span className="muted">· сегодня {fmtMin(pr.days?.[dayKey(0)] || 0)}</span></div>
+            <div className="adm-line">
+              <span>💸 <input key={"s" + p.system} defaultValue={p.system} placeholder="система оплаты" onBlur={(e) => e.target.value.trim() !== p.system && save({ system: e.target.value.trim() })} /></span>
+              <span>📅 ЗП <input key={"d" + p.paydays.join()} defaultValue={p.paydays.join(", ")} placeholder="10, 25" style={{ width: 70 }} onBlur={(e) => save({ paydays: parseDays(e.target.value) })} /></span>
+              <span>🎂 <input type="date" defaultValue={p.birthday || ""} key={"b" + (p.birthday || "")} onBlur={(e) => e.target.value !== (p.birthday || "") && save({ birthday: e.target.value })} />
+                {bdayText(p.birthday) && <span className="muted small"> {bdayText(p.birthday)}</span>}</span>
             </div>
+            <div className="small muted">🎓 {myCourses.length ? myCourses.map((c) => c.name).join(", ") : "курсы не открыты"} <span>(открыть — в Базе знаний)</span></div>
           </div>);
       })}
-      <form className="inline" onSubmit={invite}>
-        <input type="email" placeholder="Почта сотрудника" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <form className="inline" style={{ marginTop: 8 }} onSubmit={invite}>
+        <input type="email" placeholder="Почта нового сотрудника" value={email} onChange={(e) => setEmail(e.target.value)} />
         <button>Добавить</button>
       </form>
-      <div className="muted small">Сотрудник жмёт «Первый вход», придумывает пароль и подтверждает почту по ссылке из письма — только после этого видит «Задания».</div>
     </div>
   );
 }

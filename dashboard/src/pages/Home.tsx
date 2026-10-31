@@ -116,7 +116,6 @@ export default function Home() {
           <div className="progress" style={{ margin: "4px 0" }}><div style={{ width: (savePlan ? Math.min(100, saveFact / savePlan * 100) : 0) + "%" }} /></div>
         </div>
 
-        <Goals />
 
         <div className="card home-full">
           <div className="row"><h3 style={{ margin: 0 }}>◆ Проекты</h3><Link className="small" to="/projects">все →</Link></div>

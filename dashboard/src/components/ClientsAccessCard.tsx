@@ -1,5 +1,7 @@
 // Админка: клиенты с доступом к кабинету — почты, доступ, тариф и ближайшая оплата
-import { doc, updateDoc } from "firebase/firestore";
+import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { bdayText, seenText } from "./AccessCard";
 import { Link } from "react-router-dom";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
@@ -10,6 +12,8 @@ import { nextPayday } from "../lib/pay";
 export default function ClientsAccessCard() {
   const { wsId } = useWorkspace();
   const { list } = useClientProjects();
+  const [pres, setPres] = useState<Record<string, { lastSeen?: any }>>({});
+  useEffect(() => wsId ? onSnapshot(collection(db, "workspaces", wsId, "presence"), (s) => setPres(Object.fromEntries(s.docs.map((d) => [d.id, d.data() as any]))), () => {}) : undefined, [wsId]);
   const withAccess = list.filter((p) => (p.clientEmails || []).length);
   const today = new Date(new Date().toDateString());
   const rows = withAccess.map((p) => {
@@ -18,8 +22,8 @@ export default function ClientsAccessCard() {
   }).sort((a, b) => (a.days ?? 999) - (b.days ?? 999));
 
   return (
-    <div className="card wide">
-      <h3>Клиенты: доступ и оплата</h3>
+    <div className="card">
+      <h3 style={{ marginTop: 0 }}>💼 Клиенты</h3>
       {!rows.length && <div className="muted small">Пока ни у одного клиента нет доступа. Проекты → клиент → ⚙ → «Кабинет клиента» → почта клиента.</div>}
       {rows.map(({ p, nd, days }) => (
         <div key={p.id} className="adm-client">
@@ -28,12 +32,16 @@ export default function ClientsAccessCard() {
             <button className={p.clientOpen ? "" : "ghost"} onClick={() => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { clientOpen: !p.clientOpen })}>
               {p.clientOpen ? "🔓 Доступ открыт" : "🔒 Доступ закрыт"}</button>
           </div>
-          <div className="small muted">{(p.clientEmails || []).join(", ")}</div>
+          <div className="small muted">{(p.clientEmails || []).join(", ")} · {(() => { const ls = (p.clientEmails || []).map((e) => pres[e]?.lastSeen?.toDate?.() as Date | undefined).filter(Boolean) as Date[];
+            const last = ls.length ? new Date(Math.max(...ls.map((x) => +x))) : undefined; const st = seenText(last); return <span className={st.online ? "ok" : ""}>{st.text.replace("заходил(а)", "заходил")}</span>; })()}</div>
           <div className="adm-pay">
             <span>💳 {p.tariff ? <>{p.tariff.name} · <b>{rub(p.tariff.price)}</b></> : <span className="muted">тариф не выбран</span>}</span>
             <span className={days != null && days <= 3 ? "pill pill-wait" : "pill pill-info"}>
               {nd ? <>оплата {nd.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}{days === 0 ? " · сегодня" : ` · через ${days} дн.`}</> : "день оплаты не указан"}</span>
           </div>
+          <div className="small" style={{ marginTop: 4 }}>🎂 <input type="date" defaultValue={p.birthday || ""} key={"b" + (p.birthday || "")}
+              onBlur={(e) => e.target.value !== (p.birthday || "") && updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { birthday: e.target.value })} />
+            {bdayText(p.birthday) && <span className="muted"> {bdayText(p.birthday)}</span>}</div>
           <div className="small" style={{ marginTop: 4 }}>
             <Link to={"/client?p=" + p.id}>👁 Кабинет</Link> · <Link to={"/projects?p=" + p.id}>⚙ Настройки</Link></div>
         </div>

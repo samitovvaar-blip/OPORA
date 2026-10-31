@@ -1,3 +1,4 @@
+// Админка: слева сотрудники, справа клиенты; служебное — внизу списком
 import { modules } from "../lib/modules";
 import { useAuth } from "../lib/auth";
 import AccessCard from "../components/AccessCard";
@@ -8,24 +9,14 @@ export default function Admin() {
   return (
     <>
       <h1>Админка</h1>
-      <div className="bento">
-        <div className="card">
-          <h3>Контуры данных</h3>
-          <div className="row"><span>Личное · Firebase</span><span className="badge b-won">подключено</span></div>
-          <div className="row"><span>Бизнес · Yandex Cloud (заявки)</span><span className="badge b-won">отдельный вход</span></div>
-        </div>
-        <div className="card">
-          <h3>Аккаунт</h3>
-          <div className="muted small">{user?.email}</div>
-          <div className="muted small">UID: {user?.uid}</div>
-        </div>
+      <div className="home-2col adm-cols">
         <AccessCard />
         <ClientsAccessCard />
-        <div className="card wide">
-          <h3>Модули из других репозиториев</h3>
-          {modules.length ? modules.map((m) => <div key={m.id} className="row"><span>{m.icon} {m.title}</span><code>{m.source || "/" + m.path}</code></div>)
-            : <div className="muted">Модулей пока нет. Добавь пакет <code>@opora/module-*</code> в <code>src/lib/modules.ts</code>.</div>}
-        </div>
+      </div>
+      <div className="adm-service small muted">
+        <div><b>Контуры данных:</b> личное — Firebase ✓ · заявки — Yandex Cloud (отдельный вход)</div>
+        <div><b>Аккаунт:</b> {user?.email}</div>
+        <div><b>Модули:</b> {modules.length ? modules.map((m) => `${m.icon} ${m.title}`).join(" · ") : "нет"}</div>
       </div>
     </>
   );

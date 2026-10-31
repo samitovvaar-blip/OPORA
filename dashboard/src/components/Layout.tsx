@@ -52,7 +52,7 @@ export default function Layout() {
   useEffect(() => setMore(false), [loc.pathname]);
   // сотрудник: отмечаем онлайн и рабочее время
   const { wsId } = useWorkspace();
-  useEffect(() => !isOwner && !clientOf && wsId && user?.email ? startPresence(wsId, user.email) : undefined, [isOwner, clientOf, wsId, user?.email]);
+  useEffect(() => !isOwner && wsId && user?.email ? startPresence(wsId, user.email) : undefined, [isOwner, clientOf, wsId, user?.email]);   // сотрудник и клиент
 
   const visible = clientOf ? [{ id: "client", title: "", items: [{ to: "/?t=dash", label: "Мой кабинет", icon: "◎" }, { to: "/?t=rep", label: "Отчётность", icon: "📑" },
     { to: "/?t=work", label: "Ход работы", icon: "🛠" }, { to: "/?t=plan", label: "Планирование", icon: "🎯" }] }] : groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly : i.staff) })).filter((g) => g.items.length);
