@@ -13,6 +13,7 @@ import { monthKey, stamp } from "../lib/catalog";
 import { visibleItems } from "../components/Checklist";
 import { nextPayday, Pay } from "../lib/pay";
 
+export const fmtMin = (m: number) => m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`;
 const fmt = (s: string) => `${Number(s.slice(8))}.${s.slice(5, 7)}`;
 
 export default function StaffHome() {
@@ -41,6 +42,9 @@ export default function StaffHome() {
     return () => subs.forEach((u) => u());
   }, [wsId, courses]);
   const [allDl, setAllDl] = useState(false);
+  const [worked, setWorked] = useState<number | null>(null);
+  useEffect(() => wsId && user?.email ? onSnapshot(doc(db, "workspaces", wsId, "presence", user.email.toLowerCase()),
+    (s) => setWorked((s.data()?.days || {})[today()] || 0), () => {}) : undefined, [wsId, user?.email]);
 
   if (ws && !ws.open) return <><h1>Привет! 👋</h1><div className="card">🔒 Доступ сейчас закрыт.</div></>;
 
@@ -65,9 +69,10 @@ export default function StaffHome() {
   return (
     <>
       <h1>Привет! 👋</h1>
-      <div className="muted" style={{ marginTop: -12, marginBottom: 20 }}>{date}</div>
-      <div className="bento">
-        <div className="card wide">
+      <div className="muted" style={{ marginTop: -12, marginBottom: 20 }}>{date}{worked != null ? ` · ⏱ сегодня в работе: ${fmtMin(worked)}` : ""}</div>
+      <div className="staff-top">
+        <div className="staff-left">
+        <div className="card">
           <h3>📋 Задания на сегодня</h3>
           {todayTasks.map((a) => (
             <label key={a.id} className={`row task ${doneToday(a) ? "done" : ""}`} style={{ cursor: "pointer" }}>
@@ -80,7 +85,7 @@ export default function StaffHome() {
           <div className="muted small" style={{ marginTop: 6 }}>Задания с чекпоинтами — в <Link to="/tasks">календаре</Link>.</div>
         </div>
 
-        <div className="card wide">
+        <div className="card">
           <h3>👥 Мои клиенты</h3>
           <div className="home-clients">{checklists.map((p) => {
             const items = visibleItems(p); const done = items.filter((it) => marks[p.id]?.[it.id]?.done).length;
@@ -92,7 +97,8 @@ export default function StaffHome() {
           {!checklists.length && <div className="muted small">Пока нет открытых клиентов</div>}
         </div>
 
-        <div className="card wide">
+        </div>
+        <div className="card staff-right">
           <h3>◆ Сроки по проектам</h3>
           {(allDl ? dl : dl.slice(0, 5)).map((x) => (
             <label key={x.key} className="row task" style={{ cursor: "pointer" }}>
@@ -109,6 +115,8 @@ export default function StaffHome() {
           </>}
         </div>
 
+      </div>
+      <div className="bento" style={{ marginTop: 14 }}>
         <div className="card wide2">
           <h3>🎓 Новое в базе знаний</h3>
           {lessons.map((l) => <Link key={l.id} to="/kb" className="row small" style={{ color: "inherit", textDecoration: "none" }}><span>▶ {l.title}</span><span className="muted">{l.section || ""}</span></Link>)}

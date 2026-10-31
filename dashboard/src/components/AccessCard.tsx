@@ -6,11 +6,18 @@ import { parseDays, Pay } from "../lib/pay";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { COURSES } from "../pages/Knowledge";
+import { fmtMin } from "../pages/StaffHome";
+const dayKey = (back: number) => { const d = new Date(); d.setDate(d.getDate() - back); return d.toLocaleDateString("sv-SE"); };
 
 export default function AccessCard() {
   const { wsId, ws, isOwner } = useWorkspace();
   const [email, setEmail] = useState("");
   const [pay, setPay] = useState<Record<string, Pay>>({});
+  const [pres, setPres] = useState<Record<string, { lastSeen?: any; days?: Record<string, number> }>>({});
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(t); }, []);
+  useEffect(() => wsId && isOwner ? onSnapshot(collection(db, "workspaces", wsId, "presence"),
+    (s) => setPres(Object.fromEntries(s.docs.map((d) => [d.id, d.data() as any])))) : undefined, [wsId, isOwner]);
   useEffect(() => wsId && isOwner ? onSnapshot(collection(db, "workspaces", wsId, "staff"),
     (s) => setPay(Object.fromEntries(s.docs.map((d) => [d.id, d.data() as Pay])))) : undefined, [wsId, isOwner]);
   if (!isOwner || !wsId || !ws) return null;
@@ -33,6 +40,13 @@ export default function AccessCard() {
         const save = (patch: Partial<Pay>) => setDoc(doc(db, "workspaces", wsId, "staff", m), { ...p, ...patch });
         return (
           <div key={m} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}>
+            {(() => { const pr = pres[m] || {}; const last = pr.lastSeen?.toDate?.() as Date | undefined;
+              const ago = last ? Math.round((Date.now() - +last) / 60000) : null; const online = ago != null && ago <= 2;
+              const days = pr.days || {}; const sum = (n: number) => Object.entries(days).filter(([k]) => k >= dayKey(-n)).reduce((a, [, v]) => a + v, 0);
+              return <div className="small" style={{ marginBottom: 4 }}>
+                <span className={online ? "ok" : "muted"}>{online ? "🟢 онлайн" : ago == null ? "⚪ ещё не заходил(а)" : `⚪ был(а) ${ago < 60 ? ago + " мин" : ago < 1440 ? Math.round(ago / 60) + " ч" : Math.round(ago / 1440) + " дн"} назад`}</span>
+                <span className="muted"> · сегодня {fmtMin(days[dayKey(0)] || 0)} · 7 дней {fmtMin(sum(6))} · 30 дней {fmtMin(sum(29))}</span>
+              </div>; })()}
             <div className="row"><b>{m}</b>
               <button className="ghost" onClick={() => updateDoc(ref, { members: arrayRemove(m) })}>Убрать</button></div>
             <div className="inline" style={{ margin: "4px 0 0" }}>
