@@ -48,7 +48,7 @@ export default function ClientPortal() {
   const [err, setErr] = useState("");
   const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op">("dash");
   const [anN, setAnN] = useState(3);
-  const [anMode, setAnMode] = useState<"months" | "cmp">("months");
+  const [anMode, setAnMode] = useState<"months" | "cmp">("cmp");
   const [hideNeyla, setHideNeyla] = useState(false);
   const [taps, setTaps] = useState(0);
   const [rep, setRep] = useState<"pnl" | "dds" | "an">("pnl");
@@ -363,8 +363,8 @@ export default function ClientPortal() {
         return <div className="card soft-card print-area" style={{ overflowX: "auto", maxWidth: 1000 }}>
           <div className="row"><h3 style={{ margin: 0 }}>📈 Аналитика по месяцам</h3>
             <span className="chips no-print">
-              {[3, 6, 12].map((n) => <button key={n} className={`chipbtn ${anMode === "months" && anN === n ? "on" : ""}`} onClick={() => { setAnMode("months"); setAnN(n); }}>{n === 3 ? "3 месяца" : n === 6 ? "Полгода" : "Год"}</button>)}
-              <button className={`chipbtn ${anMode === "cmp" ? "on" : ""}`} onClick={() => setAnMode("cmp")}>± К прошлому месяцу</button></span></div>
+              <button className={`chipbtn ${anMode === "cmp" ? "on" : ""}`} onClick={() => setAnMode("cmp")}>± К прошлому месяцу</button>
+              {[3, 6, 12].map((n) => <button key={n} className={`chipbtn ${anMode === "months" && anN === n ? "on" : ""}`} onClick={() => { setAnMode("months"); setAnN(n); }}>{n === 3 ? "3 месяца" : n === 6 ? "Полгода" : "Год"}</button>)}</span></div>
           <table className="pnl-table" style={{ marginTop: 10 }}>
             <thead><tr><th />{idx.map((i) => <th key={i}>{pnl.months[i].label}<div className="small" style={{ opacity: .8 }}>{pnl.months[i].closed ? "✓ сдано" : "предв."}</div></th>)}<th>{anMode === "cmp" ? "Отклонение" : "Итого"}</th></tr></thead>
             <tbody>
