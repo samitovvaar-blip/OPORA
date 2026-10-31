@@ -9,7 +9,7 @@ import { auth, db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { useClientProjects, useMarks } from "../lib/clients";
 import { monthKey } from "../lib/catalog";
-import Checklist from "../components/Checklist";
+import Checklist, { visibleItems } from "../components/Checklist";
 import FlagPicker from "../components/FlagPicker";
 import { LINK_FIELDS, LinkButtons, LinkEditor } from "../components/ProjectLinks";
 
@@ -20,7 +20,7 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
   const { list: all, error } = useClientProjects();
   const me = (auth.currentUser?.email || "").toLowerCase();
   const list = isOwner ? all : all.filter((p) => (p.staffEmails || []).includes(me));
-  const [opened, setOpened] = useState(isOwner || !!new URLSearchParams(location.hash.split("?")[1]).get("p"));
+  const [opened, setOpened] = useState(!!new URLSearchParams(location.hash.split("?")[1]).get("p"));
   const [sel, setSel] = useState<string | null>(() => new URLSearchParams(location.hash.split("?")[1]).get("p"));
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [editFlags, setEditFlags] = useState(false);
@@ -29,6 +29,7 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
   const p = list.find((x) => x.id === sel) || list[0];
   useEffect(() => { if (p && p.id !== sel) setSel(p.id); }, [p?.id]);
   const { marks, setMark } = useMarks(p ? [p.id] : [], mk);
+  const { marks: marksAll } = useMarks(list.map((x) => x.id), mk);
 
   if (!isOwner && ws && !ws.open) return <><h1>Ежемесячные задачи</h1><div className="card">🔒 Доступ сейчас закрыт.</div></>;
   const upd = (data: object) => updateDoc(doc(db, "workspaces", wsId!, "clients", p!.id), data);
@@ -38,9 +39,12 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
       {!embedded && <h1>{isOwner ? "Ежемесячные задачи" : "Мои клиенты"}</h1>}
       {error && !list.length && <div className="error">{error}</div>}
       {!list.length ? <div className="card">{isOwner ? <>Пока нет проектов. Создай первый кнопкой «+ Новый проект» — список задач подберётся сам.</> : "Пока нет открытых тебе клиентов."}</div>
-      : !isOwner && !opened ? <div className="client-list">{list.map((x) =>
+      : !opened ? <div className="client-list">{list.map((x) =>
           <div key={x.id} className="card client-card">
-            <b>{x.name}</b>
+            <div className="row" style={{ padding: 0 }}><b>{x.name}</b>
+              {isOwner && <button className="ghost" onClick={() => { setSel(x.id); setOpened(true); setEditFlags(true); }}>⚙ Настройки</button>}</div>
+            {(() => { const items = visibleItems(x); const done = items.filter((it) => marksAll[x.id]?.[it.id]?.done).length;
+              return <div className="small muted" style={{ width: "100%" }}><div className="progress" style={{ margin: "4px 0" }}><div style={{ width: (items.length ? done / items.length * 100 : 0) + "%" }} /></div>чек-лист месяца: {done} из {items.length}</div>; })()}
             <div className="client-btns">
               <button className="chk" onClick={() => { setSel(x.id); setOpened(true); }}>✅ Чек-лист</button>
               {LINK_FIELDS.map(([k, label]) => x.links?.[k]
@@ -50,8 +54,8 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
             <a className="cab-btn" href={"#/client?p=" + x.id}>👁 Кабинет клиента</a>
           </div>)}</div>
       : <>
-        {!isOwner && <button className="ghost" onClick={() => setOpened(false)}>← Все мои клиенты</button>}
-        {isOwner && <div className="chips">{list.map((x) =>
+        <button className="ghost" onClick={() => { setOpened(false); setEditFlags(false); }}>← {isOwner ? "Все проекты" : "Все мои клиенты"}</button>
+        {false && <div className="chips">{list.map((x) =>
           <button key={x.id} className={`chipbtn ${x.id === p?.id ? "on" : ""}`} onClick={() => setSel(x.id)}>{x.name}</button>)}</div>}
         {p && <div className="card" style={{ maxWidth: 860 }}>
           <div className="row">
