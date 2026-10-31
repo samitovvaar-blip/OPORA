@@ -86,7 +86,7 @@ export default function ClientPortal() {
     (e) => setErr(e.code === "permission-denied" ? "Доступ к кабинету закрыт" : e.message)) : undefined, [wsId, cid]);
   useEffect(() => {
     if (!p?.pnlUrl) return;
-    setPnlErr(""); loadPnl(reload ? p.pnlUrl + "&fresh=1" : p.pnlUrl, p.closedMonths || [], snaps).then((x) => setPnl(applySales(x, p.sales, p.prepay))).catch((e) => setPnlErr(e.message));
+    setPnlErr(""); loadPnl(reload ? p.pnlUrl + "&fresh=1" : p.pnlUrl, p.closedMonths || [], snaps).then((x) => { setPnl(applySales(x, p.sales, p.prepay)); dispatchEvent(new Event("opora-loaded")); }).catch((e) => { setPnlErr(e.message); dispatchEvent(new Event("opora-loaded")); });
   }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify([p?.sales, p?.prepay]), reload, snapsKey]);
 
   // последний сданный месяц и предыдущий

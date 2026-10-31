@@ -93,7 +93,9 @@ export default function Layout() {
       </aside>
       <nav className="mnav">
         {mobile.map(link)}
-        <button className="navlink m-logo m-sec" title="Обновить" onClick={(e) => { e.currentTarget.classList.add("spin"); setTimeout(refresh, 600); }}><img src="spiral.png" alt="" /></button>
+        <button className="navlink m-logo m-sec" title="Обновить" onClick={(e) => { const b = e.currentTarget; b.classList.add("spin"); setTimeout(refresh, 600);
+          // в кабинете клиента страница не перезагружается — останавливаем спираль, когда данные обновились
+          const stop = () => b.classList.remove("spin"); addEventListener("opora-loaded", stop, { once: true }); setTimeout(stop, 8000); }}><img src="spiral.png" alt="" /></button>
         <button className="navlink m-sec" title="Светлая / тёмная тема" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><span className="ni">{theme === "dark" ? "☀️" : "🌙"}</span></button>
         {isOwner && <button className={`navlink ${more ? "active" : ""}`} onClick={() => setMore(!more)}><span className="ni">☰</span>Ещё</button>}
         {!isOwner && <button className="navlink m-sec" title="Выйти" onClick={() => confirm("Выйти из кабинета?") && signOut(auth)}><span className="ni">⎋</span></button>}
