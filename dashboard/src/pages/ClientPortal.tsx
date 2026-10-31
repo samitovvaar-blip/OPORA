@@ -49,6 +49,7 @@ export default function ClientPortal() {
   const [err, setErr] = useState("");
   const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op">("dash");
   const [anN, setAnN] = useState(3);
+  const [beOpen, setBeOpen] = useState(false);
   const [anMode, setAnMode] = useState<"months" | "cmp">("cmp");
   const [hideNeyla, setHideNeyla] = useState(false);
   const [taps, setTaps] = useState(0);
@@ -193,25 +194,34 @@ export default function ClientPortal() {
               <b className={kp[f] == null ? "muted" : ""}>{kp[f] ?? "нет информации от ОП"}</b></div>;
             return <><div className="card span2">
               <h3 style={{ marginTop: 0 }}>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
-              <div className="small muted" style={{ marginBottom: 6 }}>Откуда цифры: суммы расходов по «Справочнику» таблицы — колонка A (тип: переменные / постоянные) и колонка B (отдел). Процент — доля от выручки месяца.</div>
+              <div className="small muted" style={{ marginBottom: 6 }}>Откуда цифры: статьи ДДС из таблицы за месяц (по названию статьи: «дивиденды», «возврат», «налог», «зарплата / ФОТ / премия»). Процент — доля от выручки месяца. Точка безубыточности — по типам расходов из справочника; нажми на неё, чтобы увидеть расчёт.</div>
               {(() => {
-                // Точка безубыточности: постоянные / (1 − переменные / выручка)
+                // Точка безубыточности: постоянные / (1 − переменные / выручка); в штуках — через средний чек
                 const vr = Math.abs(pnl.variable[cur] || 0), fx = Math.abs(pnl.fixed[cur] || 0), share = rev ? vr / rev : null;
-                const be = share != null && share < 1 ? fx / (1 - share) : null;
-                const txt = !fx ? "укажи в справочнике, какие расходы постоянные" : !rev ? "нужна выручка за месяц" : be == null ? "переменные расходы больше выручки" : rub(Math.round(be)) + (rev >= be ? " ✓ пройдена" : ` · не хватает ${rub(Math.round(be - rev))}`);
-                return <Row l="⚖️ Выручка безубыточности" v={txt} c={be != null && rev != null && rev >= be ? "#16a34a" : "#b02a2a"} />;
+                const be = share != null && share < 1 && fx ? fx / (1 - share) : null;
+                const qty = kp.units || kp.orders, qName = kp.units ? "товаров" : "заказов", avg = rev && qty ? rev / qty : null;
+                const beQ = be != null && avg ? Math.ceil(be / avg) : null, ok = be != null && rev != null && rev >= be;
+                const txt = !fx ? "укажи в справочнике постоянные расходы" : !rev ? "нужна выручка за месяц" : be == null ? "переменные расходы больше выручки"
+                  : rub(Math.round(be)) + (beQ != null ? ` · ${beQ} ${qName}` : "");
+                return <div style={{ cursor: "pointer" }} onClick={() => setBeOpen(!beOpen)} title="Нажми, чтобы увидеть расчёт">
+                  <Row l={`⚖️ Точка безубыточности ${beOpen ? "▾" : "▸"}`} v={txt} c={ok ? "#16a34a" : "#b02a2a"} />
+                  {be != null && <div className="small" style={{ color: ok ? "#16a34a" : "#b02a2a" }}>{ok ? "✓ пройдена" : `не хватает ${rub(Math.round(be - (rev || 0)))}${beQ != null && qty ? ` · ещё ${Math.max(0, beQ - qty)} ${qName}` : ""}`}</div>}
+                  {beOpen && <div className="comment small" style={{ marginTop: 6 }}>
+                    <div>Выручка: <b>{rub(rev || 0)}</b></div>
+                    <div>Переменные расходы: <b>{rub(vr)}</b> → доля в выручке <b>{share != null ? (share * 100).toFixed(1) + "%" : "—"}</b></div>
+                    <div>Маржинальность: 100% − {share != null ? (share * 100).toFixed(1) : "—"}% = <b>{share != null ? ((1 - share) * 100).toFixed(1) + "%" : "—"}</b></div>
+                    <div>Постоянные расходы: <b>{rub(fx)}</b></div>
+                    <div>Точка безубыточности = {rub(fx)} ÷ {share != null ? ((1 - share) * 100).toFixed(1) + "%" : "—"} = <b>{be != null ? rub(Math.round(be)) : "—"}</b></div>
+                    <div>Средний чек = выручка ÷ {qName}: {avg ? <b>{rub(Math.round(avg))}</b> : <span className="muted">нет количества во вкладке «📥 Данные от ОП»</span>}</div>
+                    {beQ != null && <div>В штуках = {rub(Math.round(be!))} ÷ {rub(Math.round(avg!))} = <b>{beQ} {qName}</b></div>}
+                  </div>}
+                </div>;
               })()}
-              {pnl.tagMetrics && Object.keys(pnl.tagMetrics).length ? Object.entries(pnl.tagMetrics).map(([tag, vals]) => {
-                // метрики из справочника: доля от выручки и сумма
-                const x = vals[cur]; return <Row key={tag} l={tag} v={x != null ? `${rev ? (x / rev * 100).toFixed(1) + "% · " : ""}${rub(x)}` : "—"} />; })
-              : <>
-              <Row l="Дивиденды" v={sh("dividends")} c="#b02a2a" />
-              <Row l="Налоги" v={sh("taxes")} c="#8a3ab9" />
-              <Row l="Производство аутсорс" v={sh("outsource")} c="#2a5bd7" />
-              <Row l="Возвраты клиентам" v={sh("refunds")} c="#e8873a" />
-              <Row l="Зарплаты" v={sh("salary")} c="#3a9a5b" />
-              <Row l="ФОТ общая" v={at("salary") != null ? rub(at("salary")!) : "—"} />
-              </>}
+              {(() => {
+                const pr = (k: string, l: string, c: string) => { const x = at(k); const a = x != null ? Math.abs(x) : null;
+                  return <Row key={k} l={l} v={a ? `${rev ? (a / rev * 100).toFixed(1) + "% · " : ""}${rub(a)}` : "—"} c={c} />; };
+                return <>{pr("dividends", "Дивиденды", "#b02a2a")}{pr("refunds", "Возвраты клиентам", "#e8873a")}{pr("taxes", "Налоги", "#8a3ab9")}{pr("salary", "ФОТ (все зарплаты)", "#3a9a5b")}</>;
+              })()}
             </div>
             <div className="card span4">
               <h3 style={{ marginTop: 0 }}>Себестоимость и клиенты · {pnl.months[cur].label}</h3>

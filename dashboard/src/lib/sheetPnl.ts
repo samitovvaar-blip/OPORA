@@ -196,6 +196,10 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   const mt = j.dirMeta?.metrics || {};
   const lowMt = Object.fromEntries(Object.entries(mt).map(([a, m]) => [a.trim().toLowerCase(), m]));
   [...new Set(Object.values(mt))].forEach((tag) => { tagMetrics[tag] = sumOf(j.rows.filter((r) => lowMt[r.article.trim().toLowerCase()] === tag)); });
+  // Общие метрики для всех клиентов: ищем по названию статьи
+  const art = (re: RegExp, not?: RegExp) => sumOf(j.rows.filter((r) => !isIncome(r) && re.test(r.article) && !(not && not.test(r.article))));
+  const common = { dividends: art(/дивиден/i), refunds: art(/возврат/i), taxes: sumOf(j.rows.filter((r) => isTax(r) && !isIncome(r))),
+    salary: art(/зарплат|з\/п|\bзп\b|фот|оклад|преми|мотивац/i, /налог/i) };
   const types = j.dirMeta?.types || {};
   // Простой справочник: колонка A — сразу ТИП (Доход / Переменные / Постоянные / Фонд / Не учитывать), B — статьи
   const TYPE_RE = /^(доход|выручк|переменн|постоянн|фонд|не учит|проч)/i;
@@ -235,7 +239,7 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
       if (fixT.length) tagMetrics["Постоянные расходы"] = fS;
       groupsOf([...varT, ...fixT]).filter((g) => !TYPE_RE.test(g.trim())).forEach((g) => { tagMetrics[g] = sumOf([...varT, ...fixT].filter((r) => (r.process || "Без группы") === g)); });
     }
-    return { metrics: { dividends: none, taxes: none, outsource: none, refunds: none, salary: none, d1: tagMetrics["Себестоимость"] || none, d2: none, d3: tagMetrics["Маркетинг"] || none, d4: none, d5: none },
+    return { metrics: { ...common, outsource: none, d1: tagMetrics["Себестоимость"] || none, d2: none, d3: tagMetrics["Маркетинг"] || none, d4: none, d5: none },
       tagMetrics, ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at,
       revenue: revT, profit: profT, variable: vS, fixed: fS,
       // структура расходов: группы, а в простом справочнике — сами статьи расходов
@@ -258,7 +262,7 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
     if (fondU.length) { add("Фондирование (после прибыли)", sumOf(fondU)); articles(fondU); }
     const none = mks.map(() => null);
     const groups = [...new Set(exp.map((r) => r.process || "Без группы"))].map((proc) => ({ name: proc, sub: "Итого", total: true, section: false, values: sumOf(exp.filter((r) => (r.process || "Без группы") === proc)) }));
-    return { tagMetrics, metrics: { dividends: none, taxes: sumOf(j.rows.filter(isTax)), outsource: none, refunds: none, salary: sumOf(exp.filter((r) => /зарплат|з\/п|\bзп\b|фот|оклад/i.test(r.article))), d1: none, d2: none, d3: none, d4: none, d5: none },
+    return { tagMetrics, metrics: { ...common, outsource: none, d1: none, d2: none, d3: none, d4: none, d5: none },
       ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit: profitU, variable: expSum, fixed: none, depts: groups };
   }
   const varSum = sumOf(variable);
