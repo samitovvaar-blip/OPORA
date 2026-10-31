@@ -29,8 +29,18 @@ export default function StaffHome() {
 
   useEffect(() => wsId ? onSnapshot(query(collection(db, "workspaces", wsId, "assignments"), where("shared", "==", true)),
     (s) => setTasks(s.docs.map((x) => ({ id: x.id, ...x.data() }))), () => {}) : undefined, [wsId]);
-  useEffect(() => wsId ? onSnapshot(collection(db, "workspaces", wsId, "kb"),
-    (s) => setLessons(s.docs.map((x) => ({ id: x.id, ...x.data() })).sort((a: any, b: any) => (b.order || 0) - (a.order || 0)).slice(0, 3)), () => {}) : undefined, [wsId]);
+  // новые уроки — только из курсов, открытых сотруднику
+  const courses = (pay?.courses || []).join();
+  useEffect(() => {
+    if (!wsId || !courses) { setLessons([]); return; }
+    const parts: Record<string, any[]> = {};
+    const subs = courses.split(",").map((c) => onSnapshot(query(collection(db, "workspaces", wsId, "kb"), where("course", "==", c)), (s) => {
+      parts[c] = s.docs.map((x) => ({ id: x.id, ...x.data() }));
+      setLessons(Object.values(parts).flat().sort((a: any, b: any) => (b.order || 0) - (a.order || 0)).slice(0, 3));
+    }, () => {}));
+    return () => subs.forEach((u) => u());
+  }, [wsId, courses]);
+  const [allDl, setAllDl] = useState(false);
 
   if (ws && !ws.open) return <><h1>Привет! 👋</h1><div className="card">🔒 Доступ сейчас закрыт.</div></>;
 
@@ -57,17 +67,7 @@ export default function StaffHome() {
       <h1>Привет! 👋</h1>
       <div className="muted" style={{ marginTop: -12, marginBottom: 20 }}>{date}</div>
       <div className="bento">
-        <Link to="/tasks" className="card stat"><div className="muted">Осталось на сегодня</div><b className={left ? "" : "ok"}>{left || "✓"}</b></Link>
-        <Link to="/tasks" className="card stat"><div className="muted">Просрочено</div><b className={dl.some((x) => x.date < d) || todayTasks.some((a) => !isRecurring(a) && a.date < d) ? "error" : ""}>
-          {dl.filter((x) => x.date < d).length + todayTasks.filter((a) => !isRecurring(a) && a.date < d).length}</b></Link>
-        <Link to="/monthly" className="card stat"><div className="muted">Проекты</div><b>{checklists.length}</b></Link>
-        {(() => { const nd = pay ? nextPayday(pay.paydays) : null;
-          const days = nd ? Math.round((+nd - +new Date(new Date().toDateString())) / 86400000) : null;
-          return <div className="card stat"><div className="muted">💸 Следующая ЗП</div>
-            <b>{nd ? nd.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "—"}</b>
-            <div className="muted small">{days === 0 ? "сегодня 🎉" : days != null ? `через ${days} дн.` : "дата не указана"}</div></div>; })()}
-
-        <div className="card wide2">
+        <div className="card wide">
           <h3>📋 Задания на сегодня</h3>
           {todayTasks.map((a) => (
             <label key={a.id} className={`row task ${doneToday(a) ? "done" : ""}`} style={{ cursor: "pointer" }}>
@@ -80,46 +80,48 @@ export default function StaffHome() {
           <div className="muted small" style={{ marginTop: 6 }}>Задания с чекпоинтами — в <Link to="/tasks">календаре</Link>.</div>
         </div>
 
-        <div className="card wide2">
+        <div className="card wide">
+          <h3>👥 Мои клиенты</h3>
+          <div className="home-clients">{checklists.map((p) => {
+            const items = visibleItems(p); const done = items.filter((it) => marks[p.id]?.[it.id]?.done).length;
+            return <Link key={p.id} to={"/monthly?p=" + p.id} className="home-client">
+              <b>{p.name}</b>
+              <div className="progress" style={{ margin: "8px 0 4px" }}><div style={{ width: (items.length ? done / items.length * 100 : 0) + "%" }} /></div>
+              <span className="small muted">чек-лист: {done} из {items.length} →</span>
+            </Link>; })}</div>
+          {!checklists.length && <div className="muted small">Пока нет открытых клиентов</div>}
+        </div>
+
+        <div className="card wide">
           <h3>◆ Сроки по проектам</h3>
-          {dl.map((x) => (
+          {(allDl ? dl : dl.slice(0, 5)).map((x) => (
             <label key={x.key} className="row task" style={{ cursor: "pointer" }}>
               <span style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                 <input type="checkbox" onChange={() => setMark(x.pid, x.itemId, { done: true, doneBy: user!.email || "", doneAt: stamp() })} />
                 <span><span className="tagc">{x.project}</span> {x.title}</span></span>
               <span className={`small ${x.date < d ? "error" : "muted"}`}>{x.date < d ? "⚠ " : ""}{fmt(x.date)}</span>
             </label>))}
+          {dl.length > 5 && <button className="ghost" onClick={() => setAllDl(!allDl)}>{allDl ? "Свернуть" : `Посмотреть ещё (${dl.length - 5})`}</button>}
           {!dl.length && <div className="muted small">Ничего не горит ✅</div>}
-          {soon.length > 0 && <>
+          {!dl.length && soon.length > 0 && <>
             <div className="muted small" style={{ marginTop: 10 }}>Ближайшие:</div>
             {soon.map((x) => <div key={x.key} className="row small"><span><span className="tagc">{x.project}</span> {x.title}</span><span className="muted">{fmt(x.date)}</span></div>)}
           </>}
         </div>
 
         <div className="card wide2">
-          <h3>↻ Чек-листы этого месяца</h3>
-          {checklists.map((p) => {
-            const items = visibleItems(p); const done = items.filter((it) => marks[p.id]?.[it.id]?.done).length;
-            return (
-              <Link key={p.id} to={"/monthly?p=" + p.id} className="row" style={{ color: "inherit", textDecoration: "none", gap: 12 }}>
-                <span style={{ minWidth: 110 }}>{p.name}</span>
-                <div className="progress" style={{ flex: 1, margin: 0 }}><div style={{ width: (items.length ? done / items.length * 100 : 0) + "%" }} /></div>
-                <span className="small muted">{done}/{items.length}</span>
-              </Link>);
-          })}
-          {!checklists.length && <div className="muted small">Пока нет открытых проектов</div>}
+          <h3>🎓 Новое в базе знаний</h3>
+          {lessons.map((l) => <Link key={l.id} to="/kb" className="row small" style={{ color: "inherit", textDecoration: "none" }}><span>▶ {l.title}</span><span className="muted">{l.section || ""}</span></Link>)}
+          {!lessons.length && <div className="muted small">Уроки скоро появятся</div>}
         </div>
 
         <div className="card wide2">
           <h3>💸 Моя оплата</h3>
           <div>{pay?.system || <span className="muted small">Система оплаты пока не указана</span>}</div>
+          {(() => { const nd = pay ? nextPayday(pay.paydays) : null;
+            const days = nd ? Math.round((+nd - +new Date(new Date().toDateString())) / 86400000) : null;
+            return nd ? <div style={{ marginTop: 6 }}>Следующая ЗП: <b>{nd.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}</b> <span className="muted small">{days === 0 ? "сегодня 🎉" : `через ${days} дн.`}</span></div> : null; })()}
           {pay?.paydays?.length ? <div className="muted small" style={{ marginTop: 6 }}>Выплаты: {pay.paydays.map((x) => x + "-го").join(" и ")} числа каждого месяца</div> : null}
-        </div>
-
-        <div className="card wide2">
-          <h3>🎓 Новое в базе знаний</h3>
-          {lessons.map((l) => <Link key={l.id} to="/kb" className="row small" style={{ color: "inherit", textDecoration: "none" }}><span>▶ {l.title}</span><span className="muted">{l.section || ""}</span></Link>)}
-          {!lessons.length && <div className="muted small">Уроки скоро появятся</div>}
         </div>
       </div>
     </>
