@@ -22,7 +22,8 @@ var KEY = 'opora-af18tlqro6wg5bup';
 function okKey(k) { return !!k && (k === KEY || k === SpreadsheetApp.getActiveSpreadsheet().getId()); }
 var DEFAULT_SHEETS = ['ДДС БОТ ОСНОВНЫЕ', 'ДДС БОТ ФОНДЫ'];   // основная база + база фондов (траты из фондов — расход в ОПиУ)
 var DIRECTORY = 'Справочник-общее';   // группы статей → статьи (A → B)
-var BALANCES = 'БАЛАНСЫ СЕЙЧАС';      // остатки по счетам и дата сверки с выпиской
+var BALANCES = 'БАЛАНСЫ СЕЙЧАС';
+var GOODS_SHEETS = ['ТОВАРЫ', 'Товарный учет', 'Товарный учёт', 'ТОВАРЫ БОТ'];   // движение товаров (первый найденный лист)      // остатки по счетам и дата сверки с выпиской
 
 function buildReport(e) {
   var p = (e && e.parameter) || {};
@@ -89,7 +90,7 @@ function buildReport(e) {
   }
   var rows = Object.keys(sums).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: sums[k] }; });
   var ddsRows = Object.keys(dds).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], account: x[2], values: dds[k] }; });
-  return out({ mode: 'db', dirMeta: readDirMeta(ss), balances: readBalances(ss), typos: typos, directory: Object.keys(groupsOf).length, dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
+  return out({ mode: 'db', goods: readGoods(ss), dirMeta: readDirMeta(ss), balances: readBalances(ss), typos: typos, directory: Object.keys(groupsOf).length, dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
 }
 
 // Лист «БАЛАНСЫ СЕЙЧАС»: A — остаток на дату ввода, B — сверено, C — дата сверки, D — остаток сейчас, E — счёт, F — кто проверял
@@ -145,6 +146,47 @@ function readDirMeta(ss) {
   var types = {}, order = [];
   readDirRows(ss).forEach(function (x) { if (order.indexOf(x.dept) < 0) order.push(x.dept); if (x.type && !types[x.dept]) types[x.dept] = x.type; });
   return { types: types, metrics: {}, order: order };
+}
+
+// Товарный учёт (необязательный — если листа нет, кабинет вкладку «Товары» не показывает).
+// Справочник: блок справа с заголовками «Группа товаров» и «Номенклатура товара».
+// Лист движения: колонки (по заголовкам) Дата · Номенклатура/Товар · Приход/Расход (тип) или отдельные «Приход»/«Расход» ·
+// Количество · Сумма (необязательно). Результат: по каждому товару за месяц — приход и расход (кол-во и сумма).
+function readGoods(ss) {
+  var sh = null;
+  for (var i = 0; i < GOODS_SHEETS.length && !sh; i++) sh = ss.getSheetByName(GOODS_SHEETS[i]);
+  var groups = {};
+  var dir = ss.getSheetByName(DIRECTORY);
+  if (dir) {
+    var dv = dir.getDataRange().getDisplayValues(), gc = -1, nc = -1, hr = -1;
+    for (var r = 0; r < Math.min(6, dv.length) && hr < 0; r++) for (var c = 0; c < dv[r].length; c++) {
+      if (/групп.*товар/.test(norm(dv[r][c]))) { gc = c; hr = r; }
+      if (/номенклатур/.test(norm(dv[r][c]))) nc = c;
+    }
+    var g = '';
+    if (hr >= 0 && nc >= 0) for (var r = hr + 1; r < dv.length; r++) {
+      if (gc >= 0 && String(dv[r][gc]).trim()) g = String(dv[r][gc]).trim();
+      var n = String(dv[r][nc] || '').trim(); if (n) groups[n] = g || 'Без группы';
+    }
+  }
+  if (!sh) return Object.keys(groups).length ? { groups: groups, items: {}, months: [] } : null;
+  var v = sh.getDataRange().getValues(), h = v[0].map(norm);
+  var col = function (re) { for (var i = 0; i < h.length; i++) if (re.test(h[i])) return i; return -1; };
+  var cD = col(/^дата/), cN = col(/номенклатур|^товар/), cT = col(/приход\s*\/|тип|операц/), cIn = col(/^приход$/), cOut = col(/^расход$/),
+      cQ = col(/^кол/), cS = col(/^сумм/);
+  if (cN < 0) return { groups: groups, items: {}, months: [], error: 'На листе товаров не нашла колонку «Номенклатура»' };
+  var items = {}, months = {};
+  for (var r = 1; r < v.length; r++) {
+    var row = v[r], name = String(row[cN] || '').trim(); if (!name) continue;
+    var d = toDate(cD >= 0 ? row[cD] : null); if (!d) continue;
+    var mk = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); months[mk] = true;
+    var it = items[name] = items[name] || {}; var m = it[mk] = it[mk] || { inQ: 0, outQ: 0, inS: 0, outS: 0 };
+    var sum = cS >= 0 ? Math.abs(toNum(row[cS])) : 0;
+    if (cIn >= 0 || cOut >= 0) { var qi = cIn >= 0 ? toNum(row[cIn]) : 0, qo = cOut >= 0 ? toNum(row[cOut]) : 0; m.inQ += Math.abs(qi); m.outQ += Math.abs(qo); if (qi) m.inS += sum; if (qo) m.outS += sum; }
+    else { var q = Math.abs(toNum(cQ >= 0 ? row[cQ] : 0)); var out = cT >= 0 ? /расход|списан|продаж|отгруз/i.test(String(row[cT])) : toNum(row[cQ]) < 0;
+      if (out) { m.outQ += q; m.outS += sum; } else { m.inQ += q; m.inS += sum; } }
+  }
+  return { groups: groups, items: items, months: Object.keys(months).sort(), sheet: sh.getName() };
 }
 
 function fmtD(d) { return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); }

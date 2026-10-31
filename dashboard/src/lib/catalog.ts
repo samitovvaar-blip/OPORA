@@ -107,7 +107,8 @@ export interface ClientProject {
   calls?: { id: string; at: string; text: string; archived?: boolean }[];
   sales?: Record<string, number>;
   birthday?: string;
-  scriptKey?: string;   // ключ скрипта таблицы (создаётся один раз)
+  scriptKey?: string;
+  inventory?: Record<string, Record<string, number>>;   // инвентаризация: месяц → товар → факт, шт   // ключ скрипта таблицы (создаётся один раз)
   hiddenItems?: string[];   // задачи чек-листа в архиве (не видят сотрудник и клиент)
   customItems?: { id: string; stage: string; title: string; hint?: string; due?: number | null }[];   // свои задачи владельца
   tariff?: { name: string; price: number; period?: string; payDay?: number | null; items: string[] };

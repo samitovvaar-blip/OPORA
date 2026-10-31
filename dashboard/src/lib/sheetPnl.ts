@@ -8,6 +8,7 @@ export interface Pnl { db?: boolean; dds?: Dds; title: string; months: PnlMonth[
   ddsRaw?: { months: string[]; rows: DbRow[] }; balances?: Balances | null;
   metrics?: Record<string, (number | null)[]>;
   tagMetrics?: Record<string, (number | null)[]>;   // метрики из справочника (колонка D)
+  goods?: Goods | null;   // товарный учёт (если есть в таблице)
 }
 
 const MONTHS = ["январ", "феврал", "март", "апрел", "май", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"];
@@ -85,7 +86,7 @@ function applySnaps(j: any, snaps: Record<string, MonthSnap>) {
 
 export async function loadPnl(url: string, closed: string[] = [], snaps: Record<string, MonthSnap> = {}): Promise<Pnl> {
   const key = "pnl:" + url.replace("&fresh=1", "");
-  const build = (j: any): Pnl => j.mode === "db" ? buildFromDb(applySnaps(j, snaps), closed) : { ...parsePnl(j.values, j.title || j.sheet), at: j.at };
+  const build = (j: any): Pnl => j.mode === "db" ? { ...buildFromDb(applySnaps(j, snaps), closed), goods: j.goods || null } : { ...parsePnl(j.values, j.title || j.sheet), at: j.at };
   let last = "";
   for (let a = 0; a < 3; a++) {
     try {
@@ -111,6 +112,7 @@ const DEPTS: Record<string, string> = { "1": "1. Производственны�
 
 export interface DbRow { process: string; article: string; account?: string; values: Record<string, number>; }
 export interface Balance { group: string; account: string; start: number; checked: boolean; checkedAt: string; balance: number; who: string; }
+export interface Goods { groups: Record<string, string>; items: Record<string, Record<string, { inQ: number; outQ: number; inS: number; outS: number }>>; months: string[]; error?: string; }
 export interface Balances { start: string; accounts: Balance[]; }
 // ДДС: поступления и выплаты по «Дате операции», сгруппированы по процессам
 export function buildDds(d0: { months: string[]; rows: DbRow[] }, accounts?: string[]): Dds {

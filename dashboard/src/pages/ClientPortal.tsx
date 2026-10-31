@@ -14,6 +14,7 @@ import { visibleItems } from "../components/Checklist";
 import { useAuth } from "../lib/auth";
 import { LINK_FIELDS } from "../components/ProjectLinks";
 import NeylaLoading from "../components/NeylaLoading";
+import GoodsReport from "../components/GoodsReport";
 import PayCalendar, { monthSum } from "../components/PayCalendar";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
@@ -51,7 +52,7 @@ export default function ClientPortal() {
   const [anMode, setAnMode] = useState<"months" | "cmp">("cmp");
   const [hideNeyla, setHideNeyla] = useState(false);
   const [taps, setTaps] = useState(0);
-  const [rep, setRep] = useState<"pnl" | "dds" | "an">("pnl");
+  const [rep, setRep] = useState<"pnl" | "dds" | "an" | "goods">("pnl");
   const loc = useLocation();
   useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
   const [pnl, setPnl] = useState<Pnl | null>(null);
@@ -132,7 +133,7 @@ export default function ClientPortal() {
         </details> : null;
         return <>{slot && !preview && createPortal(ctl, slot)}{nameSlot && !preview && createPortal(<>{p.name}{tariffEl}</>, nameSlot)}
           {!preview && tariffEl && <div className="tariff-mobile">{tariffEl}</div>}
-          {(preview || view === "dash" || view === "pnl" || view === "dds" || view === "an") && <div className="month-top">{ctl}</div>}</>;
+          {(preview || view === "dash" || view === "pnl" || view === "dds" || view === "an" || view === "goods") && <div className="month-top">{ctl}</div>}</>;
       })()}
       {preview && <h1>{p.name}</h1>}
       {preview && <div className="chips" style={{ marginTop: 12 }}>
@@ -140,7 +141,7 @@ export default function ClientPortal() {
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
-        {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"], ["an", "Аналитика"]] as const).map(([k, l]) =>
+        {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"], ["an", "Аналитика"], ...(pnl?.goods ? [["goods", "📦 Товары"]] as const : [])] as const).map(([k, l]) =>
           <button key={k} className={`chipbtn ${rep === k ? "on" : ""}`} onClick={() => setRep(k)}>{l}</button>)}
       </div>}
 
@@ -353,6 +354,7 @@ export default function ClientPortal() {
         </div>;
       })() : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
 
+      {view === "goods" && pnl?.goods && cur != null && <GoodsReport g={pnl.goods} mk={pnl.months[cur].mk || ""} label={`${pnl.months[cur].label} ${pnl.months[cur].year}`} p={p} wsId={wsId!} isOwner={isOwner} />}
       {view === "an" && pnl && cur != null && (() => {
         // Аналитика: ключевые строки ОПиУ за 3 или 6 месяцев (до выбранного включительно)
         // Календарные месяцы: «Год» — январь…декабрь года выбранного месяца, 3/6 — подряд до выбранного.
