@@ -385,3 +385,8 @@ input,select,textarea{border-radius:12px}
 .client-btns{grid-template-columns:repeat(5,minmax(0,1fr))}
 .client-btns .cab{background:#16304f!important;color:#fff!important}
 @media (max-width:720px){.client-btns{grid-template-columns:repeat(2,minmax(0,1fr))}.client-btns .cab{grid-column:1/-1}}
+/* карточка клиента: 4 одинаковые кнопки сверху (чек-лист выделен), «Кабинет клиента» — большая снизу */
+.client-btns{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+.client-btns .chk{background:#e8883a!important;color:#fff}
+.cab-btn{display:flex;align-items:center;justify-content:center;width:100%;height:48px;margin-top:8px;border-radius:14px;background:#16304f;color:#fff;font-weight:700;text-decoration:none}
+@media (max-width:720px){.client-btns{grid-template-columns:repeat(2,minmax(0,1fr))!important}}

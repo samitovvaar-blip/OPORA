@@ -42,12 +42,12 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
           <div key={x.id} className="card client-card">
             <b>{x.name}</b>
             <div className="client-btns">
-              <button onClick={() => { setSel(x.id); setOpened(true); }}>✅ Чек-лист</button>
-              <a className="linkbtn cab" href={"#/client?p=" + x.id}>👁 Кабинет клиента</a>
+              <button className="chk" onClick={() => { setSel(x.id); setOpened(true); }}>✅ Чек-лист</button>
               {LINK_FIELDS.map(([k, label]) => x.links?.[k]
                 ? <a key={k} className="linkbtn" href={x.links[k]} target="_blank" rel="noopener noreferrer">{label}</a>
                 : <span key={k} className="linkbtn off">{label}</span>)}
             </div>
+            <a className="cab-btn" href={"#/client?p=" + x.id}>👁 Кабинет клиента</a>
           </div>)}</div>
       : <>
         {!isOwner && <button className="ghost" onClick={() => setOpened(false)}>← Все мои клиенты</button>}
