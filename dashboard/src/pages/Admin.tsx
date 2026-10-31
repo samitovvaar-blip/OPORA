@@ -4,10 +4,16 @@ import { useAuth } from "../lib/auth";
 import AccessCard from "../components/AccessCard";
 import ClientsAccessCard from "../components/ClientsAccessCard";
 import StudentsCard from "../components/StudentsCard";
+import NewClientWizard from "../components/NewClientWizard";
+import { useState } from "react";
 
 // вкладки Админки: Сотрудники (и ученики) · Клиенты · Отчётность (main.tsx)
 export function AdminStaff() { return <><AccessCard /><StudentsCard /><Service /></>; }
-export function AdminClients() { return <><ClientsAccessCard /><Service /></>; }
+export function AdminClients() {
+  const [wiz, setWiz] = useState(false);
+  return <>{wiz ? <NewClientWizard onClose={() => setWiz(false)} /> : <button style={{ marginBottom: 12 }} onClick={() => setWiz(true)}>+ Новый клиент</button>}
+    <ClientsAccessCard /><Service /></>;
+}
 
 function Service() {
   const { user } = useAuth();

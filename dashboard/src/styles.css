@@ -515,3 +515,8 @@ input,select,textarea{border-radius:12px}
 .adm-service{margin-top:18px;display:flex;flex-direction:column;gap:4px}
 .home-tiles a.tile{color:#fff;text-decoration:none}@media (max-width:720px){.home-tiles{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 .tile-link{cursor:pointer}.tile-link:hover{filter:brightness(1.08)}.h-link{color:inherit;text-decoration:none}.h-link:hover{color:#3b6db3}
+/* мастер подключения клиента */
+.wiz-steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.wiz-steps span{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--bg);color:var(--muted)}
+.wiz-steps span.on{background:#16304f;color:#fff;font-weight:700}.wiz-steps span.done{color:var(--won)}
+.wiz-ol{padding-left:18px;line-height:1.6}.wiz-ol code{background:var(--bg);padding:1px 6px;border-radius:6px}

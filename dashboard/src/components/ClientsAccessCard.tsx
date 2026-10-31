@@ -1,5 +1,5 @@
 // Админка: клиенты с доступом к кабинету — почты, доступ, тариф и ближайшая оплата
-import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { arrayUnion, collection, doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { bdayText, seenText } from "./AccessCard";
 import { Link } from "react-router-dom";
@@ -14,7 +14,7 @@ export default function ClientsAccessCard() {
   const { list } = useClientProjects();
   const [pres, setPres] = useState<Record<string, { lastSeen?: any }>>({});
   useEffect(() => wsId ? onSnapshot(collection(db, "workspaces", wsId, "presence"), (s) => setPres(Object.fromEntries(s.docs.map((d) => [d.id, d.data() as any]))), () => {}) : undefined, [wsId]);
-  const withAccess = list.filter((p) => (p.clientEmails || []).length);
+  const withAccess = list;   // все клиенты: у кого нет почты — можно выдать доступ прямо здесь
   const today = new Date(new Date().toDateString());
   const rows = withAccess.map((p) => {
     const nd = p.tariff?.payDay ? nextPayday([p.tariff.payDay]) : null;
@@ -32,7 +32,11 @@ export default function ClientsAccessCard() {
             <button className={p.clientOpen ? "" : "ghost"} onClick={() => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { clientOpen: !p.clientOpen })}>
               {p.clientOpen ? "🔓 Доступ открыт" : "🔒 Доступ закрыт"}</button>
           </div>
-          <div className="small muted">{(p.clientEmails || []).join(", ")} · {(() => { const ls = (p.clientEmails || []).map((e) => pres[e]?.lastSeen?.toDate?.() as Date | undefined).filter(Boolean) as Date[];
+          <form className="inline" style={{ margin: "4px 0" }} onSubmit={async (e) => { e.preventDefault(); const inp = e.currentTarget.elements.namedItem("em") as HTMLInputElement;
+              const v = inp.value.trim().toLowerCase(); if (!v.includes("@")) return;
+              await updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { clientEmails: arrayUnion(v) }); await setDoc(doc(db, "clientIndex", v), { ws: wsId, cid: p.id }); inp.value = ""; }}>
+            <input name="em" type="email" placeholder="+ почта клиента для кабинета" style={{ flex: 1, minWidth: 180, padding: "4px 8px" }} /><button style={{ padding: "4px 10px" }}>Дать доступ</button></form>
+          <div className="small muted">{(p.clientEmails || []).join(", ") || "почта не указана"} · {(() => { const ls = (p.clientEmails || []).map((e) => pres[e]?.lastSeen?.toDate?.() as Date | undefined).filter(Boolean) as Date[];
             const last = ls.length ? new Date(Math.max(...ls.map((x) => +x))) : undefined; const st = seenText(last); return <span className={st.online ? "ok" : ""}>{st.text.replace("заходил(а)", "заходил")}</span>; })()}</div>
           <div className="adm-pay">
             <span>💳 {p.tariff ? <>{p.tariff.name} · <b>{rub(p.tariff.price)}</b></> : <span className="muted">тариф не выбран</span>}</span>

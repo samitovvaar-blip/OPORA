@@ -9,6 +9,7 @@ import { Flag, FLAG_LABEL, monthKey, shown, STAGES } from "../lib/catalog";
 import { visibleItems } from "../components/Checklist";
 import FlagPicker from "../components/FlagPicker";
 import Monthly from "./Monthly";
+import NewClientWizard from "../components/NewClientWizard";
 import Payments from "../components/Payments";
 import { Links, LinkButtons, LinkEditor } from "../components/ProjectLinks";
 import { useCollection } from "../lib/store";
@@ -47,29 +48,14 @@ export default function Projects() {
     <>
       <h1>Проекты</h1>
       {error && <div className="error">{error}</div>}
-      {!creating ? <button onClick={() => setCreating(true)}>+ Новый проект</button> : (
-        <form className="card" onSubmit={create} style={{ maxWidth: 860 }}>
-          <h3>Новый проект{fromClient ? " из клиента" : ""}</h3>
-          <input placeholder="Клиент / название проекта" value={name} onChange={(e) => setName(e.target.value)} autoFocus style={{ width: "100%" }} />
-          <div style={{ marginTop: 10 }}><b>Что есть у клиента?</b> <span className="muted small">Нажми — список задач подстроится</span></div>
-          <FlagPicker flags={flags} onChange={setFlags} />
-          <div style={{ marginTop: 10 }}><b>Ссылки</b> <span className="muted small">по желанию, можно добавить позже</span></div>
-          <LinkEditor key={Object.values(links).join("|")} links={links} onChange={setLinks} />
-          <div className="card" style={{ background: "var(--bg)", marginTop: 8 }}>
-            <b>Ежемесячные задачи: {total}</b> <span className="muted small">· {withDue} со сроком попадут в календарь</span>
-            {preview.map(({ s, n }) => (
-              <details key={s.id} className="small" style={{ marginTop: 6 }}>
-                <summary><span className="tagc">{s.when}</span> {s.title} — {n}</summary>
-                <ul>{s.items.filter((it) => shown(it, flags)).map((it) => <li key={it.id}>{it.title}</li>)}</ul>
-              </details>
-            ))}
-          </div>
-          <div className="inline" style={{ marginTop: 10 }}>
-            <button>Создать проект</button>
-            <button type="button" className="ghost" onClick={() => setCreating(false)}>Отмена</button>
-          </div>
-        </form>
-      )}
+      {!creating ? <button onClick={() => setCreating(true)}>+ Новый клиент</button>
+        : fromClient ? <form className="card" onSubmit={create} style={{ maxWidth: 860 }}>
+            <h3>Новый проект из клиента</h3>
+            <input placeholder="Название" value={name} onChange={(e) => setName(e.target.value)} style={{ width: "100%" }} />
+            <FlagPicker flags={flags} onChange={setFlags} />
+            <div className="inline" style={{ marginTop: 10 }}><button>Создать</button><button type="button" className="ghost" onClick={() => setCreating(false)}>Отмена</button></div>
+          </form>
+        : <NewClientWizard defaultName={name} onClose={() => setCreating(false)} />}
 
       <div style={{ marginTop: 16 }}><Monthly embedded /></div>
 
