@@ -46,9 +46,10 @@ function HomeSwitch() {
 
 // Кабинет клиента: клиенту — свой, владельцу — предпросмотр
 function ClientGate() {
-  const { isOwner, clientOf, ready } = useWorkspace();
+  const { isOwner, clientOf, ready, wsId } = useWorkspace();
   if (!ready) return <NeylaLoading />;
-  return isOwner || clientOf ? <ClientPortal /> : <Navigate to="/" replace />;
+  // сотрудник тоже может открыть кабинет своего клиента — только просмотр
+  return isOwner || clientOf || wsId ? <ClientPortal /> : <Navigate to="/" replace />;
 }
 
 // Общие разделы: владелец или приглашённый сотрудник; остальные — «нет доступа»

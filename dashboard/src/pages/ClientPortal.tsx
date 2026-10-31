@@ -36,7 +36,10 @@ const DEPT_NAMES = ["1. Производственный отдел", "2. Отд
 export default function ClientPortal() {
   const { wsId, clientOf, isOwner } = useWorkspace();
   const { user } = useAuth();
-  const cid = isOwner ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
+  // staffView — сотрудник смотрит кабинет своего клиента (только чтение)
+  const staffView = !isOwner && !clientOf;
+  const preview = isOwner || staffView;
+  const cid = preview ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
   const [p, setP] = useState<ClientProject | null>(null);
   const [err, setErr] = useState("");
   const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op">("dash");
@@ -92,6 +95,7 @@ export default function ClientPortal() {
   return (
     <>
       {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a></div>}
+      {staffView && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Кабинет клиента — только просмотр. <a href="#/monthly">← к моим клиентам</a></div>}
       {(() => {
         // Месяц отчётности: один выбор на весь кабинет — слева в меню (на телефоне — над разделом)
         const ctl = pnl && cur != null ? <div className="navlink month-ctl" title={pnl.months[cur].closed ? "Отчётность сдана" : "Предварительные данные"}>
@@ -100,12 +104,12 @@ export default function ClientPortal() {
             {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
         </div> : null;
         const nameSlot = document.getElementById("side-name");
-        return <>{slot && !isOwner && createPortal(ctl, slot)}{nameSlot && !isOwner && createPortal(<>{p.name}</>, nameSlot)}
-          {(isOwner || view === "dash" || view === "pnl" || view === "dds") && <div className="month-top">{ctl}</div>}</>;
+        return <>{slot && !preview && createPortal(ctl, slot)}{nameSlot && !preview && createPortal(<>{p.name}</>, nameSlot)}
+          {(preview || view === "dash" || view === "pnl" || view === "dds") && <div className="month-top">{ctl}</div>}</>;
       })()}
-      {isOwner && <h1>{p.name}</h1>}
-      {isOwner && <div className="chips" style={{ marginTop: 12 }}>
-        {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).map(([k, l]) =>
+      {preview && <h1>{p.name}</h1>}
+      {preview && <div className="chips" style={{ marginTop: 12 }}>
+        {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || k !== "op").map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
