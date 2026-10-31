@@ -158,10 +158,10 @@ export default function ClientPortal() {
             const sh = (k: string) => { const x = at(k); return x != null && rev ? (x / rev * 100).toFixed(2) + "%" : "—"; };
             const mk = pnl.months[cur].mk || "", kp = p.kpi?.[mk] || {};
             const cost = Math.abs(at("d1") || 0), mkt = Math.abs(at("d3") || 0);
-            const per = (a: number, b?: number) => b ? rub(Math.round(a / b)) : "—";
-            const Row = ({ l, v, c }: { l: string; v: string; c?: string }) => <div className="row small" style={{ margin: "1px 0", padding: "2px 0" }}><span style={{ color: c, fontWeight: 700 }}>{l}</span><b>{v}</b></div>;
+            const per = (a: number, b?: number) => b ? rub(Math.round(a / b)) : "нет информации от ОП";
+            const Row = ({ l, v, c }: { l: string; v: string; c?: string }) => <div className="row small" style={{ margin: "1px 0", padding: "2px 0" }}><span style={{ color: c, fontWeight: 700 }}>{l}</span><b className={/нет информации/.test(v) ? "muted" : ""}>{v}</b></div>;
             const Num = ({ f, l }: { f: "units" | "newClients" | "orders"; l: string }) => <div className="row small" style={{ margin: "1px 0", padding: "2px 0" }}><span>{l}</span>
-              <b>{kp[f] ?? "—"}</b></div>;
+              <b className={kp[f] == null ? "muted" : ""}>{kp[f] ?? "нет информации от ОП"}</b></div>;
             return <><div className="card span2">
               <h3 style={{ marginTop: 0 }}>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
               <Row l="Дивиденды" v={sh("dividends")} c="#b02a2a" />
@@ -171,7 +171,7 @@ export default function ClientPortal() {
               <Row l="Зарплаты" v={sh("salary")} c="#3a9a5b" />
               <Row l="ФОТ общая" v={at("salary") != null ? rub(at("salary")!) : "—"} />
             </div>
-            <div className="card span2">
+            <div className="card span4">
               <h3 style={{ marginTop: 0 }}>Себестоимость и клиенты · {pnl.months[cur].label}</h3>
               <Row l="Себестоимость продаж" v={cost ? rub(cost) : "—"} />
               <Num f="units" l="Количество проданных кубиков" />
@@ -184,6 +184,18 @@ export default function ClientPortal() {
             </div></>;
           })()}
           </div>
+          {(() => {
+            // Цель месяца: план продаж (Данные от ОП) против факта выручки
+            const mk = pnl.months[cur].mk || "", plan = p.planSales?.[mk] ?? null, pc = plan && rev != null ? Math.round(rev / plan * 100) : null;
+            return <div className="card span2">
+              <h3 style={{ marginTop: 0 }}>🎯 Цель месяца · {pnl.months[cur].label}</h3>
+              {plan == null ? <div className="muted">Цель на этот месяц не задана</div> : <>
+                <div className="row"><span>План продаж</span><b>{rub(plan)}</b></div>
+                <div className="row"><span>Факт</span><b>{rev != null ? rub(rev) : "—"}</b></div>
+                <div className="progress" style={{ height: 12, margin: "10px 0 6px" }}><div style={{ width: Math.min(100, pc || 0) + "%", background: (pc || 0) >= 100 ? "#16a34a" : "#3b6db3" }} /></div>
+                <div className={`goal-pc ${(pc || 0) >= 100 ? "ok" : ""}`}>{pc}% {(pc || 0) >= 100 ? "— цель выполнена 🎉" : `· осталось ${rub(Math.max(0, plan - (rev || 0)))}`}</div>
+              </>}
+            </div>; })()}
           <div className="card span2">
             <h3>Выручка и прибыль по месяцам</h3>
             <div className="chart">{series.map((s, k) => (
