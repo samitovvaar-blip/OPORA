@@ -106,36 +106,39 @@ function readBalances(ss) {
   return { start: start, accounts: list };
 }
 
-// Справочник: в колонке A группа пишется один раз — дальше вниз действует она же
-function readDirectory(ss) {
-  var map = {}, sh = ss.getSheetByName(DIRECTORY);
-  if (!sh) return map;
-  var v = sh.getRange(1, 1, sh.getLastRow(), 2).getDisplayValues(), group = '';
+// Справочник «Справочник-общее». Два формата (определяется по заголовку колонки A):
+//  • 3 колонки (заголовок A начинается с «Тип»): A — Тип (Доход / Переменные / Постоянные / Фонд / Не учитывать),
+//    B — Отдел (процесс), C — Статья ДДС. Тип и отдел можно писать один раз — ниже действуют они же.
+//  • 2 колонки (как раньше): A — Группа (процесс), B — Статья.
+function readDirRows(ss) {
+  var sh = ss.getSheetByName(DIRECTORY);
+  if (!sh) return [];
+  var cols = Math.min(4, Math.max(2, sh.getLastColumn()));
+  var v = sh.getRange(1, 1, sh.getLastRow(), cols).getDisplayValues(), out = [];
+  var three = /^тип/.test(norm(v[0][0]));
+  var type = '', dept = '';
   for (var r = 1; r < v.length; r++) {
-    var g = String(v[r][0] || '').trim(), a = String(v[r][1] || '').trim();
-    if (g) group = g;
-    if (!a || !group) continue;
-    var k = norm(a); map[k] = map[k] || [];
-    if (map[k].indexOf(group) < 0) map[k].push(group);
+    var a = String(v[r][0] || '').trim(), b = String(v[r][1] || '').trim(), c = cols > 2 ? String(v[r][2] || '').trim() : '';
+    if (three) {
+      if (a) { type = a; dept = ''; }
+      if (b) dept = b;
+      if (c && dept) out.push({ type: type, dept: dept, art: c });
+    } else {
+      if (a) dept = a;
+      if (b && dept) out.push({ type: c, dept: dept, art: b });
+    }
   }
+  return out;
+}
+function readDirectory(ss) {
+  var map = {};
+  readDirRows(ss).forEach(function (x) { var k = norm(x.art); map[k] = map[k] || []; if (map[k].indexOf(x.dept) < 0) map[k].push(x.dept); });
   return map;
 }
-// Справочник, колонки C и D (необязательные) — по ним кабинет строит ОПиУ и ключевые метрики:
-//   C «Тип группы»: Доход / Переменные / Постоянные / Фонд / Не учитывать (пишется в строке группы или у любой статьи группы)
-//   D «Метрика»: любое название (ФОТ, Налоги, Дивиденды, Себестоимость, Маркетинг…) — статьи с одной меткой суммируются
 function readDirMeta(ss) {
-  var sh = ss.getSheetByName(DIRECTORY), types = {}, metrics = {}, order = [];
-  if (!sh) return { types: types, metrics: metrics, order: order };
-  var cols = Math.min(4, sh.getLastColumn());
-  var v = sh.getRange(1, 1, sh.getLastRow(), cols).getDisplayValues(), group = '';
-  for (var r = 1; r < v.length; r++) {
-    var g = String(v[r][0] || '').trim(), a = String(v[r][1] || '').trim();
-    var t = cols > 2 ? String(v[r][2] || '').trim() : '', m = cols > 3 ? String(v[r][3] || '').trim() : '';
-    if (g) { group = g; if (order.indexOf(g) < 0) order.push(g); }
-    if (group && t && !types[group]) types[group] = t;
-    if (a && m) metrics[a] = m;
-  }
-  return { types: types, metrics: metrics, order: order };
+  var types = {}, order = [];
+  readDirRows(ss).forEach(function (x) { if (order.indexOf(x.dept) < 0) order.push(x.dept); if (x.type && !types[x.dept]) types[x.dept] = x.type; });
+  return { types: types, metrics: {}, order: order };
 }
 
 function fmtD(d) { return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); }
