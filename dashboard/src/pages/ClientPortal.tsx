@@ -229,7 +229,6 @@ export default function ClientPortal() {
 
       {view === "pnl" && pnl && cur != null && <div className="card soft-card" style={{ overflowX: "auto", maxWidth: 900 }}>
         <h3 style={{ marginTop: 0 }}>Отчёт о прибылях и убытках · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
-        <div className="muted small" style={{ marginBottom: 8 }}>По дате для отчёта. Нажми на отдел или процесс, чтобы раскрыть.</div>
         {(() => {
           // дерево: итоговые строки → процессы → статьи
           let l0 = "", l1 = "";
@@ -241,23 +240,33 @@ export default function ClientPortal() {
           const hasKids = (i: number) => tree[i + 1] && tree[i + 1].lvl > tree[i].lvl;
           const big = (n: string) => /выручк|прибыль|переменн|постоянн/i.test(n) && !/\d\./.test(n);
           return <table className="pnl-table">
-            <thead><tr><th /><th>Сумма</th><th className="small muted">% выручки</th></tr></thead>
+            <thead><tr><th /><th>{pnl.months[cur].label}</th><th className="small">% выручки</th>{prevIdx != null && <><th className="small">{pnl.months[prevIdx].label}</th><th className="small">Δ</th></>}</tr></thead>
             <tbody>{tree.map((t, i) => {
               if (t.lvl >= 1 && !open[t.k0]) return null;
               if (t.lvl === 2 && !open[t.k1]) return null;
-              if (/^Проверка/.test(t.r.name) && !open["chk"]) return null;   // сверка раскрывается по нажатию на «Факт предоплат»
-              const isPre = t.r.name === "Факт предоплат";
+              // сверка выручки (банк, предоплаты, проверка) — спрятана, раскрывается нажатием на «Выручка»
+              const recon = /^Поступления по банку|^Факт предоплат|^Проверка/.test(t.r.name) || t.k0 === "p:Поступления по банку (для сверки)";
+              if (recon && !open.chk) return null;
+              const isPre = /^ВЫРУЧКА \(факт продаж/.test(t.r.name);
               const v = t.r.values[cur], kids = hasKids(i) || isPre;
               return <tr key={i} className={t.lvl === 0 && big(t.r.name) ? "pnl-key" : t.lvl === 0 ? "pnl-sec" : t.lvl === 2 ? "small" : ""}
                 style={{ cursor: kids ? "pointer" : undefined }} onClick={() => isPre ? setOpen((o) => ({ ...o, chk: !o.chk })) : kids && setOpen((o) => ({ ...o, [t.key]: !o[t.key] }))}>
                 <td style={{ paddingLeft: [8, 24, 44][t.lvl] }} className={/прибыль/i.test(t.r.name) && t.lvl === 0 ? "profit" : ""}>{kids ? ((isPre ? open.chk : open[t.key]) ? "▾ " : "▸ ") : ""}{t.lvl === 2 ? t.r.sub : t.r.name}</td>
                 <td className={/^Проверка/.test(t.r.name) ? (Math.abs(v || 0) < 1 ? "ok" : "error") : /прибыль/i.test(t.r.name) && t.lvl === 0 ? ((v || 0) < 0 ? "error profit" : "profit") : (v || 0) < 0 ? "neg" : ""}>{v != null ? (/^Проверка/.test(t.r.name) && Math.abs(v) < 1 ? "✓ " : "") + rub(v) : "—"}</td>
                 <td className="small muted">{v != null && rev ? (Math.abs(v) / rev * 100).toFixed(1) + "%" : ""}</td>
+                {prevIdx != null && (() => {
+                  // сравнение с прошлым месяцем: для расходов рост — плохо, для выручки и прибыли — хорошо
+                  const pv = t.r.values[prevIdx], exp = (v || 0) < 0 || (pv || 0) < 0 && !/прибыль/i.test(t.r.name);
+                  // расходы сравниваем по модулю: «▲» = потратили больше (плохо)
+                  const d = v != null && pv ? Math.round(((exp ? Math.abs(v) : v) - (exp ? Math.abs(pv) : pv)) / Math.abs(pv) * 100) : null;
+                  const good = d == null ? null : exp && !/прибыль/i.test(t.r.name) ? d <= 0 : d >= 0;
+                  return <><td className="small muted">{pv != null ? rub(pv) : "—"}</td>
+                    <td className={`small ${good == null ? "muted" : good ? "ok" : "error"}`}>{d == null ? "" : (d > 0 ? "▲ " : d < 0 ? "▼ " : "") + Math.abs(d) + "%"}</td></>;
+                })()}
               </tr>;
             })}</tbody>
           </table>;
         })()}
-        {pnl.at && <div className="muted small" style={{ marginTop: 6 }}>Данные из таблицы на {new Date(pnl.at).toLocaleString("ru-RU")}</div>}
       </div>}
 
       {view === "dds" && pnl && cur != null && (pnl.dds ? (() => {
@@ -293,7 +302,6 @@ export default function ClientPortal() {
         </>;
         return <div className="card soft-card" style={{ overflowX: "auto", maxWidth: 900 }}>
           <h3 style={{ marginTop: 0 }}>Движение денежных средств · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
-          <div className="muted small" style={{ marginBottom: 8 }}>По дате операции, лист «ДДС БОТ ОСНОВНЫЕ». Нажми на строку, чтобы раскрыть.</div>
           <table className="pnl-table"><tbody>
             <tr className="pnl-sec"><td>Остаток на начало месяца</td><Money v={startBal} /></tr>
             <Block k="in" title="ФАКТ ПРИХОД" total={inflow} />
