@@ -17,7 +17,7 @@ export default function InstallHint() {
   const close = () => { setShow(false); try { localStorage.setItem("install-hint", "1"); } catch {} };
   if (!show) return null;
   return <div className="install-hint">
-    <img src="logo.png" alt="" />
+    <img src="spiral.png" alt="" className="spin-slow" />
     <div><b>Установите ОПОРУ на телефон</b>
       {prompt ? <p>Кабинет откроется как приложение — одним касанием.</p>
         : ios ? <p>Нажмите <b>«Поделиться» ⬆️</b> внизу Safari → <b>«На экран „Домой“»</b>.</p>
