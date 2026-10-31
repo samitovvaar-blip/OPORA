@@ -2,14 +2,14 @@
 // Клиент видит только свой проект. Владелец открывает предпросмотр: #/client?p=<id>
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { deleteField, doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { collection, deleteField, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { useLocation } from "react-router-dom";
 import { useMarks } from "../lib/clients";
 import { ClientProject, monthKey, stamp } from "../lib/catalog";
 import { rub } from "../lib/money";
-import { applySales, buildDds, loadPnl, Pnl } from "../lib/sheetPnl";
+import { applySales, buildDds, loadPnl, MonthSnap, Pnl } from "../lib/sheetPnl";
 import { visibleItems } from "../components/Checklist";
 import { useAuth } from "../lib/auth";
 import { LINK_FIELDS } from "../components/ProjectLinks";
@@ -56,6 +56,9 @@ export default function ClientPortal() {
   const [note, setNote] = useState("");
   const [showArch, setShowArch] = useState(false);
   const [reload, setReload] = useState(0);
+  // снимки сданных месяцев (заморозка цифр)
+  const [snaps, setSnaps] = useState<Record<string, MonthSnap>>({});
+  const snapsKey = Object.keys(snaps).sort().join() + "|" + Object.values(snaps).map((x) => x.at).join();
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   useEffect(() => setSlot(document.getElementById("side-slot")), []);
   useEffect(() => {
@@ -68,13 +71,15 @@ export default function ClientPortal() {
   const mk = monthKey(month);
   const { marks } = useMarks(cid ? [cid] : [], mk);
 
+  useEffect(() => wsId && cid ? onSnapshot(collection(db, "workspaces", wsId, "clients", cid, "snapshots"),
+    (q) => setSnaps(Object.fromEntries(q.docs.map((d) => [d.id, d.data() as MonthSnap]))), () => {}) : undefined, [wsId, cid]);
   useEffect(() => wsId && cid ? onSnapshot(doc(db, "workspaces", wsId, "clients", cid),
     (s) => setP(s.exists() ? ({ id: s.id, ...s.data() } as ClientProject) : null),
     (e) => setErr(e.code === "permission-denied" ? "Доступ к кабинету закрыт" : e.message)) : undefined, [wsId, cid]);
   useEffect(() => {
     if (!p?.pnlUrl) return;
-    setPnlErr(""); loadPnl(reload ? p.pnlUrl + "&fresh=1" : p.pnlUrl, p.closedMonths || []).then((x) => setPnl(applySales(x, p.sales, p.prepay))).catch((e) => setPnlErr(e.message));
-  }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify([p?.sales, p?.prepay]), reload]);
+    setPnlErr(""); loadPnl(reload ? p.pnlUrl + "&fresh=1" : p.pnlUrl, p.closedMonths || [], snaps).then((x) => setPnl(applySales(x, p.sales, p.prepay))).catch((e) => setPnlErr(e.message));
+  }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify([p?.sales, p?.prepay]), reload, snapsKey]);
 
   // последний сданный месяц и предыдущий
   const filled = useMemo(() => pnl ? pnl.months.map((m, i) => ({ m, i })).filter(({ i }) => pnl.revenue[i] != null) : [], [pnl]);

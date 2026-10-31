@@ -83,6 +83,13 @@ service cloud.firestore {
         && (request.auth.token.email.lower() in resource.data.get("staffEmails", [])));
       allow write: if isOwner(ws);
 
+      // Снимки сданных месяцев (заморозка цифр): пишет владелец, читают все, кто видит кабинет
+      match /snapshots/{month} {
+        allow read: if isOwner(ws) || isClient(get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data)
+          || (isMember(ws) && request.auth.token.email.lower() in get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data.get("staffEmails", []));
+        allow write: if isOwner(ws);
+      }
+
       // Отметки за месяц: сотрудник ставит галочку и пишет комментарий
       match /months/{month}/items/{id} {
         function opened() {

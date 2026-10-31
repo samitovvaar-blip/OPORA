@@ -3,6 +3,7 @@ import { FormEvent, useState } from "react";
 import { arrayRemove, arrayUnion, deleteDoc, doc, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { ClientProject, monthKey } from "../lib/catalog";
+import { sliceMonth } from "../lib/sheetPnl";
 import { addMonths, parseAmount } from "../lib/money";
 
 export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: string }) {
@@ -24,6 +25,26 @@ export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: stri
   }
   const savePlan = (patch: object) => updateDoc(ref, { clientPlan: { ...plan, ...patch } });
 
+  // «Сдано»: сохраняем снимок цифр месяца из таблицы; снятие отметки — удаляем снимок (месяц снова живой)
+  const [freezing, setFreezing] = useState(false);
+  async function toggleClosed(mk: string, on: boolean) {
+    const snapRef = doc(db, "workspaces", wsId, "clients", p.id, "snapshots", mk);
+    if (on) {
+      if (!confirm("Снять «Сдано»? Цифры месяца снова будут браться из таблицы.")) return;
+      await deleteDoc(snapRef).catch(() => {}); await updateDoc(ref, { closedMonths: arrayRemove(mk) }); return;
+    }
+    if (p.pnlUrl) {
+      setFreezing(true);
+      try {
+        const j = await (await fetch(p.pnlUrl + "&fresh=1")).json();
+        if (j.error) throw new Error(j.error);
+        await setDoc(snapRef, sliceMonth(j, mk));
+      } catch (e: any) { setFreezing(false); return alert("Не удалось сохранить цифры месяца: " + (e?.message || e) + ". Попробуй ещё раз."); }
+      setFreezing(false);
+    }
+    await updateDoc(ref, { closedMonths: arrayUnion(mk) });
+  }
+
   return (
     <div className="card" style={{ background: "var(--bg)", marginTop: 8 }}>
       <div className="row"><b>👤 Кабинет клиента</b>
@@ -38,12 +59,13 @@ export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: stri
       <label className="small" style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>📑 Ссылка на P&L из таблицы (Apps Script)
         <input key={p.pnlUrl || ""} defaultValue={p.pnlUrl || ""} placeholder="https://script.google.com/macros/s/…/exec?key=СЕКРЕТ&dir=Кубики"
           onBlur={(e) => { const v = e.target.value.trim(); if (v !== (p.pnlUrl || "")) updateDoc(ref, { pnlUrl: v }); }} /></label>
-      <div className="small" style={{ marginTop: 10 }}><b>✓ Сдано клиенту</b> <span className="muted">— отметь месяц после созвона</span></div>
+      <div className="small" style={{ marginTop: 10 }}><b>✓ Сдано клиенту</b> <span className="muted">— отметь месяц после созвона. Цифры месяца замораживаются: правки в таблице их больше не меняют.</span></div>
+      {freezing && <div className="small muted">🧊 Сохраняю цифры месяца…</div>}
       <div className="chips" style={{ margin: "4px 0" }}>
         {[-3, -2, -1, 0].map((k) => { const mk = addMonths(monthKey(new Date()), k); const on = (p.closedMonths || []).includes(mk);
           const [y, m] = mk.split("-").map(Number);
           return <button key={mk} className={`chipbtn ${on ? "on" : ""}`}
-            onClick={() => updateDoc(ref, { closedMonths: on ? arrayRemove(mk) : arrayUnion(mk) })}>
+            onClick={() => toggleClosed(mk, on)}>
             {on ? "✓ " : ""}{["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"][m - 1]} {y}</button>; })}
       </div>
       <div className="small" style={{ marginTop: 10 }}><b>🎯 План для клиента на следующий месяц</b></div>

@@ -56,9 +56,34 @@ export function parsePnl(values: string[][], title = ""): Pnl {
 
 // Таблица большая — скрипт иногда отвечает долго или с ошибкой Google. Пробуем до 3 раз,
 // а если не вышло — показываем последний удачно загруженный отчёт из памяти браузера.
-export async function loadPnl(url: string, closed: string[] = []): Promise<Pnl> {
+// ===== Заморозка сданных месяцев =====
+// При отметке «Сдано» сохраняем снимок цифр месяца (ОПиУ + ДДС). Дальше этот месяц берётся из снимка,
+// даже если в таблице что-то изменилось или слетело.
+export interface MonthSnap { rows: { process: string; article: string; v: number }[]; dds: { process: string; article: string; account?: string; v: number }[]; at: string; }
+export function sliceMonth(j: any, mk: string): MonthSnap {
+  const pick = (rows: DbRow[] = []) => rows.filter((r) => r.values?.[mk] != null).map((r) => ({ process: r.process, article: r.article, account: r.account, v: r.values[mk] }));
+  return { rows: pick(j.rows).map(({ account, ...x }) => x), dds: pick(j.dds?.rows), at: new Date().toISOString() };
+}
+function applySnaps(j: any, snaps: Record<string, MonthSnap>) {
+  if (j.mode !== "db") return j;
+  const put = (rows: DbRow[], items: { process: string; article: string; account?: string; v: number }[], mk: string) => {
+    rows.forEach((r) => { if (r.values) delete r.values[mk]; });
+    items.forEach((it) => {
+      let r = rows.find((x) => x.process === it.process && x.article === it.article && (x.account || "") === (it.account || ""));
+      if (!r) { r = { process: it.process, article: it.article, account: it.account, values: {} }; rows.push(r); }
+      r.values[mk] = it.v;
+    });
+  };
+  Object.entries(snaps).forEach(([mk, sn]) => {
+    put(j.rows, sn.rows, mk); if (!j.months.includes(mk)) j.months = [...j.months, mk].sort();
+    if (j.dds) { put(j.dds.rows, sn.dds, mk); if (!j.dds.months.includes(mk)) j.dds.months = [...j.dds.months, mk].sort(); }
+  });
+  return j;
+}
+
+export async function loadPnl(url: string, closed: string[] = [], snaps: Record<string, MonthSnap> = {}): Promise<Pnl> {
   const key = "pnl:" + url.replace("&fresh=1", "");
-  const build = (j: any): Pnl => j.mode === "db" ? buildFromDb(j, closed) : { ...parsePnl(j.values, j.title || j.sheet), at: j.at };
+  const build = (j: any): Pnl => j.mode === "db" ? buildFromDb(applySnaps(j, snaps), closed) : { ...parsePnl(j.values, j.title || j.sheet), at: j.at };
   let last = "";
   for (let a = 0; a < 3; a++) {
     try {
