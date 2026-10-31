@@ -406,3 +406,4 @@ input,select,textarea{border-radius:12px}
 .staff-left{display:flex;flex-direction:column;gap:14px}
 .staff-right{height:100%}
 @media (max-width:900px){.staff-top{grid-template-columns:1fr}}
+.kb-done{opacity:.75}

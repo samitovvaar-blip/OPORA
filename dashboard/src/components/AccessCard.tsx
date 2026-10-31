@@ -15,6 +15,12 @@ export default function AccessCard() {
   const [pay, setPay] = useState<Record<string, Pay>>({});
   const [pres, setPres] = useState<Record<string, { lastSeen?: any; days?: Record<string, number> }>>({});
   const [, tick] = useState(0);
+  const [prog, setProg] = useState<Record<string, string[]>>({});
+  const [kb, setKb] = useState<{ id: string; course?: string }[]>([]);
+  useEffect(() => wsId && isOwner ? onSnapshot(collection(db, "workspaces", wsId, "progress"),
+    (s) => setProg(Object.fromEntries(s.docs.map((d) => [d.id, (d.data().done as string[]) || []])))) : undefined, [wsId, isOwner]);
+  useEffect(() => wsId && isOwner ? onSnapshot(collection(db, "workspaces", wsId, "kb"),
+    (s) => setKb(s.docs.map((d) => ({ id: d.id, course: d.data().course })))) : undefined, [wsId, isOwner]);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(t); }, []);
   useEffect(() => wsId && isOwner ? onSnapshot(collection(db, "workspaces", wsId, "presence"),
     (s) => setPres(Object.fromEntries(s.docs.map((d) => [d.id, d.data() as any])))) : undefined, [wsId, isOwner]);
@@ -58,7 +64,8 @@ export default function AccessCard() {
             <div className="inline" style={{ margin: "6px 0 0" }}>
               {COURSES.map((c) => { const on = (p.courses || []).includes(c.id);
                 return <button key={c.id} className={on ? "" : "ghost"} title={on ? "Курс открыт — нажми, чтобы закрыть" : "Открыть курс сотруднику"}
-                  onClick={() => save({ courses: on ? (p.courses || []).filter((x) => x !== c.id) : [...(p.courses || []), c.id] })}>{on ? "🔓 " : "🔒 "}{c.name}</button>; })}
+                  onClick={() => save({ courses: on ? (p.courses || []).filter((x) => x !== c.id) : [...(p.courses || []), c.id] })}>{on ? "🔓 " : "🔒 "}{c.name}{on ? (() => { const ls = kb.filter((l) => l.course === c.id); const d = ls.filter((l) => (prog[m] || []).includes(l.id)).length;
+                  return ` · ${d}/${ls.length}`; })() : ""}</button>; })}
             </div>
           </div>);
       })}

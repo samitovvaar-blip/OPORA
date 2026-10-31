@@ -1,7 +1,7 @@
 // База знаний: обучение для сотрудников. Ведёт владелец, сотрудник смотрит.
 // workspaces/{ws}/kb/{id}
 import { FormEvent, useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { normUrl } from "../components/ProjectLinks";
@@ -32,6 +32,11 @@ export default function Knowledge() {
   const me = (auth.currentUser?.email || "").toLowerCase();
   const [myCourses, setMyCourses] = useState<string[] | null>(isOwner ? COURSES.map((c) => c.id) : null);
   const [course, setCourse] = useState<string | null>(null);
+  // прогресс сотрудника: какие уроки просмотрены (progress/{email}.done)
+  const [doneIds, setDoneIds] = useState<string[]>([]);
+  const progRef = wsId && me ? doc(db, "workspaces", wsId, "progress", me) : null;
+  useEffect(() => progRef && !isOwner ? onSnapshot(progRef, (s) => setDoneIds((s.data()?.done as string[]) || []), () => {}) : undefined, [wsId, me, isOwner]);
+  const toggleDone = (id: string) => progRef && setDoc(progRef, { done: doneIds.includes(id) ? arrayRemove(id) : arrayUnion(id) }, { merge: true });
   // сотрудник: какие курсы ему открыты (карточка staff/{email})
   useEffect(() => wsId && !isOwner && me ? onSnapshot(doc(db, "workspaces", wsId, "staff", me),
     (s) => setMyCourses((s.data()?.courses as string[]) || []), () => setMyCourses([])) : undefined, [wsId, isOwner, me]);
@@ -70,7 +75,12 @@ export default function Knowledge() {
       {err && <div className="error">{err}</div>}
       <div className="course-btns">
         {avail.map((c) => <button key={c.id} className={`course-btn ${cur === c.id ? "on" : ""}`} onClick={() => setCourse(cur === c.id ? null : c.id)}>
-          <span>{c.icon}</span><b>{c.name}</b><small>{list.filter((l) => l.course === c.id).length} уроков</small></button>)}
+          <span>{c.icon}</span><b>{c.name}</b>
+          {(() => { const ls = list.filter((l) => l.course === c.id), d = ls.filter((l) => doneIds.includes(l.id)).length;
+            return isOwner ? <small>{ls.length} уроков</small> : <>
+              <small>пройдено {d} из {ls.length}</small>
+              <div className="progress" style={{ width: "100%", margin: "6px 0 0", background: "rgba(255,255,255,.2)" }}><div style={{ width: (ls.length ? d / ls.length * 100 : 0) + "%", background: "#7ee0a8" }} /></div></>; })()}
+          </button>)}
       </div>
       {!isOwner && myCourses && !avail.length && <div className="card muted">Курсы пока не открыты. Попроси Арину открыть доступ 🙂</div>}
       {cur && !shown.length && <div className="card muted">{isOwner ? "В этом курсе пока нет уроков — добавь ниже 👇" : "Уроки скоро появятся 🙂"}</div>}
@@ -82,8 +92,9 @@ export default function Knowledge() {
             {shown.filter((l) => (l.section || "Общее") === sec).map((l, i, arr) => {
               const emb = embedUrl(l.url);
               return (
-                <div key={l.id} className="card kb">
-                  <div className="row"><b>▶ {l.title}</b>
+                <div key={l.id} className={`card kb ${doneIds.includes(l.id) ? "kb-done" : ""}`}>
+                  <div className="row"><b>{doneIds.includes(l.id) ? "✅" : "▶"} {l.title}</b>
+                    {!isOwner && <button className={doneIds.includes(l.id) ? "" : "ghost"} onClick={() => toggleDone(l.id)}>{doneIds.includes(l.id) ? "✓ Просмотрено" : "Отметить просмотренным"}</button>}
                     {isOwner && <span>
                       <button className="ghost" disabled={!i} onClick={() => { const p = arr[i - 1]; updateDoc(doc(col!, l.id), { order: p.order }); updateDoc(doc(col!, p.id), { order: l.order }); }}>↑</button>
                       <button className="ghost" onClick={() => confirm(`Удалить «${l.title}»?`) && deleteDoc(doc(col!, l.id))}>✕</button></span>}

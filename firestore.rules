@@ -50,6 +50,13 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(["lastSeen", "days"]);
     }
 
+    // Прогресс по курсам: сотрудник отмечает просмотренные уроки (только свои), смотрит владелец
+    match /workspaces/{ws}/progress/{email} {
+      allow read: if isOwner(ws) || (isMember(ws) && request.auth.token.email.lower() == email);
+      allow write: if isMember(ws) && request.auth.token.email.lower() == email
+        && request.resource.data.keys().hasOnly(["done"]) && request.resource.data.done is list && request.resource.data.done.size() <= 500;
+    }
+
     // База знаний: ведёт владелец, сотрудник смотрит
     // сотрудник видит уроки только тех курсов, что владелец открыл ему (staff/{email}.courses)
     match /workspaces/{ws}/kb/{id} {
