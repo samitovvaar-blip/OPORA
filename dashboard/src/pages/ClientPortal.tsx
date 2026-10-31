@@ -203,8 +203,9 @@ export default function ClientPortal() {
                 const beQ = be != null && avg ? Math.ceil(be / avg) : null, ok = be != null && rev != null && rev >= be;
                 const txt = !fx ? "укажи в справочнике постоянные расходы" : !rev ? "нужна выручка за месяц" : be == null ? "переменные расходы больше выручки"
                   : rub(Math.round(be)) + (beQ != null ? ` · ${beQ} ${qName}` : "");
-                return <div style={{ cursor: "pointer", background: ok ? "rgba(22,163,74,.12)" : "rgba(59,109,179,.12)", borderRadius: 8, padding: "2px 8px", margin: "0 -8px 4px" }} onClick={() => setBeOpen(!beOpen)} title="Нажми, чтобы увидеть расчёт">
-                  <Row l={`⚖️ Точка безубыточности ${beOpen ? "▾" : "▸"}`} v={txt} c={ok ? "#16a34a" : "#25476f"} />
+                return <div style={{ marginBottom: 6 }}>
+                  <span onClick={() => setBeOpen(!beOpen)} title="Нажми, чтобы увидеть расчёт" className="small" style={{ cursor: "pointer", display: "inline-block", background: ok ? "#16a34a" : "#25476f", color: "#fff", borderRadius: 999, padding: "4px 12px", fontWeight: 700 }}>
+                    ⚖️ Точка безубыточности: {txt} {beOpen ? "▾" : "▸"}</span>
                   {be != null && <div className="small" style={{ color: ok ? "#16a34a" : "#b02a2a" }}>{ok ? "✓ пройдена" : `не хватает ${rub(Math.round(be - (rev || 0)))}${beQ != null && qty ? ` · ещё ${Math.max(0, beQ - qty)} ${qName}` : ""}`}</div>}
                   {beOpen && <div className="comment small" style={{ marginTop: 6 }}>
                     <div>Выручка: <b>{rub(rev || 0)}</b></div>
