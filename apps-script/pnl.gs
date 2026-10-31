@@ -35,7 +35,7 @@ function buildReport(e) {
 
   var groupsOf = readDirectory(ss);   // статья → [группы] из справочника
   var typos = [];                      // строки, где год даты операции не совпадает с датой для отчёта
-  var sums = {}, months = {}, seen = 0, total = 0;
+  var sums = {}, months = {}, seen = 0, total = 0, foundDirs = {};
   var dds = {}, ddsMonths = {};   // ДДС: по «Дате операции», все движения денег
   for (var s = 0; s < names.length; s++) {
     var sh = ss.getSheetByName(names[s].trim());
@@ -52,7 +52,7 @@ function buildReport(e) {
     for (var r = 1; r < v.length; r++) {
       var row = v[r];
       var hit = false;
-      for (var c = 0; c < cDirs.length; c++) if (dirs.indexOf(norm(row[cDirs[c]])) >= 0) { hit = true; break; }
+      for (var c = 0; c < cDirs.length; c++) { var dv = String(row[cDirs[c]] || '').trim(); if (dv) foundDirs[dv] = 1; if (dirs.indexOf(norm(dv)) >= 0) { hit = true; break; } }
       if (!hit) continue;
       seen++;
       var proc = String(row[cProc] || '').trim(), art = String(row[cArt] || '').trim();
@@ -90,6 +90,7 @@ function buildReport(e) {
   }
   var rows = Object.keys(sums).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: sums[k] }; });
   var ddsRows = Object.keys(dds).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], account: x[2], values: dds[k] }; });
+  if (!seen && total) return out({ error: 'В базе нет строк с направлением «' + dirs.join(', ') + '». В колонке «Направление» есть: ' + Object.keys(foundDirs).join(', ') + '. Впиши в кабинете одно из них.' });
   return out({ mode: 'db', goods: readGoods(ss), dirMeta: readDirMeta(ss), balances: readBalances(ss), typos: typos, directory: Object.keys(groupsOf).length, dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
 }
 
