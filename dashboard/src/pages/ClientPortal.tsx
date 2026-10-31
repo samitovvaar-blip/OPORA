@@ -50,6 +50,7 @@ export default function ClientPortal() {
   const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op">("dash");
   const [anN, setAnN] = useState(3);
   const [beOpen, setBeOpen] = useState(false);
+  const [salOpen, setSalOpen] = useState(false);
   const [anMode, setAnMode] = useState<"months" | "cmp">("cmp");
   const [hideNeyla, setHideNeyla] = useState(false);
   const [taps, setTaps] = useState(0);
@@ -194,7 +195,6 @@ export default function ClientPortal() {
               <b className={kp[f] == null ? "muted" : ""}>{kp[f] ?? "нет информации от ОП"}</b></div>;
             return <><div className="card span2">
               <h3 style={{ marginTop: 0 }}>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
-              <div className="small muted" style={{ marginBottom: 6 }}>Откуда цифры: статьи ДДС из таблицы за месяц (по названию статьи: «дивиденды», «возврат», «налог», «зарплата / ФОТ / премия»). Процент — доля от выручки месяца. Точка безубыточности — по типам расходов из справочника; нажми на неё, чтобы увидеть расчёт.</div>
               {(() => {
                 // Точка безубыточности: постоянные / (1 − переменные / выручка); в штуках — через средний чек
                 const vr = Math.abs(pnl.variable[cur] || 0), fx = Math.abs(pnl.fixed[cur] || 0), share = rev ? vr / rev : null;
@@ -203,8 +203,9 @@ export default function ClientPortal() {
                 const beQ = be != null && avg ? Math.ceil(be / avg) : null, ok = be != null && rev != null && rev >= be;
                 const txt = !fx ? "укажи в справочнике постоянные расходы" : !rev ? "нужна выручка за месяц" : be == null ? "переменные расходы больше выручки"
                   : rub(Math.round(be)) + (beQ != null ? ` · ${beQ} ${qName}` : "");
-                return <div style={{ cursor: "pointer" }} onClick={() => setBeOpen(!beOpen)} title="Нажми, чтобы увидеть расчёт">
-                  <Row l={`⚖️ Точка безубыточности ${beOpen ? "▾" : "▸"}`} v={txt} c={ok ? "#16a34a" : "#b02a2a"} />
+                return <div style={{ cursor: "pointer", border: `2px solid ${ok ? "#16a34a" : "#b02a2a"}`, borderRadius: 12, padding: "10px 12px", marginBottom: 10 }} onClick={() => setBeOpen(!beOpen)} title="Нажми, чтобы увидеть расчёт">
+                  <div style={{ fontWeight: 700 }}>⚖️ Точка безубыточности {beOpen ? "▾" : "▸"}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: ok ? "#16a34a" : be != null ? "#b02a2a" : undefined }} className={be == null ? "muted small" : ""}>{txt}</div>
                   {be != null && <div className="small" style={{ color: ok ? "#16a34a" : "#b02a2a" }}>{ok ? "✓ пройдена" : `не хватает ${rub(Math.round(be - (rev || 0)))}${beQ != null && qty ? ` · ещё ${Math.max(0, beQ - qty)} ${qName}` : ""}`}</div>}
                   {beOpen && <div className="comment small" style={{ marginTop: 6 }}>
                     <div>Выручка: <b>{rub(rev || 0)}</b></div>
@@ -220,7 +221,10 @@ export default function ClientPortal() {
               {(() => {
                 const pr = (k: string, l: string, c: string) => { const x = at(k); const a = x != null ? Math.abs(x) : null;
                   return <Row key={k} l={l} v={a ? `${rev ? (a / rev * 100).toFixed(1) + "% · " : ""}${rub(a)}` : "—"} c={c} />; };
-                return <>{pr("dividends", "Дивиденды", "#b02a2a")}{pr("refunds", "Возвраты клиентам", "#e8873a")}{pr("taxes", "Налоги", "#8a3ab9")}{pr("salary", "ФОТ (все зарплаты)", "#3a9a5b")}</>;
+                return <>{pr("dividends", "Дивиденды", "#b02a2a")}{pr("refunds", "Возвраты клиентам", "#e8873a")}{pr("taxes", "Налоги", "#8a3ab9")}<div style={{ cursor: "pointer" }} onClick={() => setSalOpen(!salOpen)} title="Нажми, чтобы увидеть, из чего состоит">{pr("salary", `ФОТ (все зарплаты) ${salOpen ? "▾" : "▸"}`, "#3a9a5b")}</div>
+                  {salOpen && <div className="comment small" style={{ marginTop: 4 }}>{(pnl.salaryItems || []).filter((x) => x.values[cur] != null).length
+                    ? (pnl.salaryItems || []).filter((x) => x.values[cur] != null).map((x) => <div key={x.name} className="row"><span>{x.name}</span><b>{rub(Math.abs(x.values[cur]!))}</b></div>)
+                    : <span className="muted">В этом месяце статей с зарплатами нет</span>}</div>}</>;
               })()}
             </div>
             <div className="card span4">

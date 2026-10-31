@@ -7,7 +7,8 @@ export interface Pnl { db?: boolean; dds?: Dds; title: string; months: PnlMonth[
   revenue: (number | null)[]; profit: (number | null)[]; variable: (number | null)[]; fixed: (number | null)[]; depts: PnlRow[]; stale?: boolean;
   ddsRaw?: { months: string[]; rows: DbRow[] }; balances?: Balances | null;
   metrics?: Record<string, (number | null)[]>;
-  tagMetrics?: Record<string, (number | null)[]>;   // метрики из справочника (колонка D)
+  tagMetrics?: Record<string, (number | null)[]>;
+  salaryItems?: { name: string; values: (number | null)[] }[];   // из чего сложился ФОТ   // метрики из справочника (колонка D)
   goods?: Goods | null;   // товарный учёт (если есть в таблице)
 }
 
@@ -200,6 +201,9 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
   const art = (re: RegExp, not?: RegExp) => sumOf(j.rows.filter((r) => !isIncome(r) && re.test(r.article) && !(not && not.test(r.article))));
   const common = { dividends: art(/дивиден/i), refunds: art(/возврат/i), taxes: sumOf(j.rows.filter((r) => isTax(r) && !isIncome(r))),
     salary: art(/зарплат|з\/п|\bзп\b|фот|оклад|преми|мотивац/i, /налог/i) };
+  const salRe = /зарплат|з\/п|\bзп\b|фот|оклад|преми|мотивац|аванс сотр/i;
+  const salaryItems = [...new Set(j.rows.filter((r) => !isIncome(r) && salRe.test(r.article) && !/налог/i.test(r.article)).map((r) => r.article.trim()))]
+    .map((name) => ({ name, values: sumOf(j.rows.filter((r) => !isIncome(r) && r.article.trim() === name)) }));
   const types = j.dirMeta?.types || {};
   // Простой справочник: колонка A — сразу ТИП (Доход / Переменные / Постоянные / Фонд / Не учитывать), B — статьи
   const TYPE_RE = /^(доход|выручк|переменн|постоянн|фонд|не учит|проч)/i;
@@ -239,7 +243,7 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
       if (fixT.length) tagMetrics["Постоянные расходы"] = fS;
       groupsOf([...varT, ...fixT]).filter((g) => !TYPE_RE.test(g.trim())).forEach((g) => { tagMetrics[g] = sumOf([...varT, ...fixT].filter((r) => (r.process || "Без группы") === g)); });
     }
-    return { metrics: { ...common, outsource: none, d1: tagMetrics["Себестоимость"] || none, d2: none, d3: tagMetrics["Маркетинг"] || none, d4: none, d5: none },
+    return { salaryItems, metrics: { ...common, outsource: none, d1: tagMetrics["Себестоимость"] || none, d2: none, d3: tagMetrics["Маркетинг"] || none, d4: none, d5: none },
       tagMetrics, ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at,
       revenue: revT, profit: profT, variable: vS, fixed: fS,
       // структура расходов: группы, а в простом справочнике — сами статьи расходов
@@ -284,7 +288,7 @@ export function buildFromDb(j: { title?: string; months: string[]; rows: DbRow[]
     salary: by(/зарплат|з\/п|\bзп\b|фот|оклад|преми|мотивац|аванс сотр/i, /налог/i),
     d1: sumOf(byDept("1")), d2: sumOf(byDept("2")), d3: sumOf(byDept("3")), d4: sumOf(byDept("4")), d5: sumOf(byDept("5")) };
 
-  return { metrics, tagMetrics, ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
+  return { salaryItems, metrics, tagMetrics, ddsRaw: j.dds, balances: cleanBalances(j.balances), db: true, dds: j.dds ? buildDds(j.dds) : undefined, title: j.title || "", months, rows, at: j.at, revenue, profit, variable: varSum, fixed: fixSum,
     depts: rows.filter((r) => r.total) };
 }
 
