@@ -13,6 +13,7 @@ import { applySales, buildDds, loadPnl, Pnl } from "../lib/sheetPnl";
 import { visibleItems } from "../components/Checklist";
 import { useAuth } from "../lib/auth";
 import { LINK_FIELDS } from "../components/ProjectLinks";
+import NeylaLoading from "../components/NeylaLoading";
 import PayCalendar, { monthSum } from "../components/PayCalendar";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
@@ -78,7 +79,7 @@ export default function ClientPortal() {
 
   const view = tab === "rep" ? rep : tab;
   if (err) return <><h1>Кабинет клиента</h1><div className="card">🔒 {err}</div></>;
-  if (!p) return <div className="muted">Загрузка…</div>;
+  if (!p) return <NeylaLoading text="Открываю кабинет клиента" />;
 
   const v = (arr: (number | null)[], i?: number) => (i == null ? null : arr[i]);
   const rev = v(pnl?.revenue || [], cur ?? undefined), prof = v(pnl?.profit || [], cur ?? undefined);
@@ -115,10 +116,7 @@ export default function ClientPortal() {
       {(view === "dash" || view === "pnl" || view === "dds") && !p.pnlUrl && <div className="card muted">Отчётность скоро появится здесь.</div>}
       {(view === "dash" || view === "pnl" || view === "dds") && pnl?.stale && <div className="card small muted">⚠️ Таблица сейчас не отвечает — показан последний загруженный отчёт{pnl.at ? " от " + new Date(pnl.at).toLocaleString("ru-RU") : ""}.</div>}
       {(view === "dash" || view === "pnl" || view === "dds") && pnlErr && <div className="card error">Не удалось загрузить отчёт: {pnlErr}</div>}
-      {p.pnlUrl && !pnl && !pnlErr && <div className="neyla-toast">
-        <img src="neyla.jpg" alt="" />
-        <div className="neyla-bubble"><b>Нейла</b><span>Загружаю данные из таблицы<span className="dots"><i>.</i><i>.</i><i>.</i></span></span></div>
-      </div>}
+      {p.pnlUrl && !pnl && !pnlErr && <NeylaLoading text="Загружаю отчёт из таблицы" />}
 
 
       {tab === "dash" && pnl && cur != null && <>

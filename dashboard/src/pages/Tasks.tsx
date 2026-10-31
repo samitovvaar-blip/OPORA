@@ -1,3 +1,4 @@
+import NeylaLoading from "../components/NeylaLoading";
 // Задания сотруднику в виде календаря. Видят оба; создаёт и удаляет — владелец,
 // сотрудник отмечает чекпоинты и статус.
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -58,7 +59,7 @@ export default function Tasks() {
     .filter((it) => it.due != null && shown(it, p.flags || {}))
     .map((it) => ({ key: p.id + it.id, pid: p.id, itemId: it.id, project: p.name, title: it.title, date: dueDate(mk, it.due!), done: !!marks[p.id]?.[it.id]?.done, open: p.calendarOpen }))));
 
-  if (!ready) return <div className="muted">Загрузка…</div>;
+  if (!ready) return <NeylaLoading text="Загружаю задания" />;
   if (!isOwner && ws && !ws.open) return <><h1>Задания</h1><div className="card">🔒 Доступ сейчас закрыт. Обратись к владельцу.</div></>;
 
   async function add(e: FormEvent) {

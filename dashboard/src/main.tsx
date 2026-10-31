@@ -1,3 +1,4 @@
+import NeylaLoading from "./components/NeylaLoading";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
@@ -24,21 +25,21 @@ import "./styles.css";
 
 function Protected() {
   const { user, loading } = useAuth();
-  if (loading) return <div className="center">Загрузка…</div>;
+  if (loading) return <NeylaLoading text="Секунду, открываю кабинет" />;
   return user ? <WorkspaceProvider><Layout /></WorkspaceProvider> : <Navigate to="/login" replace />;
 }
 
 // Сотрудник видит только «Задания»
 function OwnerOnly({ children }: { children: JSX.Element }) {
   const { isOwner, ready } = useWorkspace();
-  if (!ready) return <div className="muted">Загрузка…</div>;
+  if (!ready) return <NeylaLoading />;
   return isOwner ? children : <Navigate to="/" replace />;
 }
 
 // Главная: у владельца своя, у сотрудника своя
 function HomeSwitch() {
   const { isOwner, ready, clientOf } = useWorkspace();
-  if (!ready) return <div className="muted">Загрузка…</div>;
+  if (!ready) return <NeylaLoading />;
   if (clientOf) return <ClientPortal />;
   return isOwner ? <Home /> : <MemberGate><StaffHome /></MemberGate>;
 }
@@ -46,7 +47,7 @@ function HomeSwitch() {
 // Кабинет клиента: клиенту — свой, владельцу — предпросмотр
 function ClientGate() {
   const { isOwner, clientOf, ready } = useWorkspace();
-  if (!ready) return <div className="muted">Загрузка…</div>;
+  if (!ready) return <NeylaLoading />;
   return isOwner || clientOf ? <ClientPortal /> : <Navigate to="/" replace />;
 }
 
@@ -55,7 +56,7 @@ function MemberGate({ children }: { children: JSX.Element }) {
   const { wsId, ready, isOwner, clientOf } = useWorkspace();
   const { user } = useAuth();
   if (clientOf) return <Navigate to="/" replace />;
-  if (!ready) return <div className="muted">Загрузка…</div>;
+  if (!ready) return <NeylaLoading />;
   if (!isOwner && user && !user.emailVerified) return <VerifyEmail />;
   return wsId ? children : <><h1>Нет доступа</h1><div className="card">🔒 Владелец ещё не открыл вам доступ. Выйдите и попросите добавить вашу почту.</div></>;
 }
