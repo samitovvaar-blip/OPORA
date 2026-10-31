@@ -48,6 +48,7 @@ export default function ClientPortal() {
   const [err, setErr] = useState("");
   const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op">("dash");
   const [anN, setAnN] = useState(3);
+  const [anMode, setAnMode] = useState<"months" | "cmp">("months");
   const [hideNeyla, setHideNeyla] = useState(false);
   const [taps, setTaps] = useState(0);
   const [rep, setRep] = useState<"pnl" | "dds" | "an">("pnl");
@@ -246,7 +247,7 @@ export default function ClientPortal() {
           const hasKids = (i: number) => tree[i + 1] && tree[i + 1].lvl > tree[i].lvl;
           const big = (n: string) => /выручк|прибыль|переменн|постоянн/i.test(n) && !/\d\./.test(n);
           return <table className="pnl-table">
-            <thead><tr><th /><th>{pnl.months[cur].label}</th><th className="small">% выручки</th>{prevIdx != null && <><th className="small">{pnl.months[prevIdx].label}</th><th className="small">Δ</th></>}</tr></thead>
+            <thead><tr><th /><th>{pnl.months[cur].label}</th><th className="small">% выручки</th></tr></thead>
             <tbody>{tree.map((t, i) => {
               if (t.lvl >= 1 && !open[t.k0]) return null;
               if (t.lvl === 2 && !open[t.k1]) return null;
@@ -260,15 +261,6 @@ export default function ClientPortal() {
                 <td style={{ paddingLeft: [8, 24, 44][t.lvl] }} className={/прибыль/i.test(t.r.name) && t.lvl === 0 ? "profit" : ""}>{kids ? ((isPre ? open.chk : open[t.key]) ? "▾ " : "▸ ") : ""}{t.lvl === 2 ? t.r.sub : t.r.name}</td>
                 <td className={/^Проверка/.test(t.r.name) ? (Math.abs(v || 0) < 1 ? "ok" : "error") : /прибыль/i.test(t.r.name) && t.lvl === 0 ? ((v || 0) < 0 ? "error profit" : "profit") : (v || 0) < 0 ? "neg" : ""}>{v != null ? (/^Проверка/.test(t.r.name) && Math.abs(v) < 1 ? "✓ " : "") + rub(v) : "—"}</td>
                 <td className="small muted">{v != null && rev ? (Math.abs(v) / rev * 100).toFixed(1) + "%" : ""}</td>
-                {prevIdx != null && (() => {
-                  // сравнение с прошлым месяцем: для расходов рост — плохо, для выручки и прибыли — хорошо
-                  const pv = t.r.values[prevIdx], exp = (v || 0) < 0 || (pv || 0) < 0 && !/прибыль/i.test(t.r.name);
-                  // расходы сравниваем по модулю: «▲» = потратили больше (плохо)
-                  const d = v != null && pv ? Math.round(((exp ? Math.abs(v) : v) - (exp ? Math.abs(pv) : pv)) / Math.abs(pv) * 100) : null;
-                  const good = d == null ? null : exp && !/прибыль/i.test(t.r.name) ? d <= 0 : d >= 0;
-                  return <><td className="small muted">{pv != null ? rub(pv) : "—"}</td>
-                    <td className={`small ${good == null ? "muted" : good ? "ok" : "error"}`}>{d == null ? "" : (d > 0 ? "▲ " : d < 0 ? "▼ " : "") + Math.abs(d) + "%"}</td></>;
-                })()}
               </tr>;
             })}</tbody>
           </table>;
@@ -355,7 +347,7 @@ export default function ClientPortal() {
 
       {view === "an" && pnl && cur != null && (() => {
         // Аналитика: ключевые строки ОПиУ за 3 или 6 месяцев (до выбранного включительно)
-        const idx = filled.filter(({ i }) => i <= cur).slice(-anN).map(({ i }) => i);
+        const idx = anMode === "cmp" ? [prevIdx, cur].filter((x): x is number => x != null) : filled.filter(({ i }) => i <= cur).slice(-anN).map(({ i }) => i);
         const M = pnl.metrics || {}, a = (arr?: (number | null)[]) => idx.map((i) => arr?.[i] ?? null);
         const neg = (arr: (number | null)[]) => arr.map((x) => x == null ? null : Math.abs(x));
         const rows: [string, (number | null)[], string][] = [
@@ -370,16 +362,25 @@ export default function ClientPortal() {
         const revs = a(pnl.revenue), profs = a(pnl.profit);
         return <div className="card soft-card print-area" style={{ overflowX: "auto", maxWidth: 1000 }}>
           <div className="row"><h3 style={{ margin: 0 }}>📈 Аналитика по месяцам</h3>
-            <span className="chips no-print">{[3, 6, 12].map((n) => <button key={n} className={`chipbtn ${anN === n ? "on" : ""}`} onClick={() => setAnN(n)}>{n === 3 ? "3 месяца" : n === 6 ? "Полгода" : "Год"}</button>)}</span></div>
+            <span className="chips no-print">
+              {[3, 6, 12].map((n) => <button key={n} className={`chipbtn ${anMode === "months" && anN === n ? "on" : ""}`} onClick={() => { setAnMode("months"); setAnN(n); }}>{n === 3 ? "3 месяца" : n === 6 ? "Полгода" : "Год"}</button>)}
+              <button className={`chipbtn ${anMode === "cmp" ? "on" : ""}`} onClick={() => setAnMode("cmp")}>± К прошлому месяцу</button></span></div>
           <table className="pnl-table" style={{ marginTop: 10 }}>
-            <thead><tr><th />{idx.map((i) => <th key={i}>{pnl.months[i].label}<div className="small" style={{ opacity: .8 }}>{pnl.months[i].closed ? "✓ сдано" : "предв."}</div></th>)}<th>Итого</th></tr></thead>
+            <thead><tr><th />{idx.map((i) => <th key={i}>{pnl.months[i].label}<div className="small" style={{ opacity: .8 }}>{pnl.months[i].closed ? "✓ сдано" : "предв."}</div></th>)}<th>{anMode === "cmp" ? "Отклонение" : "Итого"}</th></tr></thead>
             <tbody>
               {rows.map(([l, vals, cls]) => <tr key={l} className={cls.includes("an-key") ? "pnl-key" : ""}>
                 <td className={cls.includes("profit") ? "profit" : cls === "an-sec" ? "an-sec" : ""} style={{ paddingLeft: cls ? undefined : 22 }}>{l}</td>
                 {vals.map((v, k) => <td key={k} className={cls.includes("profit") ? ((v || 0) < 0 ? "error profit" : "profit") : ""}>{v != null ? rub(v) : "—"}</td>)}
-                <td><b>{rub(sum(vals))}</b></td></tr>)}
+                {anMode === "cmp" ? (() => {
+                  // ± к прошлому месяцу: для расходов рост — плохо, для выручки и прибыли — хорошо
+                  const [pv, v] = vals.length === 2 ? vals : [null, vals[0]];
+                  const isExp = !/выручка|прибыль/i.test(l), d = v != null && pv ? Math.round((v - pv) / Math.abs(pv) * 100) : null;
+                  const good = d == null ? null : isExp ? d <= 0 : d >= 0;
+                  return <td className={good == null ? "muted" : good ? "ok" : "error"}><b>{v != null && pv != null ? (v - pv >= 0 ? "+" : "−") + rub(Math.abs(v - pv)) : "—"}</b>
+                    <div className="small">{d == null ? "" : (d > 0 ? "▲ " : d < 0 ? "▼ " : "") + Math.abs(d) + "%"}</div></td>;
+                })() : <td><b>{rub(sum(vals))}</b></td>}</tr>)}
               <tr><td>Рентабельность</td>{idx.map((i, k) => <td key={k}>{pct(profs[k], revs[k]) != null ? pct(profs[k], revs[k]) + "%" : "—"}</td>)}
-                <td><b>{pct(sum(profs), sum(revs)) != null ? pct(sum(profs), sum(revs)) + "%" : "—"}</b></td></tr>
+                <td><b>{anMode === "cmp" ? "" : pct(sum(profs), sum(revs)) != null ? pct(sum(profs), sum(revs)) + "%" : "—"}</b></td></tr>
             </tbody>
           </table>
         </div>;
