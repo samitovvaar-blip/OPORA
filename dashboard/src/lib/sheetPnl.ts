@@ -113,7 +113,7 @@ const DEPTS: Record<string, string> = { "1": "1. Производственны�
 
 export interface DbRow { process: string; article: string; account?: string; values: Record<string, number>; }
 export interface Balance { group: string; account: string; start: number; checked: boolean; checkedAt: string; balance: number; who: string; }
-export interface Goods { groups: Record<string, string>; items: Record<string, Record<string, { inQ: number; outQ: number; inS: number; outS: number }>>; months: string[]; error?: string; inventory?: Record<string, Record<string, number>>; }
+export interface Goods { groups: Record<string, string>; items: Record<string, Record<string, { inQ: number; outQ: number; inS: number; outS: number }>>; months: string[]; error?: string; inventory?: Record<string, Record<string, number>>; inventorySum?: Record<string, Record<string, number>>; }
 export interface Balances { start: string; accounts: Balance[]; }
 // ДДС: поступления и выплаты по «Дате операции», сгруппированы по процессам
 export function buildDds(d0: { months: string[]; rows: DbRow[] }, accounts?: string[]): Dds {

@@ -209,21 +209,22 @@ function readGoods(ss) {
   if (!inSh && !outSh && sh) readMoves(sh, '');
   // Лист «Товары Инвентаризация»: наименование · Количество (факт) · Дата — факт на конец месяца этой даты.
   // Остатки на старте учёта — та же инвентаризация, датой последнего дня месяца перед началом.
-  var inv = {};
+  var inv = {}, invS = {};
   if (invSh) {
     var v = invSh.getDataRange().getValues(), hr = 0;
     for (var r = 0; r < Math.min(6, v.length); r++) if (v[r].map(norm).some(function (x) { return /^кол|факт/.test(x); })) { hr = r; break; }
     var h = v[hr].map(norm), c = function (re) { for (var i = 0; i < h.length; i++) if (re.test(h[i])) return i; return -1; };
     var cN = c(/наименован/); if (cN < 0) cN = c(/^номенклатур(?!ный)/); if (cN < 0) cN = c(/^товар/);
     var cQ = c(/факт/); if (cQ < 0) cQ = c(/^кол/); var cNum2 = c(/номенкла.*номер|номенклатурн/);
-    var cD = c(/дата для отч/); if (cD < 0) cD = c(/^дата/);
+    var cD = c(/дата для отч/); if (cD < 0) cD = c(/^дата/); var cS2 = c(/сумм/);
     if (cN >= 0 && cQ >= 0) for (var r = hr + 1; r < v.length; r++) {
       var n = nameOf(v[r], cN, cNum2), d = toDate(cD >= 0 ? v[r][cD] : null); if (!n || !d || v[r][cQ] === '') continue;
       var mk = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); months[mk] = true;
       inv[mk] = inv[mk] || {}; inv[mk][n] = toNum(v[r][cQ]);
+      if (cS2 >= 0 && v[r][cS2] !== '') { invS[mk] = invS[mk] || {}; invS[mk][n] = Math.abs(toNum(v[r][cS2])); }
     }
   }
-  return { groups: groups, items: items, inventory: inv, months: Object.keys(months).sort(), error: errs.join('; ') || undefined };
+  return { groups: groups, items: items, inventory: inv, inventorySum: invS, months: Object.keys(months).sort(), error: errs.join('; ') || undefined };
 }
 
 function fmtD(d) { return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); }
