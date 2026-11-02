@@ -107,7 +107,7 @@ export default function ClientPortal() {
   const rev = v(pnl?.revenue || [], cur ?? undefined), prof = v(pnl?.profit || [], cur ?? undefined);
   const exp = prof != null ? (rev || 0) - prof : null;
   const prevRev = v(pnl?.revenue || [], prevIdx), prevProf = v(pnl?.profit || [], prevIdx);
-  const series = filled.map(({ m, i }) => ({ label: m.label.slice(0, 3), rev: pnl!.revenue[i] || 0, prof: pnl!.profit[i] || 0, closed: m.closed }));
+  const series = filled.filter(({ m }) => !(p.hiddenMonths || []).includes(m.mk || "")).map(({ m, i }) => ({ label: m.label.slice(0, 3), rev: pnl!.revenue[i] || 0, prof: pnl!.profit[i] || 0, closed: m.closed }));
   const max = Math.max(1, ...series.map((s) => s.rev));
   const waiting = Object.entries(marks[p.id] || {}).filter(([, m]) => m.comment && !m.done).length;
 
@@ -391,7 +391,7 @@ export default function ClientPortal() {
         const mks = anMode === "cmp" ? [prevIdx != null ? pnl.months[prevIdx].mk! : shift(-1), curMk]
           : anN === 12 ? Array.from({ length: 12 }, (_, k) => `${cy}-${String(k + 1).padStart(2, "0")}`)
           : Array.from({ length: anN }, (_, k) => shift(k - anN + 1));
-        const idx = mks.map((mk) => { const i = pnl.months.findIndex((m) => m.mk === mk); return i >= 0 && (pnl.revenue[i] != null || pnl.rows.some((r) => r.values[i] != null)) ? i : null; });
+        const idx = mks.map((mk) => { const i = pnl.months.findIndex((m) => m.mk === mk); return i >= 0 && !(p.hiddenMonths || []).includes(mk) && (pnl.revenue[i] != null || pnl.rows.some((r) => r.values[i] != null)) ? i : null; });
         const M = pnl.metrics || {}, a = (arr?: (number | null)[]) => idx.map((i) => i == null ? null : arr?.[i] ?? null);
         const neg = (arr: (number | null)[]) => arr.map((x) => x == null ? null : Math.abs(x));
         // строки берём из самого ОПиУ: выручка, переменные/постоянные (или расходы итого), отделы, прибыль — для любого справочника
@@ -410,7 +410,7 @@ export default function ClientPortal() {
               {[3, 6, 12].map((n) => <button key={n} className={`chipbtn ${anMode === "months" && anN === n ? "on" : ""}`} onClick={() => { setAnMode("months"); setAnN(n); }}>{n === 3 ? "3 месяца" : n === 6 ? "Полгода" : "Год"}</button>)}</span></div>
           <table className="pnl-table" style={{ marginTop: 10 }}>
             <thead><tr><th />{mks.map((mk, k) => { const i = idx[k]; const [, mm] = mk.split("-").map(Number);
-              return <th key={mk} style={{ opacity: i == null ? .55 : 1 }}>{MONTHS[mm - 1]}<div className="small" style={{ opacity: .8 }}>{i == null ? "нет данных" : pnl.months[i].closed ? "✓ сдано" : "предв."}</div></th>; })}<th>{anMode === "cmp" ? "Отклонение" : "Итого"}</th></tr></thead>
+              return <th key={mk} style={{ opacity: i == null ? .55 : 1 }}>{MONTHS[mm - 1]}<div className="small" style={{ opacity: .8 }}>{i == null ? ((p.hiddenMonths || []).includes(mk) ? "🙈 скрыт" : "нет данных") : pnl.months[i].closed ? "✓ сдано" : "предв."}</div></th>; })}<th>{anMode === "cmp" ? "Отклонение" : "Итого"}</th></tr></thead>
             <tbody>
               {rows.map(([l, vals, cls]) => <tr key={l} className={cls.includes("an-key") ? "pnl-key" : ""}>
                 <td className={cls.includes("profit") ? "profit" : cls === "an-sec" ? "an-sec" : ""} style={{ paddingLeft: cls ? undefined : 22 }}>{l}</td>
