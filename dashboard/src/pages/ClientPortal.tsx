@@ -2,7 +2,7 @@
 // Клиент видит только свой проект. Владелец открывает предпросмотр: #/client?p=<id>
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { collection, deleteField, doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { arrayRemove, arrayUnion, collection, deleteField, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { useLocation } from "react-router-dom";
@@ -93,7 +93,8 @@ export default function ClientPortal() {
   }, [p?.pnlUrl, (p?.closedMonths || []).join(), JSON.stringify([p?.sales, p?.prepay]), reload, snapsKey]);
 
   // последний сданный месяц и предыдущий
-  const filled = useMemo(() => pnl ? pnl.months.map((m, i) => ({ m, i })).filter(({ i }) => pnl.revenue[i] != null || pnl.rows.some((r) => r.values[i] != null)) : [], [pnl]);
+  const hidden = isOwner ? [] : p?.hiddenMonths || [];
+  const filled = useMemo(() => pnl ? pnl.months.map((m, i) => ({ m, i })).filter(({ m }) => !hidden.includes(m.mk || "")).filter(({ i }) => pnl.revenue[i] != null || pnl.rows.some((r) => r.values[i] != null)) : [], [pnl, hidden.join()]);
   const closed = filled.filter(({ m }) => m.closed);
   const cur = mi ?? (closed.length ? closed[closed.length - 1].i : filled.length ? filled[filled.length - 1].i : null);
   const prevIdx = cur != null ? filled.filter(({ i }) => i < cur).slice(-1)[0]?.i : undefined;
@@ -119,7 +120,10 @@ export default function ClientPortal() {
         const ctl = pnl && cur != null ? <div className="navlink month-ctl" title={pnl.months[cur].closed ? "Отчётность сдана" : "Предварительные данные"}>
           <span className="ni">📅</span>
           <select value={cur} onChange={(e) => setMi(Number(e.target.value))}>
-            {filled.map(({ m, i }) => <option key={i} value={i}>{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
+            {filled.map(({ m, i }) => <option key={i} value={i}>{p.hiddenMonths?.includes(m.mk || "") ? "🙈 " : ""}{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
+          {isOwner && (() => { const mk = pnl.months[cur].mk || "", h = (p.hiddenMonths || []).includes(mk);
+            return <button className="ghost small" title={h ? "Клиент этот месяц не видит" : "Скрыть этот месяц от клиента"} style={{ padding: "2px 8px" }}
+              onClick={() => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { hiddenMonths: h ? arrayRemove(mk) : arrayUnion(mk) })}>{h ? "🙈 Скрыт · показать" : "👁 Скрыть"}</button>; })()}
           <span className="m-sub"><span className={`m-pill ${pnl.months[cur].closed ? "m-ok" : "m-pre"}`}>{pnl.months[cur].closed ? "✓ Сдано" : "Предварительно"}</span>
           {/* PDF — только по сданной отчётности (в аналитике — все месяцы периода сданы) */}
           {(view === "pnl" || view === "dds" || view === "an") && (view === "an"
@@ -150,7 +154,7 @@ export default function ClientPortal() {
       {(view === "dash" || view === "pnl" || view === "dds") && !p.pnlUrl && <div className="card muted">Отчётность скоро появится здесь.</div>}
       {(view === "dash" || view === "pnl" || view === "dds") && pnl?.stale && <div className="card small muted">⚠️ Таблица сейчас не отвечает — показан последний загруженный отчёт{pnl.at ? " от " + new Date(pnl.at).toLocaleString("ru-RU") : ""}.</div>}
       {(view === "dash" || view === "pnl" || view === "dds") && pnlErr && <div className="card error">Не удалось загрузить отчёт: {pnlErr}</div>}
-      {(view === "dash" || view === "pnl" || view === "dds" || view === "an") && pnl && cur == null && !pnlErr && <div className="card muted">В таблице пока нет операций за месяцы{isOwner ? <>. Проверь в ⚙ подключении поле «Направление»: оно должно совпадать с колонкой «Направление» в базе (например: Одежда). Затем нажми 🌀.</> : "."}</div>}
+      {(view === "dash" || view === "pnl" || view === "dds" || view === "an") && pnl && cur == null && !pnlErr && <div className="card muted">{isOwner ? "В таблице пока нет операций за месяцы" : "Отчётность готовится и скоро появится здесь"}{isOwner ? <>. Проверь в ⚙ подключении поле «Направление»: оно должно совпадать с колонкой «Направление» в базе (например: Одежда). Затем нажми 🌀.</> : "."}</div>}
       {p.pnlUrl && !pnl && !pnlErr && <NeylaLoading text="Загружаю отчёт из таблицы" />}
 
 
