@@ -236,7 +236,7 @@ export default function ClientPortal() {
               <Num f="orders" l="Заказов всего (доставлено)" />
               <Row l="Средний чек" v={per(rev || 0, kp.orders)} />
               <Row l="Цена привлечения клиента (CAC)" v={per(mkt, kp.newClients)} />
-              {isOwner && <div className="muted small">Количества и выручка ОП — во вкладке «📥 Данные от ОП».</div>}
+              {isOwner && <button className="ghost small" style={{ marginTop: 6 }} onClick={() => setTab("op")}>📥 Внести данные от ОП (кол-во товаров, заказы, клиенты) →</button>}
             </div></>;
           })()}
           </div>
