@@ -103,6 +103,9 @@ service cloud.firestore {
       allow read: if isOwner(ws) || isClient(resource.data) || (isMember(ws)
         && (request.auth.token.email.lower() in resource.data.get("staffEmails", [])));
       allow write: if isOwner(ws);
+      // клиент может править «Данные от ОП» и «Планирование», только если владелец открыл доступ (opEdit)
+      allow update: if isClient(resource.data) && resource.data.get("opEdit", false) == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["sales", "prepay", "kpi", "planSales", "plans", "payCal"]);
 
       // Снимки сданных месяцев (заморозка цифр): пишет владелец, читают все, кто видит кабинет
       match /snapshots/{month} {

@@ -103,6 +103,7 @@ export default function ClientPortal() {
   if (err) return <><h1>Кабинет клиента</h1><div className="card">🔒 {err}</div></>;
   if (!p) return <NeylaLoading text="Открываю кабинет клиента" />;
 
+  const canEditClient = isOwner || (!staffView && !!p.opEdit);   // правка ОП и планирования — по доступу от владельца
   const v = (arr: (number | null)[], i?: number) => (i == null ? null : arr[i]);
   const rev = v(pnl?.revenue || [], cur ?? undefined), prof = v(pnl?.profit || [], cur ?? undefined);
   const exp = prof != null ? (rev || 0) - prof : null;
@@ -143,7 +144,7 @@ export default function ClientPortal() {
       })()}
       {preview && <h1>{p.name}</h1>}
       {preview && <div className="chips" style={{ marginTop: 12 }}>
-        {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || k !== "op").map(([k, l]) =>
+        {([["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
@@ -464,7 +465,8 @@ export default function ClientPortal() {
         </div>;
       })()}
 
-      {tab === "op" && isOwner && (() => {
+      {tab === "op" && (() => {
+        const canEdit = canEditClient;
         const ref = doc(db, "workspaces", wsId!, "clients", p.id);
         const mks = [...new Set([...(pnl?.months.map((m) => m.mk!).filter(Boolean) || []), ...[1, 0, -1, -2].map((k) => monthKey(new Date(new Date().getFullYear(), new Date().getMonth() + k, 1)))])].sort().reverse();
         const cols: [string, string, (mk: string) => number | undefined][] = [
@@ -476,26 +478,27 @@ export default function ClientPortal() {
           updateDoc(ref, { [field]: v === "" ? deleteField() : Number(v) });
         };
         return <div className="card" style={{ overflowX: "auto" }}>
-          <h3 style={{ marginTop: 0 }}>📥 Данные от отдела продаж</h3>
-          <div className="muted small" style={{ marginBottom: 8 }}>Вписываешь цифры от ОП по месяцам — из них считаются выручка в ОПиУ, проверка предоплат, средний чек, CAC и себестоимость на единицу. Клиент эту вкладку не видит.</div>
+          <div className="row" style={{ alignItems: "center", flexWrap: "wrap", gap: 8 }}><h3 style={{ marginTop: 0, marginBottom: 0 }}>📥 Данные от отдела продаж</h3>
+            {isOwner && <button className={p.opEdit ? "" : "ghost"} onClick={() => updateDoc(ref, { opEdit: !p.opEdit })}>{p.opEdit ? "🔓 Клиент правит ОП и планирование · закрыть" : "🔒 Клиент только смотрит · открыть правку"}</button>}</div>
+          <div className="muted small" style={{ marginBottom: 8 }}>{isOwner ? "Вписываешь цифры от ОП по месяцам — из них считаются выручка в ОПиУ, проверка предоплат, средний чек, CAC и себестоимость на единицу. Клиент видит вкладку; править может, только если ты открыла доступ." : canEdit ? "Можно внести или поправить цифры — они сохраняются сразу." : "Цифры отдела продаж по месяцам. Чтобы что-то поправить, напишите своему бухгалтеру."}</div>
           <table className="pnl-table">
             <thead><tr><th>Месяц</th>{cols.map(([k, l]) => <th key={k} className="small">{l}</th>)}</tr></thead>
             <tbody>{mks.map((mk) => { const [y, m] = mk.split("-").map(Number);
               return <tr key={mk}><td>{MONTHS[m - 1]} {y}</td>{cols.map(([k, , get]) => <td key={k}>
-                <input type="number" step="any" style={{ width: 130 }} key={k + mk + (get(mk) ?? "")} defaultValue={get(mk) ?? ""}
-                  onBlur={(e) => e.target.value !== String(get(mk) ?? "") && save(k, mk, e.target.value)} /></td>)}</tr>; })}</tbody>
+                {!canEdit ? <b>{get(mk) != null ? (k === "sales" || k === "prepay" ? rub(get(mk)!) : get(mk)) : <span className="muted">—</span>}</b> : <input type="number" step="any" style={{ width: 130 }} key={k + mk + (get(mk) ?? "")} defaultValue={get(mk) ?? ""}
+                  onBlur={(e) => e.target.value !== String(get(mk) ?? "") && save(k, mk, e.target.value)} />}</td>)}</tr>; })}</tbody>
           </table>
 
           {([["planSales", "🎯 План / факт отдела продаж", "Факт продаж ОП", "sales"]] as const).map(([pk, title, fl, fk]) => <Fragment key={pk}>
           <h3 style={{ marginTop: 22 }}>{title}</h3>
-          <div className="muted small" style={{ marginBottom: 8 }}>Вносишь только план. Факт берётся из таблицы выше.</div>
+          {canEdit && <div className="muted small" style={{ marginBottom: 8 }}>Вносится только план. Факт берётся из таблицы выше.</div>}
           <table className="pnl-table">
             <thead><tr><th>Месяц</th><th className="small">План, ₽</th><th className="small">{fl}, ₽</th><th className="small">Отклонение</th><th className="small">Выполнение</th></tr></thead>
             <tbody>{mks.map((mk) => { const [y, m] = mk.split("-").map(Number);
               const pl = p[pk]?.[mk], fa = p[fk]?.[mk], pc = pl && fa != null ? Math.round(fa / pl * 100) : null;
               return <tr key={mk}><td>{MONTHS[m - 1]} {y}</td>
-                <td><input type="number" step="any" style={{ width: 130 }} key={pk + mk + (pl ?? "")} defaultValue={pl ?? ""}
-                  onBlur={(e) => e.target.value !== String(pl ?? "") && save(pk, mk, e.target.value)} /></td>
+                <td>{!canEdit ? <b>{pl != null ? rub(pl) : <span className="muted">—</span>}</b> : <input type="number" step="any" style={{ width: 130 }} key={pk + mk + (pl ?? "")} defaultValue={pl ?? ""}
+                  onBlur={(e) => e.target.value !== String(pl ?? "") && save(pk, mk, e.target.value)} />}</td>
                 <td>{fa != null ? rub(fa) : "—"}</td>
                 <td className={pc == null ? "muted" : fa! >= pl! ? "ok" : "error"}>{pc == null ? "—" : (fa! - pl! >= 0 ? "+" : "") + rub(fa! - pl!)}</td>
                 <td className={pc == null ? "muted" : pc >= 100 ? "ok" : "error"}>{pc == null ? "—" : pc + "%"}</td>
@@ -578,7 +581,7 @@ export default function ClientPortal() {
           const isProfit = /прибыль/i.test(l);
           return <tr className={bold ? "pnl-key" : sub ? "small" : ""}>
             <td style={{ paddingLeft: sub ? 22 : undefined }} className={isProfit ? "profit" : ""}>{l}</td>
-            <td>{isOwner && k ? <input type="number" style={{ width: 120 }} key={k + pmk + (plan ?? "")} defaultValue={plan ?? ""} onBlur={(e) => e.target.value !== String(plan ?? "") && save(k, e.target.value)} /> : plan != null ? rub(plan) : "—"}</td>
+            <td>{canEditClient && k ? <input type="number" style={{ width: 120 }} key={k + pmk + (plan ?? "")} defaultValue={plan ?? ""} onBlur={(e) => e.target.value !== String(plan ?? "") && save(k, e.target.value)} /> : plan != null ? rub(plan) : "—"}</td>
             <td className={isProfit ? ((fact || 0) < 0 ? "error profit" : "profit") : ""}>{fact != null ? rub(fact) : "—"}</td>
             <td className={pc == null ? "muted" : good ? "ok" : "error"}>{pc != null ? pc + "%" : "—"}</td>
           </tr>;
@@ -588,6 +591,7 @@ export default function ClientPortal() {
             <button className="ghost" onClick={() => setPlanMonth(new Date(planMonth.getFullYear(), planMonth.getMonth() - 1, 1))}>‹</button>
             <b>🎯 План на {MONTHS[planMonth.getMonth()].toLowerCase()} {planMonth.getFullYear()}</b>
             <button className="ghost" onClick={() => setPlanMonth(new Date(planMonth.getFullYear(), planMonth.getMonth() + 1, 1))}>›</button>
+            {isOwner && <button className={p.opEdit ? "" : "ghost"} style={{ marginLeft: "auto" }} onClick={() => updateDoc(ref, { opEdit: !p.opEdit })}>{p.opEdit ? "🔓 Клиент правит · закрыть" : "🔒 Клиент только смотрит · открыть правку"}</button>}
           </div>
           <table className="pnl-table" style={{ marginTop: 10 }}>
             <thead><tr><th /><th className="small">План</th><th className="small">Факт</th><th className="small">%</th></tr></thead>
@@ -598,12 +602,12 @@ export default function ClientPortal() {
               <tr><td>Рентабельность</td><td>{pct(pProf, pRev) != null ? pct(pProf, pRev) + "%" : "—"}</td><td>{pct(fProf, fRev) != null ? pct(fProf, fRev) + "%" : "—"}</td><td /></tr>
             </tbody>
           </table>
-          {isOwner && <div className="muted small">План доходов — из «📥 Данные от ОП». План расходов — сумма платежей в платёжном календаре ниже.</div>}
+          {canEditClient && <div className="muted small">План доходов — из «📥 Данные от ОП». План расходов — сумма платежей в платёжном календаре ниже.</div>}
           <h3 style={{ marginBottom: 6 }}>📝 Фокус месяца</h3>
-          {isOwner ? <textarea rows={4} placeholder="Цели и задачи на месяц: что делаем, на что обратить внимание" key={"n" + pmk} defaultValue={pl.note || ""} onBlur={(e) => e.target.value !== (pl.note || "") && save("note", e.target.value)} />
+          {canEditClient ? <textarea rows={4} placeholder="Цели и задачи на месяц: что делаем, на что обратить внимание" key={"n" + pmk} defaultValue={pl.note || ""} onBlur={(e) => e.target.value !== (pl.note || "") && save("note", e.target.value)} />
             : <div className="comment" style={{ whiteSpace: "pre-wrap" }}>{pl.note || "—"}</div>}
         </div>
-        <div style={{ maxWidth: 900 }}><PayCalendar p={p} wsId={wsId!} mk={pmk} planRevenue={pRev} isOwner={isOwner}
+        <div style={{ maxWidth: 900 }}><PayCalendar p={p} wsId={wsId!} mk={pmk} planRevenue={pRev} isOwner={canEditClient}
           startBalance={pnl?.balances ? pnl.balances.accounts.filter((a) => /^1\./.test(a.group) && !/между|невыяснен/i.test(a.account)).reduce((x, a) => x + a.balance, 0) : null} /></div></>;
       })()}
     </>
