@@ -410,7 +410,7 @@ export default function ClientPortal() {
               {[3, 6, 12].map((n) => <button key={n} className={`chipbtn ${anMode === "months" && anN === n ? "on" : ""}`} onClick={() => { setAnMode("months"); setAnN(n); }}>{n === 3 ? "3 месяца" : n === 6 ? "Полгода" : "Год"}</button>)}</span></div>
           <table className="pnl-table" style={{ marginTop: 10 }}>
             <thead><tr><th />{mks.map((mk, k) => { const i = idx[k]; const [, mm] = mk.split("-").map(Number);
-              return <th key={mk} style={{ opacity: i == null ? .55 : 1 }}>{MONTHS[mm - 1]}<div className="small" style={{ opacity: .8 }}>{i == null ? ((p.hiddenMonths || []).includes(mk) ? "🙈 скрыт" : "нет данных") : pnl.months[i].closed ? "✓ сдано" : "предв."}</div></th>; })}<th>{anMode === "cmp" ? "Отклонение" : "Итого"}</th></tr></thead>
+              return <th key={mk} style={{ opacity: i == null ? .55 : 1 }}>{MONTHS[mm - 1]}<div className="small" style={{ opacity: .8 }}>{i == null ? "нет данных" : pnl.months[i].closed ? "✓ сдано" : "предв."}</div></th>; })}<th>{anMode === "cmp" ? "Отклонение" : "Итого"}</th></tr></thead>
             <tbody>
               {rows.map(([l, vals, cls]) => <tr key={l} className={cls.includes("an-key") ? "pnl-key" : ""}>
                 <td className={cls.includes("profit") ? "profit" : cls === "an-sec" ? "an-sec" : ""} style={{ paddingLeft: cls ? undefined : 22 }}>{l}</td>
