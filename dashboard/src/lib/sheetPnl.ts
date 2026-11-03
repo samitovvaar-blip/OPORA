@@ -111,7 +111,7 @@ const RU = ["Январь","Февраль","Март","Апрель","Май","
 const DEPTS: Record<string, string> = { "1": "1. Производственный отдел", "2": "2. Отдел продаж", "3": "3. Отдел маркетинга",
   "4": "4. Админ-хоз отдел и Руководство", "5": "5. Финансовый отдел", "6": "6. Фондирование" };
 
-export interface DbRow { process: string; article: string; account?: string; values: Record<string, number>; }
+export interface DbRow { process: string; article: string; account?: string; fund?: boolean; values: Record<string, number>; }
 export interface Balance { group: string; account: string; start: number; checked: boolean; checkedAt: string; balance: number; who: string; }
 export interface Goods { groups: Record<string, string>; items: Record<string, Record<string, { inQ: number; outQ: number; inS: number; outS: number }>>; months: string[]; error?: string; inventory?: Record<string, Record<string, number>>; inventorySum?: Record<string, Record<string, number>>; }
 export interface Balances { start: string; accounts: Balance[]; }

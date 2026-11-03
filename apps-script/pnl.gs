@@ -68,7 +68,7 @@ function buildReport(e) {
       var dOp = toDate(cDate2 >= 0 ? row[cDate2] : null) || toDate(cDate >= 0 ? row[cDate] : null);
       if (art && amtD && dOp) {
         var mkD = dOp.getFullYear() + '-' + ('0' + (dOp.getMonth() + 1)).slice(-2);
-        var kD = proc + '\u0001' + art + '\u0001' + (cAcc >= 0 ? String(row[cAcc] || '').trim() : '');
+        var kD = proc + '\u0001' + art + '\u0001' + (cAcc >= 0 ? String(row[cAcc] || '').trim() : '') + '\u0001' + (/фонд/i.test(names[s]) ? '1' : '');
         dds[kD] = dds[kD] || {};
         dds[kD][mkD] = (dds[kD][mkD] || 0) + (outD ? -amtD : amtD);
         ddsMonths[mkD] = true;
@@ -89,7 +89,7 @@ function buildReport(e) {
     }
   }
   var rows = Object.keys(sums).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: sums[k] }; });
-  var ddsRows = Object.keys(dds).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], account: x[2], values: dds[k] }; });
+  var ddsRows = Object.keys(dds).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], account: x[2], fund: x[3] === '1' || undefined, values: dds[k] }; });
   if (!seen && total) return out({ error: 'В базе нет строк с направлением «' + dirs.join(', ') + '». В колонке «Направление» есть: ' + Object.keys(foundDirs).join(', ') + '. Впиши в кабинете одно из них.' });
   return out({ mode: 'db', goods: readGoods(ss), dirMeta: readDirMeta(ss), balances: readBalances(ss), typos: typos, directory: Object.keys(groupsOf).length, dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
 }

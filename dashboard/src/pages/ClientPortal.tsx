@@ -307,7 +307,8 @@ export default function ClientPortal() {
       {view === "dds" && pnl && cur != null && (pnl.dds ? (() => {
         const B = pnl.balances, mk = pnl.months[cur].mk || "", st = p.ddsStart;
         // ДДС — только лист «ДДС БОТ ОСНОВНЫЕ» (все его счета); фонды — отдельной таблицей из «ДДС БОТ ФОНДЫ»
-        const accs = B?.accounts || [], sel = [...new Set((pnl.ddsRaw?.rows || []).map((r) => r.account || "").filter((a) => !/^фонд/i.test(a)))];
+        const accs = B?.accounts || [], fundSet = new Set((pnl.ddsRaw?.rows || []).filter((r) => r.fund).map((r) => r.account || "")),
+          sel = [...new Set((pnl.ddsRaw?.rows || []).filter((r) => !r.fund).map((r) => r.account || "").filter((a) => !/^фонд/i.test(a) && !fundSet.has(a)))];
         const D = B && pnl.ddsRaw ? buildDds(pnl.ddsRaw, sel) : pnl.dds;
         const ddsM = D.months.find((m) => m.label === pnl.months[cur].label && m.year === pnl.months[cur].year);
         const netOf = (m: { col: number }) => D.net[m.col] || 0;
@@ -361,8 +362,9 @@ export default function ClientPortal() {
             // Фонды: каждый фонд — отдельный счёт, минуса быть не может.
             // Остаток на начало: введённый в кабинете (fundStart) → иначе из «БАЛАНСЫ СЕЙЧАС» + движения после даты ввода.
             const fs = p.fundStart;
-            const fundAccs = [...new Set([...accs.filter((a) => /фонд/i.test(a.group)).map((a) => a.account), ...(pnl.ddsRaw?.rows || []).map((r) => r.account || "").filter((x) => /фонд/i.test(x))])];
-            if (!fundAccs.length || !pnl.ddsRaw) return null;
+            const fundAccs = [...new Set([...accs.filter((a) => /фонд/i.test(a.group)).map((a) => a.account), ...(pnl.ddsRaw?.rows || []).filter((r) => r.fund || /фонд/i.test(r.account || "")).map((r) => r.account || "").filter(Boolean)])];
+            if (!pnl.ddsRaw) return null;
+            if (!fundAccs.length) return isOwner ? <div className="muted small" style={{ marginTop: 14 }}>🏦 Фонды: операций на листе «ДДС БОТ ФОНДЫ» пока нет — как появятся, здесь будет таблица и ввод остатков на начало (видишь только ты).</div> : null;
             const funds = fundAccs.map((acc) => accs.find((a) => a.account === acc) || { account: acc, start: 0, group: "Фонды" });
             const flows = (acc: string, f: (m: string) => boolean, sign: number) => pnl.ddsRaw!.rows.filter((r) => r.account === acc)
               .reduce((x, r) => x + Object.entries(r.values).filter(([m, v]) => f(m) && (sign === 0 || Math.sign(v) === sign)).reduce((y, [, v]) => y + v, 0), 0);
