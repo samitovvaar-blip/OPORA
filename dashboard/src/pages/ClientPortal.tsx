@@ -345,13 +345,20 @@ export default function ClientPortal() {
             <tr className="pnl-sec"><td>Остаток на конец месяца</td><Money v={endBal} /></tr>
           </tbody></table>
           {(() => {
-            // Фонды: каждый фонд — отдельный счёт, минуса быть не может
-            const funds = accs.filter((a) => /фонд/i.test(a.group));
-            if (!funds.length || !pnl.ddsRaw) return null;
+            // Фонды: каждый фонд — отдельный счёт, минуса быть не может.
+            // Остаток на начало: введённый в кабинете (fundStart) → иначе из «БАЛАНСЫ СЕЙЧАС» + движения после даты ввода.
+            const fs = p.fundStart;
+            const fundAccs = [...new Set([...accs.filter((a) => /фонд/i.test(a.group)).map((a) => a.account), ...(pnl.ddsRaw?.rows || []).map((r) => r.account || "").filter((x) => /фонд/i.test(x))])];
+            if (!fundAccs.length || !pnl.ddsRaw) return null;
+            const funds = fundAccs.map((acc) => accs.find((a) => a.account === acc) || { account: acc, start: 0, group: "Фонды" });
             const flows = (acc: string, f: (m: string) => boolean, sign: number) => pnl.ddsRaw!.rows.filter((r) => r.account === acc)
               .reduce((x, r) => x + Object.entries(r.values).filter(([m, v]) => f(m) && (sign === 0 || Math.sign(v) === sign)).reduce((y, [, v]) => y + v, 0), 0);
+            const startOf = (a: { account: string; start: number }) => fs && fs.mk <= mk
+              ? (fs.amounts[a.account] || 0) + flows(a.account, (m) => m >= fs.mk && m < mk, 0)
+              : a.start + flows(a.account, (m) => m > bMk && m < mk, 0);
+            const saveFs = (patch: Partial<{ mk: string; amounts: Record<string, number> }>) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { fundStart: { mk: fs?.mk || D.months[0]?.mk || mk, amounts: fs?.amounts || {}, ...patch } });
             const list = funds.map((a) => {
-              const start = a.start + flows(a.account, (m) => m > bMk && m < mk, 0);
+              const start = startOf(a);
               const inc = flows(a.account, (m) => m === mk, 1), out = flows(a.account, (m) => m === mk, -1);
               return { a, start, inc, out, end: start + inc + out };
             });
@@ -367,6 +374,17 @@ export default function ClientPortal() {
                 <tr className="pnl-key"><td>Итого в фондах</td>{(["start", "inc", "out", "end"] as const).map((k) => <Money key={k} v={list.reduce((x, f) => x + f[k], 0)} />)}</tr>
                 </tbody>
               </table>
+              {isOwner && <details style={{ marginTop: 8 }} open={!fs && !B}>
+                <summary className="small" style={{ cursor: "pointer" }}>✏️ Остатки фондов на начало {fs ? `(введены с ${MONTHS[Number(fs.mk.split("-")[1]) - 1].toLowerCase()} ${fs.mk.split("-")[0]})` : B ? "(сейчас — из «БАЛАНСЫ СЕЙЧАС»)" : ""}</summary>
+                <div className="row small" style={{ flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                  <span>На начало месяца <select value={fs?.mk || D.months[0]?.mk || mk} onChange={(e) => saveFs({ mk: e.target.value })}>{D.months.map((m) => <option key={m.mk} value={m.mk}>{m.label} {m.year}</option>)}</select></span>
+                  {fs && <button className="ghost" onClick={() => confirm("Убрать введённые остатки фондов?") && updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { fundStart: deleteField() })}>↩ сбросить</button>}
+                </div>
+                {funds.map((a) => <div key={a.account} className="row small" style={{ marginTop: 4 }}><span>{a.account.replace(/\s*\d{20}.*$/, "")}</span>
+                  <input type="number" step="0.01" style={{ width: 140 }} key={a.account + (fs?.amounts[a.account] ?? "")} defaultValue={fs?.amounts[a.account] ?? ""} placeholder="0"
+                    onBlur={(e) => saveFs({ amounts: { ...(fs?.amounts || {}), [a.account]: Number(e.target.value || 0) } })} /></div>)}
+                <div className="muted small" style={{ marginTop: 4 }}>Вводишь остаток каждого фонда на начало выбранного месяца — дальше остатки считаются сами по операциям «ДДС БОТ ФОНДЫ».</div>
+              </details>}
             </>;
           })()}
           {groups.other.some((g) => g.v) && <>
