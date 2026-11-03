@@ -313,8 +313,13 @@ export default function ClientPortal() {
         const netOf = (m: { col: number }) => D.net[m.col] || 0;
         // остаток на начало: остатки из «БАЛАНСЫ СЕЙЧАС» на дату ввода + все движения после неё до выбранного месяца
         const bm = B?.start.match(/(\d+)\.(\d+)\.(\d{4})/), bMk = bm ? `${bm[3]}-${bm[2].padStart(2, "0")}` : "";
-        const startBal = B && bMk ? D.months.filter((m) => m.mk! > bMk && m.mk! < mk).reduce((x, m) => x + netOf(m), accs.filter((a) => /^1\./.test(a.group)).reduce((x, a) => x + a.start, 0))
+        const baseStart = B && bMk ? D.months.filter((m) => m.mk! > bMk && m.mk! < mk).reduce((x, m) => x + netOf(m), accs.filter((a) => /^1\./.test(a.group)).reduce((x, a) => x + a.start, 0))
           : st && st.mk <= mk ? D.months.filter((m) => m.mk! >= st.mk && m.mk! < mk).reduce((x, m) => x + netOf(m), st.amount) : null;
+        // Вводный остаток (по выписке), внесённый вручную за месяц, главнее расчёта; без него — от последнего вводного + движения
+        const op = p.ddsOpening || {}, prevOp = Object.keys(op).filter((k) => k < mk).sort().pop();
+        const autoStart = prevOp ? D.months.filter((m) => m.mk! >= prevOp && m.mk! < mk).reduce((x, m) => x + netOf(m), op[prevOp]) : baseStart;
+        const startBal = op[mk] != null ? op[mk] : autoStart;
+        const saveOp = (v: number | null) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`ddsOpening.${mk}`]: v == null ? deleteField() : v });
         const c = ddsM?.col, inflow = c != null ? D.inflow[c] || 0 : 0, outflow = c != null ? D.outflow[c] || 0 : 0, other = c != null ? D.other?.[c] || 0 : 0;
         const endBal = startBal != null ? startBal + inflow + outflow + other : null;
         // приходы/расходы: процесс → статьи
@@ -338,7 +343,15 @@ export default function ClientPortal() {
         return <div className="card soft-card" style={{ overflowX: "auto", maxWidth: 900 }}>
           <h3 style={{ marginTop: 0 }}>Движение денежных средств · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
           <table className="pnl-table"><tbody>
-            <tr className="pnl-sec"><td>Остаток на начало месяца</td><Money v={startBal} /></tr>
+            <tr className="pnl-sec"><td>Остаток на начало месяца{isOwner && <div className="small muted" style={{ fontWeight: 400 }}>{op[mk] != null ? "✏️ вводный остаток (по выписке)" : prevOp ? "= конец прошлого месяца" : B ? "= из «БАЛАНСЫ СЕЙЧАС» + движения" : "не введён"}</div>}</td><Money v={startBal} /></tr>
+            {isOwner && <tr className="small"><td colSpan={2}><div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
+              <span>Вводный остаток по выписке:</span>
+              <input type="number" step="0.01" style={{ width: 140 }} key={"op" + mk + (op[mk] ?? "")} defaultValue={op[mk] ?? ""} placeholder={autoStart != null ? String(Math.round(autoStart * 100) / 100) : "сумма"}
+                onBlur={(e) => e.target.value !== String(op[mk] ?? "") && saveOp(e.target.value === "" ? null : Number(e.target.value))} />
+              {autoStart != null && op[mk] == null && <button className="ghost" onClick={() => saveOp(Math.round(autoStart * 100) / 100)}>⧉ Взять конец прошлого месяца</button>}
+              {op[mk] != null && <button className="ghost" onClick={() => saveOp(null)}>↩ считать автоматически</button>}
+              {op[mk] != null && autoStart != null && Math.abs(op[mk] - autoStart) > 0.5 && <span className="error">расхождение с расчётом: {rub(op[mk] - autoStart)}</span>}
+            </div></td></tr>}
             <Block k="in" title="ФАКТ ПРИХОД" total={inflow} />
             <Block k="out" title="ФАКТ РАСХОД" total={outflow} />
             {other !== 0 && <tr className="small muted"><td>Прочие движения (таблица ниже)</td><Money v={other} /></tr>}
@@ -391,12 +404,6 @@ export default function ClientPortal() {
             <h3 style={{ marginTop: 18 }}>Прочее</h3>
             <table className="pnl-table"><tbody><Block k="other" title="ПРОЧЕЕ ИТОГО" total={other} /></tbody></table>
           </>}
-          {isOwner && !B && <div className="row small" style={{ marginTop: 10 }}>
-            <span>Стартовый остаток на начало <select defaultValue={st?.mk || D.months[0]?.mk} id="dds-st-mk">{D.months.map((m) => <option key={m.mk} value={m.mk}>{m.label} {m.year}</option>)}</select></span>
-            <input type="number" step="0.01" style={{ width: 140 }} defaultValue={st?.amount ?? ""} key={"st" + (st?.amount ?? "")}
-              onBlur={(e) => e.target.value !== "" && updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { ddsStart: { mk: (document.getElementById("dds-st-mk") as HTMLSelectElement).value, amount: Number(e.target.value) } })} />
-          </div>}
-          {isOwner && !B && startBal == null && <div className="muted small">Впиши остаток на начало первого месяца (как в твоём ДДС) — дальше остатки посчитаются сами.</div>}
         </div>;
       })() : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
 
