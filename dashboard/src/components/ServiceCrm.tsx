@@ -8,7 +8,7 @@ import { rub } from "../lib/money";
 import { ClientProject } from "../lib/catalog";
 
 type CProduct = { id: string; kind: "product"; name: string; price: number; descr?: string };
-type CClient = { id: string; kind: "client"; name: string; status?: string; company?: string; phone?: string; note?: string; source?: string; created?: string };
+type CClient = { id: string; kind: "client"; name: string; status?: string; comments?: { at: string; text: string }[]; company?: string; phone?: string; note?: string; source?: string; created?: string };
 type Status = "new" | "work" | "done";
 type CProject = { id: string; kind: "project"; name: string; clientId: string; productId?: string; price: number; status: Status; start: string; deadline?: string; payDate?: string };
 type CMove = { id: string; kind: "move"; type: "in" | "out"; amount: number; date: string; note: string; projectId?: string; category?: string; account?: string };
@@ -210,7 +210,9 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
   add: (d: object) => Promise<unknown>; del: (id: string) => void; upd: (id: string, d: object) => void;
 }) {
   const [sub, setSub] = useState<"projects" | "base">("projects");
-  const [c, setC] = useState({ name: "", company: "", phone: "", note: "", source: "" });
+  const [c, setC] = useState({ name: "", company: "", phone: "", note: "", source: "", status: "" });
+  const [addOpen, setAddOpen] = useState(false);
+  const [cmt, setCmt] = useState<Record<string, string>>({});
   const blankP = { name: "", clientId: "", productId: "", price: "", deadline: "", payDate: "" };
   const [pr, setPr] = useState(blankP);
   const [pay, setPay] = useState<{ id: string; amount: string; date: string; account: string } | null>(null);
@@ -231,7 +233,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
   return <>
     <div className="chips" style={{ marginBottom: 10 }}>
       <button className={`chipbtn ${sub === "projects" ? "on" : ""}`} onClick={() => setSub("projects")}>🛠 Проекты</button>
-      <button className={`chipbtn ${sub === "base" ? "on" : ""}`} onClick={() => setSub("base")}>👥 База клиентов</button>
+      <button className={`chipbtn ${sub === "base" ? "on" : ""}`} onClick={() => setSub("base")}>👥 База лидов</button>
     </div>
     <input placeholder="🔍 Поиск" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 10 }} />
 
@@ -248,7 +250,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
         <span className="muted">срок сдачи</span><input type="date" value={pr.deadline} onChange={(e) => setPr({ ...pr, deadline: e.target.value })} />
         <button disabled={!pr.name.trim() || !pr.clientId}>+ Проект</button>
       </form>
-      {!clients.length && <div className="muted small">Сначала добавь клиента во вкладке «База клиентов».</div>}
+      {!clients.length && <div className="muted small">Сначала добавь клиента во вкладке «База лидов».</div>}
       {!products.length && <div className="muted small">Продукты с ценами можно завести во вкладке «Продукты» — тогда сумма подставится сама.</div>}
       <div className="row small" style={{ justifyContent: "flex-start", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
         {([["all", "Все"], ["new", "Новые"], ["work", "В работе"], ["done", "Сданы"], ["debt", "С долгом"]] as const).map(([k, l]) =>
@@ -279,10 +281,25 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
     </div>}
 
     {sub === "base" && <>
+      {/* Добавить лида — отдельная форма */}
       <div className="card">
-        <div className="row" style={{ marginBottom: 8 }}><b>👥 База клиентов · {clients.length}</b>
-          <button onClick={() => setBulk(bulk == null ? "" : null)}>{bulk == null ? "📋 Вставить списком из таблицы" : "✕ Закрыть"}</button></div>
-        {bulk != null && <div style={{ marginBottom: 10 }} className="card soft-card">
+        <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>👥 База лидов · {clients.length}</b>
+          <span><button onClick={() => { setAddOpen(!addOpen); setBulk(null); }}>{addOpen ? "✕ Закрыть" : "+ Добавить лида"}</button>
+            <button className="ghost" style={{ marginLeft: 6 }} onClick={() => { setBulk(bulk == null ? "" : null); setAddOpen(false); }}>{bulk == null ? "📋 Списком из таблицы" : "✕ Закрыть"}</button></span></div>
+        {addOpen && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!c.name.trim()) return;
+          add({ kind: "client", name: c.name.trim(), company: c.company.trim(), phone: c.phone.trim(), note: c.note.trim(), source: c.source.trim(), status: c.status || "Ждёт обработку", created: today() });
+          setC({ name: "", company: "", phone: "", note: "", source: c.source, status: "" }); setAddOpen(false); }}>
+          <b>Новый лид</b>
+          <input placeholder="Имя *" value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} autoFocus />
+          <input placeholder="Компания" value={c.company} onChange={(e) => setC({ ...c, company: e.target.value })} />
+          <input placeholder="Телефон / Telegram" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} />
+          <input list="crm-src" placeholder="Откуда пришёл" value={c.source} onChange={(e) => setC({ ...c, source: e.target.value })} />
+          <datalist id="crm-src">{SOURCES.map((x) => <option key={x} value={x} />)}</datalist>
+          <select value={c.status || "Ждёт обработку"} onChange={(e) => setC({ ...c, status: e.target.value })}>{CST.map(([k]) => <option key={k}>{k}</option>)}</select>
+          <textarea rows={2} placeholder="Заметка" value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} />
+          <button disabled={!c.name.trim()}>✓ Добавить</button>
+        </form>}
+        {bulk != null && <div style={{ marginBottom: 10 }} className="card soft-card" >
           <div className="small muted">Скопируй строки из таблицы (Имя · Телефон или Telegram · Комментарий) и вставь сюда — каждая строка станет клиентом. Строка заголовков и повторы пропускаются.</div>
           <textarea rows={6} style={{ width: "100%" }} value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder={"Артур\t@ArturBilimbaev\nИнсаф и Лия\t\tпо Максу предложить"} />
           {(() => { const have = new Set(clients.map((x) => x.name.trim().toLowerCase()));
@@ -291,44 +308,44 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
             return <button disabled={!fresh.length} onClick={() => { fresh.forEach((x) => add({ kind: "client", name: x[0], company: "", phone: x[1] || "", note: [x[2], x[3]].filter(Boolean).join(" · "), source: c.source.trim(), created: today() })); setBulk(null); }}>
               ✓ Добавить {fresh.length} клиент.{rows.length - fresh.length ? ` (повторов пропущено: ${rows.length - fresh.length})` : ""}</button>; })()}
         </div>}
-        <form className="row small" style={{ flexWrap: "wrap", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!c.name.trim()) return;
-          add({ kind: "client", name: c.name.trim(), company: c.company.trim(), phone: c.phone.trim(), note: c.note.trim(), source: c.source.trim(), created: today() }); setC({ name: "", company: "", phone: "", note: "", source: c.source }); }}>
-          <input placeholder="Имя" value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} style={{ flex: "1 1 130px" }} />
-          <input placeholder="Компания" value={c.company} onChange={(e) => setC({ ...c, company: e.target.value })} style={{ flex: "1 1 130px" }} />
-          <input placeholder="Телефон / Telegram" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} style={{ width: 140 }} />
-          <input list="crm-src" placeholder="Откуда пришёл" value={c.source} onChange={(e) => setC({ ...c, source: e.target.value })} style={{ width: 160 }} />
-          <datalist id="crm-src">{SOURCES.map((s) => <option key={s} value={s} />)}</datalist>
-          <input placeholder="Заметка" value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} style={{ flex: "1 1 140px" }} />
-          <button disabled={!c.name.trim()}>+ Клиент</button>
-        </form>
-        <div className="row small" style={{ justifyContent: "flex-start", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
+        <div className="row small" style={{ justifyContent: "flex-start", gap: 4, marginTop: 10, flexWrap: "wrap" }}>
           {[["all", "Все"], ...CST.map(([k]) => [k, k]), ["", "Без статуса"]].map(([k, l]) => { const n = k === "all" ? clients.length : clients.filter((x) => (x.status || "") === k).length;
             return <button key={k || "none"} className={cst === k ? "" : "ghost"} style={{ padding: "2px 10px" }} onClick={() => setCst(k)}>{l} · {n}</button>; })}</div>
-        <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
-          {shownC.map((x) => { const ps = projects.filter((p) => p.clientId === x.id), d = ps.reduce((a, p) => a + debt(p), 0);
-            return <tr key={x.id} style={{ cursor: "pointer" }} onClick={() => setOpen(open === x.id ? null : x.id)}>
-              <td>{open === x.id ? "▾" : "▸"} {x.name}{x.company && <span className="muted"> · {x.company}</span>} <Badge s={x.status} />
-                <div className="small muted">{[x.phone, x.source].filter(Boolean).join(" · ")}</div>
-                {open !== x.id && x.note && <div className="small muted">📝 {x.note.length > 80 ? x.note.slice(0, 80) + "…" : x.note}</div>}
-                {open === x.id && <div className="small" style={{ marginTop: 6, display: "grid", gap: 4, cursor: "default" }} onClick={(e) => e.stopPropagation()}>
-                  <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap" }}><span>Статус:</span>
-                    {CST.map(([k, c]) => <button key={k} style={{ padding: "2px 8px", background: x.status === k ? c : undefined, color: x.status === k ? "#fff" : undefined, borderColor: c }}
-                      className={x.status === k ? "" : "ghost"} onClick={() => upd(x.id, { status: x.status === k ? "" : k })}>{k}</button>)}</div>
-                  {([["name", "Имя"], ["company", "Компания"], ["phone", "Телефон / Telegram"], ["source", "Откуда пришёл"]] as const).map(([k, l]) =>
-                    <label key={k} className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>{l}</span>
-                      <input key={x.id + k + (x[k] || "")} defaultValue={x[k] || ""} list={k === "source" ? "crm-src" : undefined} style={{ flex: 1 }}
-                        onBlur={(e) => e.target.value.trim() !== (x[k] || "") && (k !== "name" || e.target.value.trim()) && upd(x.id, { [k]: e.target.value.trim() })} /></label>)}
-                  <label><span className="muted">📝 Заметки</span>
-                    <textarea rows={3} style={{ width: "100%" }} key={x.id + "n" + (x.note || "")} defaultValue={x.note || ""} placeholder="Договорились созвониться в пятницу…"
-                      onBlur={(e) => e.target.value !== (x.note || "") && upd(x.id, { note: e.target.value })} /></label>
-                  {x.created && <div className="muted">в базе с {dmy(x.created)} · изменения сохраняются сами</div>}
-                {ps.map((p) => <div key={p.id}>• {p.name} — {rub(p.price)}{debt(p) ? `, долг ${rub(debt(p))}` : ", оплачен"} · {ST[p.status]}</div>)}</div>}</td>
-              <td className="small">{ps.length ? `${ps.length} проект.` : <span className="muted">без проекта</span>}{d > 0 && <div className="neg">долг {rub(d)}</div>}</td>
-              <td style={{ whiteSpace: "nowrap" }}><button onClick={(e) => { e.stopPropagation(); toProject(x); }}>→ В проект</button>
-                <button className="ghost" onClick={(e) => { e.stopPropagation(); del(x.id); }}>🗑</button></td></tr>; })}
-          {!shownC.length && <tr><td className="muted">Клиентов нет</td></tr>}
-        </tbody></table>
-        <div className="small muted">«→ В проект» — открывает форму проекта с этим клиентом: выбери продукт, сумму и дату оплаты.</div>
+      </div>
+
+      {/* Список лидов: имя слева, статус справа; нажал — карточка с правкой и комментариями */}
+      <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
+        {shownC.map((x) => { const ps = projects.filter((p) => p.clientId === x.id), d = ps.reduce((a, p) => a + debt(p), 0), on = open === x.id;
+          return <div key={x.id} style={{ borderBottom: "1px solid var(--border, #e5e5e5)" }}>
+            <div className="row" style={{ padding: "10px 14px", cursor: "pointer", gap: 8 }} onClick={() => setOpen(on ? null : x.id)}>
+              <div style={{ minWidth: 0 }}><b>{x.name}</b>{x.company && <span className="muted"> · {x.company}</span>}
+                <div className="small muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[x.phone, x.source, ps.length ? `${ps.length} проект.` : "", d > 0 ? `долг ${rub(d)}` : ""].filter(Boolean).join(" · ") || "—"}</div></div>
+              <select value={x.status || ""} onClick={(e) => e.stopPropagation()} onChange={(e) => upd(x.id, { status: e.target.value })}
+                style={{ background: cstColor(x.status), color: "#fff", border: 0, borderRadius: 999, padding: "4px 10px", fontWeight: 700, flexShrink: 0 }}>
+                <option value="">без статуса</option>{CST.map(([k]) => <option key={k} value={k}>{k}</option>)}</select>
+            </div>
+            {on && <div className="small" style={{ padding: "4px 14px 14px", display: "grid", gap: 6, background: "var(--bg)" }}>
+              {([["name", "Имя"], ["company", "Компания"], ["phone", "Телефон / Telegram"], ["source", "Откуда пришёл"]] as const).map(([k, l]) =>
+                <label key={k} className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 130 }}>{l}</span>
+                  <input key={x.id + k + (x[k] || "")} defaultValue={x[k] || ""} list={k === "source" ? "crm-src" : undefined} style={{ flex: 1 }}
+                    onBlur={(e) => e.target.value.trim() !== (x[k] || "") && (k !== "name" || e.target.value.trim()) && upd(x.id, { [k]: e.target.value.trim() })} /></label>)}
+              <label><span className="muted">📝 Заметка</span>
+                <textarea rows={3} style={{ width: "100%" }} key={x.id + "n" + (x.note || "")} defaultValue={x.note || ""} placeholder="Главное о лиде"
+                  onBlur={(e) => e.target.value !== (x.note || "") && upd(x.id, { note: e.target.value })} /></label>
+              <div><span className="muted">💬 Комментарии</span>
+                {(x.comments || []).map((cm, k) => <div key={k} className="row" style={{ gap: 6, padding: "3px 0", borderBottom: "1px dashed var(--border, #ddd)" }}>
+                  <span><span className="muted">{dmy(cm.at.slice(0, 10))}</span> {cm.text}</span>
+                  <button className="ghost" style={{ padding: "0 6px" }} onClick={() => upd(x.id, { comments: (x.comments || []).filter((_, n) => n !== k) })}>✕</button></div>)}
+                <form className="row" style={{ gap: 6, marginTop: 4 }} onSubmit={(e) => { e.preventDefault(); const t = (cmt[x.id] || "").trim(); if (!t) return;
+                  upd(x.id, { comments: [...(x.comments || []), { at: new Date().toISOString(), text: t }] }); setCmt({ ...cmt, [x.id]: "" }); }}>
+                  <input placeholder="Написать комментарий: созвонились, отправил КП…" value={cmt[x.id] || ""} onChange={(e) => setCmt({ ...cmt, [x.id]: e.target.value })} style={{ flex: 1 }} />
+                  <button disabled={!(cmt[x.id] || "").trim()}>➤</button></form></div>
+              {ps.length > 0 && <div>{ps.map((p) => <div key={p.id}>• {p.name} — {rub(p.price)}{debt(p) ? `, долг ${rub(debt(p))}` : ", оплачен"} · {ST[p.status]}</div>)}</div>}
+              <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">{x.created ? `в базе с ${dmy(x.created)} · ` : ""}изменения сохраняются сами</span>
+                <span><button onClick={() => toProject(x)}>→ В проект</button> <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
+            </div>}
+          </div>; })}
+        {!shownC.length && <div className="muted" style={{ padding: 14 }}>Лидов нет</div>}
       </div>
       {clients.length > 0 && <div className="card" style={{ marginTop: 12 }}>
         <h3 style={{ marginTop: 0 }}>📣 Откуда приходят клиенты</h3>
