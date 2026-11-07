@@ -105,7 +105,7 @@ export default function ClientPortal() {
   if (!p) return <NeylaLoading text="Открываю кабинет клиента" />;
 
   const svc = p.bizType === "services";   // вид кабинета: товарный бизнес (по умолчанию) или услуги
-  if (svc && !p.pnlUrl && (tab === "dash" || tab === "rep" || tab === "op")) setTimeout(() => setTab("chome"));
+  if (svc && !["chome", "cfin", "ccli"].includes(tab)) setTimeout(() => setTab("chome"));
   const canEditClient = isOwner || (!staffView && !!p.opEdit);   // правка ОП и планирования — по доступу от владельца
   const v = (arr: (number | null)[], i?: number) => (i == null ? null : arr[i]);
   const rev = v(pnl?.revenue || [], cur ?? undefined), prof = v(pnl?.profit || [], cur ?? undefined);
@@ -141,13 +141,13 @@ export default function ClientPortal() {
           {p.tariff.payDay ? <div className="t-pay">оплата до {p.tariff.payDay}-го числа</div> : null}
           {p.tariff.items.length > 0 && <ul>{p.tariff.items.map((x, k) => <li key={k}>{x}</li>)}</ul>}
         </details> : null;
-        return <>{slot && !preview && createPortal(ctl, slot)}{nameSlot && !preview && createPortal(<>{p.name}{tariffEl}</>, nameSlot)}
+        return <>{slot && !preview && !svc && createPortal(ctl, slot)}{nameSlot && !preview && createPortal(<>{p.name}{tariffEl}</>, nameSlot)}
           {!preview && tariffEl && <div className="tariff-mobile">{tariffEl}</div>}
-          {(preview || view === "dash" || view === "pnl" || view === "dds" || view === "an" || view === "goods") && <div className="month-top">{ctl}</div>}</>;
+          {!svc && (preview || view === "dash" || view === "pnl" || view === "dds" || view === "an" || view === "goods") && <div className="month-top">{ctl}</div>}</>;
       })()}
       {preview && <h1>{p.name}</h1>}
       {preview && <div className="chips" style={{ marginTop: 12 }}>
-        {([...(svc ? [["chome", "🏠 Главная"], ["cfin", "₽ Финансы"], ["ccli", "👥 Клиенты"]] as const : []), ["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => !(svc && !p.pnlUrl && ["dash", "rep", "op"].includes(k))).map(([k, l]) =>
+        {([...(svc ? [["chome", "◎ Мой кабинет"], ["cfin", "₽ Финансы"], ["ccli", "👥 Клиенты"]] as const : []), ["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => !svc || ["chome", "cfin", "ccli"].includes(k)).map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
