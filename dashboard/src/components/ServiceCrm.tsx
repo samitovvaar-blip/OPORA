@@ -234,6 +234,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
   const [addOpen, setAddOpen] = useState(false);
   const [pick, setPick] = useState<string | null>(null);
   const [pAdd, setPAdd] = useState(false);
+  const [cfg, setCfg] = useState<string | null>(null);
   const [cmt, setCmt] = useState<Record<string, string>>({});
   const blankP = { name: "", clientId: "", productId: "", price: "", deadline: "", payDate: "", monthly: true, payDay: "" };
   const [pr, setPr] = useState(blankP);
@@ -334,8 +335,8 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
                 {costs.map((m) => <div key={m.id} className="row" style={{ borderBottom: "1px dashed var(--border, #ddd)", padding: "3px 0" }}><span>{dmy(m.date)} · {m.category || "Расход"}{m.note ? " · " + m.note : ""}</span><b className="neg">−{rub(m.amount)}</b></div>)}</div>}
               <div className="muted">Расход на проект (ЗП исполнителю, сервисы) вносится в «Финансах» → Расход → «на проект».</div>
               {/* настройки проекта */}
-              <div><b>⚙ Настройки проекта</b>
-                <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
+              <div><button className={cfg === x.id ? "" : "ghost"} style={{ padding: "3px 10px" }} onClick={() => setCfg(cfg === x.id ? null : x.id)}>⚙ Настройки проекта</button>
+                {cfg === x.id && <><div style={{ display: "grid", gap: 4, marginTop: 6 }}>
                   <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Название</span><input key={x.id + "n" + x.name} defaultValue={x.name} style={{ flex: 1 }} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== x.name && upd(x.id, { name: e.target.value.trim() })} /></label>
                   <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Клиент</span><select value={x.clientId} onChange={(e) => upd(x.id, { clientId: e.target.value })} style={{ flex: 1 }}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
                   <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Продукт</span><select value={x.productId || ""} onChange={(e) => upd(x.id, { productId: e.target.value })} style={{ flex: 1 }}><option value="">—</option>{products.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}</select></label>
@@ -346,7 +347,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
                   <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Срок сдачи</span><input type="date" value={x.deadline || ""} onChange={(e) => upd(x.id, { deadline: e.target.value })} style={{ flex: 1 }} /></label>
                   <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Начало</span><input type="date" value={x.start} onChange={(e) => e.target.value && upd(x.id, { start: e.target.value })} style={{ flex: 1 }} /></label>
                 </div>
-                {pd && <div className="muted" style={{ marginTop: 4 }}>Продукт: {pd.name}{pd.descr ? ` — ${pd.descr}` : ""}</div>}
+                {pd && <div className="muted" style={{ marginTop: 4 }}>Продукт: {pd.name}{pd.descr ? ` — ${pd.descr}` : ""}</div>}</>}
               </div>
               <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">изменения сохраняются сами</span>
                 <span>{x.status !== "done" ? <button style={{ background: "#6b7280", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => finish(x)}>⏸ Отключить проект</button>
@@ -407,13 +408,15 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
           {cst !== "all" && <button className="ghost small" onClick={() => setCst("all")}>показать всех</button>}</div>
         {shownC.map((x) => { const ps = projects.filter((p) => p.clientId === x.id), d = ps.reduce((a, p) => a + debt(p), 0), on = open === x.id;
           return <div key={x.id} style={{ borderBottom: "1px solid var(--border, #e5e5e5)" }}>
-            <div className="row" style={{ padding: "10px 14px", cursor: "pointer", gap: 8 }} onClick={() => setOpen(on ? null : x.id)}>
+            <div className="row" style={{ padding: "10px 14px", gap: 8 }}>
               <div style={{ minWidth: 0 }}><b>{x.name}</b>{x.company && <span className="muted"> · {x.company}</span>}
                 <div className="small muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[x.phone, x.source, ps.length ? `${ps.length} проект.` : "", d > 0 ? `долг ${rub(d)}` : ""].filter(Boolean).join(" · ") || "—"}</div></div>
+              <span style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+              <button className={on ? "" : "ghost"} title="Карточка лида: данные, заметки, комментарии" style={{ padding: "3px 8px" }} onClick={() => setOpen(on ? null : x.id)}>⚙</button>
               <button onClick={(e) => { e.stopPropagation(); setPick(pick === x.id ? null : x.id); }} title="Сменить статус"
-                style={{ background: cstColor(x.status), color: "#fff", border: 0, borderRadius: 999, padding: "5px 12px", fontWeight: 700, flexShrink: 0 }}>{x.status || "Статус"} ▾</button>
+                style={{ background: cstColor(x.status), color: "#fff", border: 0, borderRadius: 999, padding: "5px 12px", fontWeight: 700, flexShrink: 0 }}>{x.status || "Статус"} ▾</button></span>
             </div>
-            {(pick === x.id || on) && <StatusBtns cur={x.status} onPick={(k) => { upd(x.id, { status: k }); setPick(null); }} />}
+            {pick === x.id && <StatusBtns cur={x.status} onPick={(k) => { upd(x.id, { status: k }); setPick(null); }} />}
             {on && <div className="small" style={{ padding: "4px 14px 14px", display: "grid", gap: 6, background: "var(--bg)" }}>
               {([["name", "Имя"], ["company", "Компания"], ["phone", "Телефон / Telegram"], ["source", "Откуда пришёл"]] as const).map(([k, l]) =>
                 <label key={k} className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 130 }}>{l}</span>
