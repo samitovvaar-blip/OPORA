@@ -57,6 +57,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   const [mk, setMk] = useState(today().slice(0, 7));
   const [anN, setAnN] = useState(6);
   const [margOpen, setMargOpen] = useState(false);
+  const [pfOpen, setPfOpen] = useState<Record<string, boolean>>({});
 
   const products = items.filter((x): x is CProduct => x.kind === "product").sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const clients = items.filter((x): x is CClient => x.kind === "client").sort((a, b) => a.name.localeCompare(b.name, "ru"));
@@ -132,39 +133,45 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   const margRows = projects.filter((x) => x.status !== "done" || projIncome(mk, x.id)).map((x) => { const i = projIncome(mk, x.id), c = projCost(mk, x.id); const sh = activeIn(mk).some((y) => y.id === x.id) ? shareOf(mk) : 0; return { x, i, c, sh, mm: i ? Math.round((i - c) / i * 100) : null, mm2: i ? Math.round((i - c - sh) / i * 100) : null }; })
     .sort((a, b) => (b.mm ?? -999) - (a.mm ?? -999));
   const planFact = (K: string) => {
-      // План: ежемесячные проекты (сумма в месяц, число оплаты) + разовые с «оплата до» в этом месяце; расходы — шаблоны «каждый месяц» (общие и по проектам)
-      const act = projects.filter((x) => x.status !== "done" && mkOf(x.start) <= K);
-      const planP = act.filter((x) => x.monthly || (x.payDate && mkOf(x.payDate) === K)).map((x) => ({ x, plan: x.price, fact: projIncome(K, x.id), day: x.monthly ? x.payDay || 1 : Number(x.payDate!.slice(8)) }))
-        .sort((a, b) => a.day - b.day);
-      const regs = regulars.filter((r) => !r.off && (!r.projectId || act.some((x) => x.id === r.projectId)));
-      const pIn = planP.reduce((a, y) => a + y.plan, 0), pOut = regs.reduce((a, r) => a + r.amount, 0);
-      const fIn = stat(K).inc, fOut = stat(K).out;
-      const Row = ({ l, pl, fa, inv, bold }: { l: string; pl: number; fa: number; inv?: boolean; bold?: boolean }) => { const pc = pl ? Math.round(fa / pl * 100) : null, good = inv ? fa <= pl : fa >= pl, isP = /прибыль/i.test(l);
-        return <tr className={bold ? "pnl-key" : ""}><td className={isP ? "profit" : ""}>{l}</td><td>{pl ? rub(pl) : "—"}</td><td className={isP ? (fa < 0 ? "error profit" : "profit") : ""}>{fa ? rub(fa) : "—"}</td>
-          <td className={pc == null ? "muted" : good ? "ok" : "error"}>{pc == null ? "—" : pc + "%"}</td></tr>; };
-      return <div className="card" style={{ margin: 0 }}>
-        <h3 style={{ marginTop: 0 }}>🎯 План / факт · {MONTHS[Number(K.slice(5)) - 1]} {K.slice(0, 4)}{K === today().slice(0, 7) ? " · текущий" : K > today().slice(0, 7) ? " · следующий" : ""}</h3>
-        <div style={{ overflowX: "auto" }}><table className="pnl-table">
-          <thead><tr><th /><th className="small">План</th><th className="small">Факт</th><th className="small">%</th></tr></thead>
-          <tbody>
-            <Row l="Доходы" pl={pIn} fa={fIn} bold />
-            <Row l="Расходы" pl={pOut} fa={fOut} inv bold />
-            <Row l="Чистая прибыль" pl={pIn - pOut} fa={fIn - fOut} bold />
-            <tr><td>Рентабельность</td><td>{pIn ? Math.round((pIn - pOut) / pIn * 100) + "%" : "—"}</td><td>{fIn ? Math.round((fIn - fOut) / fIn * 100) + "%" : "—"}</td><td /></tr>
-          </tbody></table></div>
-        <details style={{ marginTop: 8 }}><summary className="small" style={{ cursor: "pointer" }}>Откуда план: {planP.length} оплат по проектам · {regs.length} ежемесячных расходов</summary>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginTop: 6 }} className="small">
-            <div><b>💰 Ожидаемые оплаты</b>{planP.map(({ x, plan, fact, day }) => <div key={x.id} className="row"><span>{day}-го · {cname(x.clientId)} · {x.name}</span>
-              <span className={fact >= plan ? "ok" : day < Number(today().slice(8)) && K === today().slice(0, 7) ? "error" : "muted"}>{rub(plan)}{fact >= plan ? " ✓" : fact ? ` (пришло ${rub(fact)})` : ""}</span></div>)}
-              {!planP.length && <div className="muted">Нет ежемесячных проектов</div>}</div>
-            <div><b>➖ Плановые расходы</b>{regs.map((r) => <div key={r.id} className="row"><span>{r.day}-го · {r.name}{r.projectId ? ` · ${pname(r.projectId)}` : " · общий"}</span><span>{rub(r.amount)}</span></div>)}
-              {!regs.length && <div className="muted">Добавь ежемесячные расходы: общие — ниже, по проекту — внутри проекта</div>}</div>
-          </div></details>
-              </div>;
+    // План: ежемесячные проекты (сумма в месяц) + разовые с «оплата до» в этом месяце; расходы — шаблоны «каждый месяц» (общие и по проектам)
+    const act = projects.filter((x) => x.status !== "done" && mkOf(x.start) <= K);
+    const planP = act.filter((x) => x.monthly || (x.payDate && mkOf(x.payDate) === K)).map((x) => ({ x, plan: x.price, fact: projIncome(K, x.id), day: x.monthly ? x.payDay || 1 : Number(x.payDate!.slice(8)) }))
+      .sort((a, b) => a.day - b.day);
+    const regs = regulars.filter((r) => !r.off && (!r.projectId || act.some((x) => x.id === r.projectId)));
+    const factReg = (r: CRegular) => moves.filter((m) => m.regularId === r.id && mkOf(m.date) === K).reduce((a, m) => a + m.amount, 0);
+    const otherOut = moves.filter((m) => m.type === "out" && !m.regularId && mkOf(m.date) === K);
+    const otherIn = moves.filter((m) => m.type === "in" && !m.projectId && mkOf(m.date) === K);
+    const pIn = planP.reduce((a, y) => a + y.plan, 0), pOut = regs.reduce((a, r) => a + r.amount, 0);
+    const fIn = stat(K).inc, fOut = stat(K).out;
+    const projPlanCost = regs.filter((r) => r.projectId).reduce((a, r) => a + r.amount, 0);
+    const pMarg = pIn ? Math.round((pIn - projPlanCost) / pIn * 100) : null, fMarg = stat(K).marg;
+    const pc = (pl: number, fa: number, inv?: boolean) => { const v = pl ? Math.round(fa / pl * 100) : null; return <td className={v == null ? "muted" : (inv ? fa <= pl : fa >= pl) ? "ok" : "error"}>{v == null ? "—" : v + "%"}</td>; };
+    const Sub = ({ l, pl, fa, warn }: { l: string; pl: number | null; fa: number; warn?: boolean }) => <tr className="small"><td style={{ paddingLeft: 22 }}>{l}</td><td>{pl != null ? rub(pl) : "—"}</td><td className={warn ? "error" : ""}>{fa ? rub(fa) : "—"}</td><td /></tr>;
+    const tog = (k: string) => setPfOpen({ ...pfOpen, [k]: !pfOpen[k] });
+    return <div className="card" style={{ margin: 0 }}>
+      <h3 style={{ marginTop: 0 }}>🎯 План / факт · {MONTHS[Number(K.slice(5)) - 1]} {K.slice(0, 4)}</h3>
+      <div style={{ overflowX: "auto" }}><table className="pnl-table">
+        <thead><tr><th /><th className="small">План</th><th className="small">Факт</th><th className="small">%</th></tr></thead>
+        <tbody>
+          <tr className="pnl-key" style={{ cursor: "pointer" }} onClick={() => tog("in")}><td>{pfOpen.in ? "▾" : "▸"} Доходы</td><td>{rub(pIn)}</td><td>{rub(fIn)}</td>{pc(pIn, fIn)}</tr>
+          {pfOpen.in && <>{planP.map(({ x, plan, fact, day }) => <Sub key={x.id} l={`${day}-го · ${cname(x.clientId)} · ${x.name}`} pl={plan} fa={fact}
+            warn={fact < plan && K === today().slice(0, 7) && day < Number(today().slice(8))} />)}
+            {otherIn.length > 0 && <Sub l="Прочие доходы" pl={null} fa={otherIn.reduce((a, m) => a + m.amount, 0)} />}
+            {!planP.length && <tr className="small muted"><td style={{ paddingLeft: 22 }} colSpan={4}>Нет ежемесячных проектов</td></tr>}</>}
+          <tr className="pnl-key" style={{ cursor: "pointer" }} onClick={() => tog("out")}><td>{pfOpen.out ? "▾" : "▸"} Расходы</td><td>{rub(pOut)}</td><td>{rub(fOut)}</td>{pc(pOut, fOut, true)}</tr>
+          {pfOpen.out && <>{regs.map((r) => <Sub key={r.id} l={`${r.day}-го · ${r.name}${r.projectId ? " · " + pname(r.projectId) : " · общий"}`} pl={r.amount} fa={factReg(r)} />)}
+            {otherOut.length > 0 && <Sub l="Разовые расходы" pl={null} fa={otherOut.reduce((a, m) => a + m.amount, 0)} />}
+            {!regs.length && <tr className="small muted"><td style={{ paddingLeft: 22 }} colSpan={4}>Ежемесячных расходов нет — добавь ниже или внутри проекта</td></tr>}</>}
+          <tr className="pnl-key"><td className="profit">Чистая прибыль</td><td>{rub(pIn - pOut)}</td><td className={fIn - fOut < 0 ? "error profit" : "profit"}>{rub(fIn - fOut)}</td>{pc(pIn - pOut, fIn - fOut)}</tr>
+          <tr><td>Рентабельность</td><td>{pIn ? Math.round((pIn - pOut) / pIn * 100) + "%" : "—"}</td><td>{fIn ? Math.round((fIn - fOut) / fIn * 100) + "%" : "—"}</td><td /></tr>
+          <tr><td>Маржинальность</td><td>{pMarg != null ? pMarg + "%" : "—"}</td><td>{fMarg != null ? fMarg + "%" : "—"}</td><td /></tr>
+        </tbody></table></div>
+      <div className="small muted" style={{ marginTop: 6 }}>Нажми «Доходы» или «Расходы», чтобы увидеть по каждому проекту и расходу. Стрелки ‹ › вверху — другой месяц.</div>
+    </div>;
   };
   if (view === "fin") return <>
     {MonthPick}
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12 }}>{planFact(mk)}{planFact(shift(mk, 1))}</div>
+    {planFact(mk)}
     <div style={{ marginTop: 12 }}><FinTab {...{ MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} /></div>
   </>;
   return <>
@@ -253,11 +260,12 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p,
   MonthPick: JSX.Element; mk: string; moves: CMove[]; projects: CProject[]; pname: (id?: string) => string;
   add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void; sumM: (k: string, t: "in" | "out") => number; p: ClientProject; push: () => void; sync: string; regulars: CRegular[]; nActive: number;
 }) {
-  const [f, setF] = useState({ type: "in" as "in" | "out", amount: "", date: today(), note: "", projectId: "", category: "", account: ACCOUNTS[0] });
+  const [f, setF] = useState({ type: "out" as "in" | "out", amount: "", date: today(), note: "", projectId: "", category: "", account: ACCOUNTS[0], repeat: true });
   const inM = moves.filter((m) => mkOf(m.date) === mk);
   const [addF, setAddF] = useState(false);
   const income = sumM(mk, "in"), expense = sumM(mk, "out");
   const submit = (e: FormEvent) => { e.preventDefault(); const amount = Number(f.amount); if (!amount) return;
+    if (f.type === "out" && f.repeat) { add({ kind: "regular", name: f.note.trim() || f.category.trim() || "Расход", amount, day: Number(f.date.slice(8)) || 1, category: f.category.trim() || "Прочее", account: f.account }); setF({ ...f, amount: "", note: "" }); setAddF(false); return; }
     add({ kind: "move", type: f.type, amount, date: f.date, note: f.note.trim(), account: f.account,
       category: f.category.trim() || (f.type === "in" ? "Прочий доход" : "Прочее") });
     setF({ ...f, amount: "", note: "" }); };
@@ -293,18 +301,9 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p,
         <div className="row small" style={{ borderTop: "1px solid var(--border, #ddd)", paddingTop: 4 }}><b>Всего</b><b>{rub(accs.reduce((x, a) => x + bal(a), 0))}</b></div>
       </div>
     </div>
-    <Regulars {...{ mk, regulars: regulars.filter((x) => !x.projectId), moves, projects, pname, add, del, upd, nActive }} />
-    <div className="card" style={{ marginTop: 12 }}>
-      <b>📒 Операции за месяц</b>
-    <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
-      {inM.map((x) => <tr key={x.id}><td className="small">{dmy(x.date)}</td>
-        <td>{x.type === "in" ? (x.projectId ? `Оплата: ${pname(x.projectId) || "проект"}` : x.category || "Доход") : (x.category || "Расход") + (x.projectId ? ` · ${pname(x.projectId)}` : "")}<div className="small muted">{x.account || ""}{x.note ? " · " + x.note : ""}</div></td>
-        <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
-        <td>{x.projectId ? <span className="small muted" title="Меняется внутри проекта">🛠 в проекте</span> : <button className="ghost" onClick={() => del(x.id)}>🗑</button>}</td></tr>)}
-      {!inM.length && <tr><td className="muted">В этом месяце операций нет</td></tr>}
-    </tbody></table>
+    <Regulars {...{ mk, regulars: regulars.filter((x) => !x.projectId), moves, projects, pname, add, del, upd, nActive }} extra={<>
       <div className="row small" style={{ justifyContent: "flex-start", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-        <button onClick={() => setAddF(!addF)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addF ? "✕ Закрыть" : "+ Добавить общий доход / расход"}</button>
+        <button onClick={() => setAddF(!addF)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addF ? "✕ Закрыть" : "+ Добавить"}</button>
         <button className="ghost" onClick={copyPrev}>⧉ Скопировать расходы прошлого месяца</button>
       </div>
       {addF &&     <form className="row small" onSubmit={submit} style={{ flexWrap: "wrap", gap: 6, marginTop: 10 }}>
@@ -314,9 +313,20 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p,
       <select value={f.account} onChange={(e) => setF({ ...f, account: e.target.value })}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
       <input list="crm-cats" placeholder={f.type === "in" ? "Статья дохода (прочий доход)" : "Статья (аренда, ЗП, сервисы…)"} value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} style={{ width: 170 }} />
       <datalist id="crm-cats">{(f.type === "in" ? ["Прочий доход", "Возврат", "Проценты банка"] : CATS).map((c) => <option key={c} value={c} />)}</datalist>
-      <input placeholder="Комментарий" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} style={{ flex: "1 1 140px" }} />
-      <button disabled={!Number(f.amount)}>+ Добавить</button>
+      <input placeholder={f.type === "out" ? "Название (Тильда, аренда, ЗП…)" : "Комментарий"} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} style={{ flex: "1 1 140px" }} />
+      {f.type === "out" && <label className="row" style={{ gap: 4 }}><input type="checkbox" checked={f.repeat} onChange={(e) => setF({ ...f, repeat: e.target.checked })} /> повторять каждый месяц</label>}
+      <button disabled={!Number(f.amount)}>✓ Сохранить</button>
     </form>}
+    </>} />
+    <div className="card" style={{ marginTop: 12 }}>
+      <b>📒 Операции за месяц</b> <span className="small muted">— справочник: все доходы и расходы месяца, по проектам и общие</span>
+    <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
+      {inM.map((x) => <tr key={x.id}><td className="small">{dmy(x.date)}</td>
+        <td>{x.type === "in" ? (x.projectId ? `Оплата: ${pname(x.projectId) || "проект"}` : x.category || "Доход") : (x.category || "Расход") + (x.projectId ? ` · ${pname(x.projectId)}` : "")}<div className="small muted">{x.account || ""}{x.note ? " · " + x.note : ""}</div></td>
+        <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
+        <td className="small muted">{x.projectId ? "🛠 проект" : x.regularId ? "🧩 общий" : "общий"}</td></tr>)}
+      {!inM.length && <tr><td className="muted">В этом месяце операций нет</td></tr>}
+    </tbody></table>
     </div>
   </>;
 }
@@ -394,13 +404,18 @@ function ClientsTab({ clients, projects, products, moves, regulars, paidOf, cost
           const costs = moves.filter((m) => m.projectId === x.id && m.type === "out").sort((a, b) => b.date.localeCompare(a.date));
           const exp = expectedOf(x), share = exp ? Math.min(100, Math.round(paid / exp * 100)) : paid ? 100 : 0;
           const profit = paid - cost, margin = paid ? Math.round(profit / paid * 100) : null;
+          const cm = today().slice(0, 7), mi = moves.filter((m) => m.projectId === x.id && m.type === "in" && mkOf(m.date) === cm).reduce((a, m) => a + m.amount, 0),
+            mc = moves.filter((m) => m.projectId === x.id && m.type === "out" && mkOf(m.date) === cm).reduce((a, m) => a + m.amount, 0), mmg = mi ? Math.round((mi - mc) / mi * 100) : null;
           const L = ({ l, children }: { l: string; children: React.ReactNode }) => <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>{l}</span><span style={{ flex: 1, display: "flex" }}>{children}</span></label>;
           return <div key={x.id} style={{ border: `1px solid ${on ? "#16304f" : "var(--border, #e5e5e5)"}`, borderRadius: 12, overflow: "hidden", background: "var(--surface, #fff)", opacity: x.status === "done" ? .7 : 1 }}>
             <div className="row" style={{ padding: "10px 14px", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0, flex: "1 1 240px" }}><b>{x.name}</b> <span className="muted small">· {cname(x.clientId)}</span>
-                <div className="small muted">{x.monthly ? `${rub(x.price)} в месяц, ${x.payDay || 1}-го` : `${rub(x.price)} разово`} · доходы {rub(paid)} · расходы {rub(cost)}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}</span>}</div></div>
+                <div className="small muted">{x.monthly ? `${rub(x.price)} в месяц, ${x.payDay || 1}-го` : `${rub(x.price)} разово`}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}</span>}</div>
+                <div className="small" style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: "2px 10px" }}><span className="muted">{MONTHS[Number(cm.slice(5)) - 1]}:</span>
+                  <span>доходы <b className="ok">{rub(mi)}</b></span><span className="muted">−</span><span>расходы <b className="neg">{rub(mc)}</b></span><span className="muted">=</span>
+                  <span>прибыль <b className={mi - mc < 0 ? "error" : "ok"}>{rub(mi - mc)}</b></span></div></div>
               <div className="row" style={{ alignItems: "center", gap: 14 }}>
-                <span className="small"><span className="muted">маржа </span><b className={margin != null && margin < 0 ? "error" : "ok"} style={{ fontSize: 18 }}>{margin != null ? margin + "%" : "—"}</b></span>
+                <span className="small"><span className="muted">маржа </span><b className={mmg != null && mmg < 0 ? "error" : "ok"} style={{ fontSize: 18 }}>{mmg != null ? mmg + "%" : "—"}</b></span>
                 <button onClick={() => { setOpen(on ? null : x.id); setPay(null); setCostF(null); }} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button></div>
             </div>
             {on && <div className="small" style={{ padding: "8px 14px 14px", background: "var(--bg)", display: "grid", gap: 12 }}>
@@ -427,7 +442,11 @@ function ClientsTab({ clients, projects, products, moves, regulars, paidOf, cost
                         <input type="date" value={pay.date} onChange={(e) => setPay({ ...pay, date: e.target.value })} />
                         <select value={pay.account} onChange={(e) => setPay({ ...pay, account: e.target.value })}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
                         <span><button disabled={!Number(pay.amount)} onClick={() => { add({ kind: "move", type: "in", amount: Number(pay.amount), date: pay.date, note: "", projectId: x.id, account: pay.account }); setPay(null); }}>✓ Внести</button> <button className="ghost" onClick={() => setPay(null)}>Отмена</button></span></div>
-                    : <button style={{ marginTop: 8 }} onClick={() => { setCostF(null); setPay({ id: x.id, amount: String(x.monthly ? (d ? Math.min(d, x.price) : x.price) : d || x.price), date: today(), account: ACCOUNTS[0] }); }}>+ Внести оплату</button>}
+                    : <span style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                      {x.monthly && mi < x.price && (() => { const dd = `${cm}-${String(Math.min(x.payDay || 1, new Date(Number(cm.slice(0, 4)), Number(cm.slice(5)), 0).getDate())).padStart(2, "0")}`;
+                        return <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => add({ kind: "move", type: "in", amount: x.price - mi, date: dd, note: "", projectId: x.id, account: ACCOUNTS[0] })}>✓ {dmy(dd).slice(0, 5)} оплатили {rub(x.price - mi)}</button>; })()}
+                      {x.monthly && mi >= x.price && <span className="ok">✓ {MONTHS[Number(cm.slice(5)) - 1].toLowerCase()} оплачен</span>}
+                      <button className="ghost" onClick={() => { setCostF(null); setPay({ id: x.id, amount: String(x.monthly ? (d ? Math.min(d, x.price) : x.price) : d || x.price), date: today(), account: ACCOUNTS[0] }); }}>+ Внести оплату</button></span>}
                 </div>
                 {/* расходы */}
                 <div className="card" style={{ margin: 0 }}>
@@ -450,15 +469,9 @@ function ClientsTab({ clients, projects, products, moves, regulars, paidOf, cost
                   </div>
                 </div>
               </div>
-              {x.monthly && monthsOf(x).length > 0 && <details><summary style={{ cursor: "pointer" }}><b>📅 По месяцам</b></summary>
-                <table className="pnl-table" style={{ marginTop: 4, maxWidth: 560 }}><tbody>
-                  <tr className="muted"><td>Месяц</td><td>Ожидалось</td><td>Доходы</td><td>Расходы</td><td>Маржа</td></tr>
-                  {monthsOf(x).slice().reverse().map((k) => { const pm = pays.filter((m) => mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0), cm = costs.filter((m) => mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0);
-                    return <tr key={k}><td>{MONTHS[Number(k.slice(5)) - 1]} {k.slice(0, 4)}</td><td>{rub(x.price)}</td><td className={pm >= x.price ? "ok" : pm ? "neg" : "error"}>{rub(pm)}</td><td className="muted">{cm ? rub(cm) : "—"}</td><td>{pm ? Math.round((pm - cm) / pm * 100) + "%" : "—"}</td></tr>; })}
-                </tbody></table></details>}
               {/* общие настройки */}
-              <details className="card" style={{ margin: 0 }}>
-                <summary style={{ cursor: "pointer" }}><b>⚙ Общие настройки</b> <span className="muted">— название, клиент, сумма, дата оплаты</span></summary>
+              <details style={{ margin: 0 }}>
+                <summary className="muted" style={{ cursor: "pointer" }}>⚙ Общие настройки — название, клиент, сумма, дата оплаты</summary>
                 <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
                   <L l="Название"><input key={x.id + "n" + x.name} defaultValue={x.name} style={{ flex: 1 }} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== x.name && upd(x.id, { name: e.target.value.trim() })} /></L>
                   <L l="Клиент"><select value={x.clientId} onChange={(e) => upd(x.id, { clientId: e.target.value })} style={{ flex: 1 }}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></L>
@@ -590,9 +603,9 @@ function ProductsTab({ products, projects, add, del, upd }: {
 }
 
 // Ежемесячные расходы (сервисы, аренда, подписки): шаблон → каждый месяц «провести» в один клик
-function Regulars({ mk, regulars, moves, projects, pname, add, del, upd, nActive, projectId }: {
+function Regulars({ mk, regulars, moves, projects, pname, add, del, upd, nActive, projectId, extra }: {
   mk: string; regulars: CRegular[]; moves: CMove[]; projects: CProject[]; pname: (id?: string) => string;
-  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void; nActive: number; projectId?: string;
+  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void; nActive: number; projectId?: string; extra?: React.ReactNode;
 }) {
   const [f, setF] = useState<{ name: string; amount: string; day: string; category: string; account: string; projectId: string } | null>(null);
   const lastDay = new Date(Number(mk.slice(0, 4)), Number(mk.slice(5)), 0).getDate();
@@ -605,7 +618,7 @@ function Regulars({ mk, regulars, moves, projects, pname, add, del, upd, nActive
   return <div className={inProject ? "" : "card"} style={{ marginTop: inProject ? 0 : 12 }}>
     <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>{inProject ? `🔁 Каждый месяц · ${rub(regulars.filter((r) => !r.off).reduce((a, r) => a + r.amount, 0))}` : `🧩 Общие расходы · ${rub(sharedM)} за месяц`}</b>
       <span>{todo.length > 0 && <button style={{ marginRight: 6 }} onClick={() => todo.forEach(run)}>✓ Провести все за месяц ({todo.length})</button>}
-        <button className="ghost" onClick={() => setF(f ? null : { name: "", amount: "", day: "1", category: "Сервисы", account: ACCOUNTS[0], projectId: "" })}>{f ? "✕" : "+ Добавить"}</button></span></div>
+        {inProject && <button className="ghost" onClick={() => setF(f ? null : { name: "", amount: "", day: "1", category: "Сервисы", account: ACCOUNTS[0], projectId: "" })}>{f ? "✕" : "+ Добавить"}</button>}</span></div>
     {!inProject && <div className="small" style={{ margin: "6px 0", padding: "6px 10px", background: "var(--bg)", borderRadius: 8 }}>
       Все расходы без проекта — общие и делятся поровну на проекты в работе: <b>{rub(sharedM)}</b> ÷ <b>{nActive}</b> проект. = <b>{nActive ? rub(sharedM / nActive) : "—"}</b> на каждый проект.
       <span className="muted"> Ниже — шаблоны тех, что повторяются каждый месяц: проводишь одной кнопкой.</span></div>}
@@ -623,10 +636,11 @@ function Regulars({ mk, regulars, moves, projects, pname, add, del, upd, nActive
       {regulars.map((r) => { const m = doneIn(r);
         return <tr key={r.id} style={{ opacity: r.off ? .5 : 1 }}><td>{r.name}<div className="small muted">{r.day}-го · {r.category || "Сервисы"}{r.projectId ? " · " + pname(r.projectId) : ""}</div></td>
           <td className="neg">−{rub(r.amount)}</td>
-          <td style={{ whiteSpace: "nowrap" }}>{r.off ? <span className="muted small">пауза</span> : m ? <span className="ok small">✓ проведён {dmy(m.date)}</span> : <button onClick={() => run(r)}>Провести</button>}
+          <td style={{ whiteSpace: "nowrap" }}>{r.off ? <span className="muted small">пауза</span> : m ? <span className="ok small">✓ проведён {dmy(m.date)}</span> : <><span className="small muted">черновик</span> <button onClick={() => run(r)}>Провести</button></>}
             {" "}<button className="ghost" title={r.off ? "Включить" : "Пауза"} onClick={() => upd(r.id, { off: !r.off })}>{r.off ? "▶" : "⏸"}</button>
             <button className="ghost" onClick={() => del(r.id)}>🗑</button></td></tr>; })}
       {!regulars.length && <tr><td className="muted">{inProject ? "ЗП исполнителю, сервисы проекта — то, что платится каждый месяц" : "Аренда, сервисы, подписки — то, что платится каждый месяц и делится на все проекты"}</td></tr>}
     </tbody></table>
+    {extra}
   </div>;
 }
