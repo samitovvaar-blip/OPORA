@@ -8,7 +8,7 @@ import { rub } from "../lib/money";
 import { ClientProject } from "../lib/catalog";
 
 type CProduct = { id: string; kind: "product"; name: string; price: number; descr?: string };
-type CClient = { id: string; kind: "client"; name: string; company?: string; phone?: string; note?: string; source?: string; created?: string };
+type CClient = { id: string; kind: "client"; name: string; status?: string; company?: string; phone?: string; note?: string; source?: string; created?: string };
 type Status = "new" | "work" | "done";
 type CProject = { id: string; kind: "project"; name: string; clientId: string; productId?: string; price: number; status: Status; start: string; deadline?: string; payDate?: string };
 type CMove = { id: string; kind: "move"; type: "in" | "out"; amount: number; date: string; note: string; projectId?: string; category?: string; account?: string };
@@ -19,6 +19,10 @@ const MONTHS = ["Январь", "Февраль", "Март", "Апрель", "�
 const CATS = ["Аренда", "Реклама", "Зарплата", "Налоги", "Материалы", "Связь и сервисы", "Транспорт", "Обучение", "Банк и комиссии", "Прочее"];
 const SOURCES = ["Instagram", "Сарафан / рекомендация", "Авито", "Сайт", "Telegram", "ВКонтакте", "Повторный клиент"];
 const ACCOUNTS = ["Расчётный счёт", "Карта", "Наличные"];
+// статусы клиента в базе (воронка) и их цвета
+const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Ждёт предложение", "#8a3ab9"], ["Начали работу", "#16a34a"], ["Вернуться", "#2a5bd7"], ["Отказ", "#b02a2a"]];
+const cstColor = (s?: string) => CST.find(([k]) => k === s)?.[1] || "#888";
+const Badge = ({ s }: { s?: string }) => <span style={{ background: cstColor(s), color: "#fff", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{s || "без статуса"}</span>;
 const ST: Record<Status, string> = { new: "🆕 новый", work: "🛠 в работе", done: "✓ сдан" };
 const NEXT: Record<Status, Status> = { new: "work", work: "done", done: "new" };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -60,7 +64,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
       moves: [...moves].reverse().map((m) => { const pr = projects.find((x) => x.id === m.projectId);
         return [dmy(m.date), MONTHS[Number(m.date.slice(5, 7)) - 1] + " " + m.date.slice(0, 4), m.type === "in" ? "Приход" : "Расход", m.amount, m.account || "", m.type === "in" ? (pr ? "Оплата проекта" : "Доход") : m.category || "Прочее", pr?.name || "", pr ? cname(pr.clientId) : "", m.note]; }),
       projects: projects.map((x) => [dmy(x.start), x.name, products.find((y) => y.id === x.productId)?.name || "", cname(x.clientId), x.price, paidOf(x.id), debt(x), ST[x.status], dmy(x.deadline), dmy(x.payDate), costOf(x.id), x.price - costOf(x.id), x.price ? Math.round((x.price - costOf(x.id)) / x.price * 100) + "%" : ""]),
-      clients: clients.map((x) => [x.name, x.company || "", x.phone || "", x.source || "", x.note || "", dmy(x.created)]) });
+      clients: clients.map((x) => [x.name, x.company || "", x.phone || "", x.source || "", x.note || "", dmy(x.created), x.status || ""]) });
     // no-cors: Apps Script не отдаёт CORS-заголовки, ответ не читаем — запись в таблицу всё равно происходит
     fetch(s.exec, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body })
       .then(() => setSync("sent")).catch(() => setSync("fail"));
@@ -212,10 +216,11 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
   const [pay, setPay] = useState<{ id: string; amount: string; date: string; account: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [bulk, setBulk] = useState<string | null>(null);
+  const [cst, setCst] = useState("all");
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | Status | "debt">("all");
   const ql = q.trim().toLowerCase();
-  const shownC = clients.filter((x) => !ql || [x.name, x.company, x.phone, x.note].join(" ").toLowerCase().includes(ql));
+  const shownC = clients.filter((x) => cst === "all" || (x.status || "") === cst).filter((x) => !ql || [x.name, x.company, x.phone, x.note].join(" ").toLowerCase().includes(ql));
   const shownP = projects.filter((x) => (filter === "all" || (filter === "debt" ? debt(x) > 0 : x.status === filter)) && (!ql || (x.name + " " + cname(x.clientId)).toLowerCase().includes(ql)));
   const bySrc: Record<string, { n: number; sum: number }> = {};
   clients.forEach((x) => { const k = x.source || "Не указан"; const s = bySrc[k] = bySrc[k] || { n: 0, sum: 0 }; s.n++;
@@ -296,12 +301,27 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
           <input placeholder="Заметка" value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} style={{ flex: "1 1 140px" }} />
           <button disabled={!c.name.trim()}>+ Клиент</button>
         </form>
+        <div className="row small" style={{ justifyContent: "flex-start", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
+          {[["all", "Все"], ...CST.map(([k]) => [k, k]), ["", "Без статуса"]].map(([k, l]) => { const n = k === "all" ? clients.length : clients.filter((x) => (x.status || "") === k).length;
+            return <button key={k || "none"} className={cst === k ? "" : "ghost"} style={{ padding: "2px 10px" }} onClick={() => setCst(k)}>{l} · {n}</button>; })}</div>
         <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
           {shownC.map((x) => { const ps = projects.filter((p) => p.clientId === x.id), d = ps.reduce((a, p) => a + debt(p), 0);
             return <tr key={x.id} style={{ cursor: "pointer" }} onClick={() => setOpen(open === x.id ? null : x.id)}>
-              <td>{open === x.id ? "▾" : "▸"} {x.name}{x.company && <span className="muted"> · {x.company}</span>}<div className="small muted">{[x.phone, x.source].filter(Boolean).join(" · ")}</div>
-                {open === x.id && <div className="small" style={{ marginTop: 4 }}>
-                {x.note && <div className="muted">📝 {x.note}</div>}{x.created && <div className="muted">в базе с {dmy(x.created)}</div>}
+              <td>{open === x.id ? "▾" : "▸"} {x.name}{x.company && <span className="muted"> · {x.company}</span>} <Badge s={x.status} />
+                <div className="small muted">{[x.phone, x.source].filter(Boolean).join(" · ")}</div>
+                {open !== x.id && x.note && <div className="small muted">📝 {x.note.length > 80 ? x.note.slice(0, 80) + "…" : x.note}</div>}
+                {open === x.id && <div className="small" style={{ marginTop: 6, display: "grid", gap: 4, cursor: "default" }} onClick={(e) => e.stopPropagation()}>
+                  <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap" }}><span>Статус:</span>
+                    {CST.map(([k, c]) => <button key={k} style={{ padding: "2px 8px", background: x.status === k ? c : undefined, color: x.status === k ? "#fff" : undefined, borderColor: c }}
+                      className={x.status === k ? "" : "ghost"} onClick={() => upd(x.id, { status: x.status === k ? "" : k })}>{k}</button>)}</div>
+                  {([["name", "Имя"], ["company", "Компания"], ["phone", "Телефон / Telegram"], ["source", "Откуда пришёл"]] as const).map(([k, l]) =>
+                    <label key={k} className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>{l}</span>
+                      <input key={x.id + k + (x[k] || "")} defaultValue={x[k] || ""} list={k === "source" ? "crm-src" : undefined} style={{ flex: 1 }}
+                        onBlur={(e) => e.target.value.trim() !== (x[k] || "") && (k !== "name" || e.target.value.trim()) && upd(x.id, { [k]: e.target.value.trim() })} /></label>)}
+                  <label><span className="muted">📝 Заметки</span>
+                    <textarea rows={3} style={{ width: "100%" }} key={x.id + "n" + (x.note || "")} defaultValue={x.note || ""} placeholder="Договорились созвониться в пятницу…"
+                      onBlur={(e) => e.target.value !== (x.note || "") && upd(x.id, { note: e.target.value })} /></label>
+                  {x.created && <div className="muted">в базе с {dmy(x.created)} · изменения сохраняются сами</div>}
                 {ps.map((p) => <div key={p.id}>• {p.name} — {rub(p.price)}{debt(p) ? `, долг ${rub(debt(p))}` : ", оплачен"} · {ST[p.status]}</div>)}</div>}</td>
               <td className="small">{ps.length ? `${ps.length} проект.` : <span className="muted">без проекта</span>}{d > 0 && <div className="neg">долг {rub(d)}</div>}</td>
               <td style={{ whiteSpace: "nowrap" }}><button onClick={(e) => { e.stopPropagation(); toProject(x); }}>→ В проект</button>
