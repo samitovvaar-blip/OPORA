@@ -411,24 +411,15 @@ function ClientsTab({ clients, projects, products, moves, regulars, paidOf, cost
             <div className="row" style={{ padding: "10px 14px", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0, flex: "1 1 240px" }}><b>{x.name}</b> <span className="muted small">· {cname(x.clientId)}</span>
                 <div className="small muted">{x.monthly ? `${rub(x.price)} в месяц, ${x.payDay || 1}-го` : `${rub(x.price)} разово`}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}</span>}</div>
-                <div className="small" style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: "2px 10px" }}><span className="muted">{MONTHS[Number(cm.slice(5)) - 1]}:</span>
-                  <span>доходы <b className="ok">{rub(mi)}</b></span><span className="muted">−</span><span>расходы <b className="neg">{rub(mc)}</b></span><span className="muted">=</span>
-                  <span>прибыль <b className={mi - mc < 0 ? "error" : "ok"}>{rub(mi - mc)}</b></span></div></div>
+                <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: "4px 18px", alignItems: "baseline" }}>
+                  <span><span className="muted">Доходы</span> <b className="ok" style={{ fontSize: 16 }}>{rub(paid)}</b></span><span className="muted">−</span>
+                  <span><span className="muted">Расходы</span> <b className="neg" style={{ fontSize: 16 }}>{rub(cost)}</b></span><span className="muted">=</span>
+                  <span><span className="muted">Прибыль</span> <b className={profit < 0 ? "error" : "ok"} style={{ fontSize: 16 }}>{rub(profit)}</b></span>
+                  <span><span className="muted">Маржа</span> <b style={{ fontSize: 18 }} className={margin != null && margin < 0 ? "error" : ""}>{margin != null ? margin + "%" : "—"}</b></span></div></div>
               <div className="row" style={{ alignItems: "center", gap: 14 }}>
-                <span className="small"><span className="muted">маржа </span><b className={mmg != null && mmg < 0 ? "error" : "ok"} style={{ fontSize: 18 }}>{mmg != null ? mmg + "%" : "—"}</b></span>
                 <button onClick={() => { setOpen(on ? null : x.id); setPay(null); setCostF(null); }} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button></div>
             </div>
             {on && <div className="small" style={{ padding: "8px 14px 14px", background: "var(--bg)", display: "grid", gap: 12 }}>
-              {/* итог: доходы − расходы = прибыль, маржа */}
-              <div className="card" style={{ margin: 0, padding: "10px 14px", display: "flex", flexWrap: "wrap", gap: "6px 22px", alignItems: "baseline" }}>
-                <span><span className="muted">Доходы</span> <b className="ok" style={{ fontSize: 16 }}>{rub(paid)}</b></span>
-                <span className="muted">−</span>
-                <span><span className="muted">Расходы</span> <b className="neg" style={{ fontSize: 16 }}>{rub(cost)}</b></span>
-                <span className="muted">=</span>
-                <span><span className="muted">Прибыль</span> <b className={profit < 0 ? "error" : "ok"} style={{ fontSize: 16 }}>{rub(profit)}</b></span>
-                <span><span className="muted">Маржа</span> <b style={{ fontSize: 18 }} className={margin != null && margin < 0 ? "error" : ""}>{margin != null ? margin + "%" : "—"}</b></span>
-                {d > 0 && <span className="neg">долг {rub(d)}</span>}
-              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
                 {/* доходы */}
                 <div className="card" style={{ margin: 0 }}>
