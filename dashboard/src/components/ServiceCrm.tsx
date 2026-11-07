@@ -275,6 +275,17 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
 
     {sub === "base" && <>
       <div className="card">
+        <div className="row" style={{ marginBottom: 8 }}><b>👥 База клиентов · {clients.length}</b>
+          <button onClick={() => setBulk(bulk == null ? "" : null)}>{bulk == null ? "📋 Вставить списком из таблицы" : "✕ Закрыть"}</button></div>
+        {bulk != null && <div style={{ marginBottom: 10 }} className="card soft-card">
+          <div className="small muted">Скопируй строки из таблицы (Имя · Телефон или Telegram · Комментарий) и вставь сюда — каждая строка станет клиентом. Строка заголовков и повторы пропускаются.</div>
+          <textarea rows={6} style={{ width: "100%" }} value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder={"Артур\t@ArturBilimbaev\nИнсаф и Лия\t\tпо Максу предложить"} />
+          {(() => { const have = new Set(clients.map((x) => x.name.trim().toLowerCase()));
+            const rows = bulk.split(/\r?\n/).map((l) => l.split("\t").map((x) => x.trim())).filter((x) => x[0] && !/^имя$/i.test(x[0]));
+            const fresh = rows.filter((x, i) => !have.has(x[0].toLowerCase()) && rows.findIndex((y) => y[0].toLowerCase() === x[0].toLowerCase()) === i);
+            return <button disabled={!fresh.length} onClick={() => { fresh.forEach((x) => add({ kind: "client", name: x[0], company: "", phone: x[1] || "", note: [x[2], x[3]].filter(Boolean).join(" · "), source: c.source.trim(), created: today() })); setBulk(null); }}>
+              ✓ Добавить {fresh.length} клиент.{rows.length - fresh.length ? ` (повторов пропущено: ${rows.length - fresh.length})` : ""}</button>; })()}
+        </div>}
         <form className="row small" style={{ flexWrap: "wrap", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!c.name.trim()) return;
           add({ kind: "client", name: c.name.trim(), company: c.company.trim(), phone: c.phone.trim(), note: c.note.trim(), source: c.source.trim(), created: today() }); setC({ name: "", company: "", phone: "", note: "", source: c.source }); }}>
           <input placeholder="Имя" value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} style={{ flex: "1 1 130px" }} />
@@ -297,16 +308,6 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
                 <button className="ghost" onClick={(e) => { e.stopPropagation(); del(x.id); }}>🗑</button></td></tr>; })}
           {!shownC.length && <tr><td className="muted">Клиентов нет</td></tr>}
         </tbody></table>
-        <button className="ghost small" style={{ marginTop: 6 }} onClick={() => setBulk(bulk == null ? "" : null)}>📋 Вставить списком</button>
-        {bulk != null && <div style={{ marginTop: 6 }}>
-          <div className="small muted">Скопируй строки из таблицы (Имя · Телефон или Telegram · Комментарий) и вставь сюда — каждая строка станет клиентом. Строка заголовков и повторы пропускаются.</div>
-          <textarea rows={6} style={{ width: "100%" }} value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder={"Артур\t@ArturBilimbaev\nИнсаф и Лия\t\tпо Максу предложить"} />
-          {(() => { const have = new Set(clients.map((x) => x.name.trim().toLowerCase()));
-            const rows = bulk.split(/\r?\n/).map((l) => l.split("\t").map((x) => x.trim())).filter((x) => x[0] && !/^имя$/i.test(x[0]));
-            const fresh = rows.filter((x, i) => !have.has(x[0].toLowerCase()) && rows.findIndex((y) => y[0].toLowerCase() === x[0].toLowerCase()) === i);
-            return <button disabled={!fresh.length} onClick={() => { fresh.forEach((x) => add({ kind: "client", name: x[0], company: "", phone: x[1] || "", note: [x[2], x[3]].filter(Boolean).join(" · "), source: c.source.trim(), created: today() })); setBulk(null); }}>
-              ✓ Добавить {fresh.length} клиент.{rows.length - fresh.length ? ` (повторов пропущено: ${rows.length - fresh.length})` : ""}</button>; })()}
-        </div>}
         <div className="small muted">«→ В проект» — открывает форму проекта с этим клиентом: выбери продукт, сумму и дату оплаты.</div>
       </div>
       {clients.length > 0 && <div className="card" style={{ marginTop: 12 }}>
