@@ -63,15 +63,16 @@ export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: stri
         <span><a className="small" href={"#/client?p=" + p.id}>👁 Как видит клиент</a>
           <button className={p.clientOpen ? "" : "ghost"} style={{ marginLeft: 8 }} onClick={() => updateDoc(ref, { clientOpen: !p.clientOpen })}>
             {p.clientOpen ? "🔓 Открыт" : "🔒 Закрыт"}</button></span></div>
-      <div className="row small" style={{ margin: "6px 0", justifyContent: "flex-start", gap: 6 }}><b>Вид кабинета:</b>
-        {(["goods", "services"] as const).map((t) => <button key={t} className={(p.bizType || "goods") === t ? "" : "ghost"} style={{ padding: "2px 10px" }}
-          onClick={() => updateDoc(ref, { bizType: t })}>{t === "goods" ? "📦 Товарный бизнес" : "🛠 Услуги"}</button>)}</div>
+      <div className="row small" style={{ margin: "6px 0", justifyContent: "flex-start", gap: 8 }}><b>Вид кабинета:</b>
+        <span>{p.bizType === "services" ? "🛠 Услуги" : "📦 Товарный бизнес"}</span>
+        <button className="ghost" style={{ padding: "2px 8px" }} onClick={() => { const t = p.bizType === "services" ? "goods" : "services";
+          if (confirm(`Сменить вид кабинета на «${t === "services" ? "Услуги" : "Товарный бизнес"}»? Клиент увидит другой набор вкладок.`)) updateDoc(ref, { bizType: t }); }}>сменить</button></div>
       {emails.map((m) => <div key={m} className="row small"><span>{m}</span><button className="ghost" onClick={() => remove(m)}>Убрать</button></div>)}
       <form className="inline" onSubmit={add} style={{ margin: "6px 0" }}>
         <input type="email" placeholder="Почта клиента" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
         <button>+ Клиент</button>
       </form>
-      <ReportConnect p={p} wsId={wsId} />
+      {p.bizType === "services" ? <div className="small muted" style={{ margin: "6px 0" }}>🛠 Кабинет «Услуги»: таблица не нужна — клиент сам ведёт данные в кабинете.</div> : <ReportConnect p={p} wsId={wsId} />}
       <div className="small" style={{ marginTop: 10 }}><b>💳 Тариф клиента</b> <span className="muted">— клиент видит внизу меню</span></div>
       <div className="inline" style={{ margin: "4px 0" }}>
         <select value={p.tariff?.name || ""} onChange={(e) => pickTariff(e.target.value)}>

@@ -26,6 +26,7 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
   const [sheetLink, setSheetLink] = useState("");
   const key = (sheetLink || links.sheet || "").match(/\/spreadsheets\/d\/([\w-]{20,})/)?.[1] || "";
   const [dir, setDir] = useState("");
+  const [biz, setBiz] = useState<"goods" | "services">("goods");
   const [check, setCheck] = useState<{ ok: boolean; lines: string[] } | null>(null);
   const [checking, setChecking] = useState(false);
   const [emails, setEmails] = useState("");
@@ -71,9 +72,9 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
     const pr = products.find((x) => x.title === tariff);
     const list = emails.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter((x) => x.includes("@"));
     const data: any = { name: name.trim(), flags, links, monthlyOpen: false, calendarOpen: false, createdAt: serverTimestamp(),
-      clientEmails: list, clientOpen: open && list.length > 0, staffEmails: staff };
+      clientEmails: list, clientOpen: open && list.length > 0, staffEmails: staff, bizType: biz };
     if (birthday) data.birthday = birthday;
-    if (pnlUrl && dir.trim()) data.pnlUrl = pnlUrl;
+    if (biz === "goods" && pnlUrl && dir.trim()) data.pnlUrl = pnlUrl;
     if (pr) data.tariff = { name: pr.title, price: Number(price) || pr.price, period: pr.period || "в месяц", payDay: payDay ? Number(payDay) : null,
       items: (pr.sections?.length ? pr.sections.flatMap((x) => x.items) : pr.includes) || [] };
     const r = await addDoc(collection(db, "workspaces", wsId, "clients"), data);
@@ -91,6 +92,10 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
       <h3>Кто клиент</h3>
       <input placeholder="Название (например: Аслан ИП)" value={name} onChange={(e) => setName(e.target.value)} autoFocus style={{ width: "100%" }} />
       <div style={{ marginTop: 10 }}><b>Что есть у клиента?</b> <span className="muted small">— под это соберётся чек-лист: {items} задач</span></div>
+      <div style={{ marginTop: 10 }}><b>Вид кабинета</b> <span className="muted small">— выбирается один раз, потом меняешь только ты</span></div>
+      <div className="row" style={{ justifyContent: "flex-start", gap: 6, marginTop: 4 }}>
+        {(["goods", "services"] as const).map((t) => <button type="button" key={t} className={biz === t ? "" : "ghost"} onClick={() => setBiz(t)}>{t === "goods" ? "📦 Товарный бизнес" : "🛠 Услуги"}</button>)}</div>
+      <div className="muted small">{biz === "goods" ? "Отчётность из Google-таблицы клиента." : "Без таблицы: клиент сам ведёт клиентов, проекты, доходы и расходы в кабинете."}</div>
       <FlagPicker flags={flags} onChange={setFlags} />
       <div className="inline" style={{ marginTop: 8 }}><span className="small">🎂 День рождения клиента</span><input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} /></div>
     </>}
@@ -101,7 +106,11 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
       <LinkEditor links={links} onChange={setLinks} />
     </>}
 
-    {step === 2 && <>
+    {step === 2 && biz === "services" && <>
+      <h3>Отчётность</h3>
+      <div className="card small" style={{ background: "var(--bg)" }}>🛠 Кабинет «Услуги»: таблицу подключать не нужно. Клиент сам вносит клиентов, проекты, доходы и расходы во вкладках «Главная · Финансы · Клиенты». Жми «Далее».</div>
+    </>}
+    {step === 2 && biz === "goods" && <>
       <h3>Отчётность из Google-таблицы</h3>
       <ol className="small wiz-ol">
         <li>Создай таблицу клиента из шаблона: <a className="linkbtn" href={`https://docs.google.com/spreadsheets/d/${TEMPLATE_ID}/copy`} target="_blank" rel="noopener noreferrer">📄 Создать копию шаблона</a>

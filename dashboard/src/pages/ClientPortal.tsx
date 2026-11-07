@@ -105,6 +105,7 @@ export default function ClientPortal() {
   if (!p) return <NeylaLoading text="Открываю кабинет клиента" />;
 
   const svc = p.bizType === "services";   // вид кабинета: товарный бизнес (по умолчанию) или услуги
+  if (svc && !p.pnlUrl && (tab === "dash" || tab === "rep" || tab === "op")) setTimeout(() => setTab("chome"));
   const canEditClient = isOwner || (!staffView && !!p.opEdit);   // правка ОП и планирования — по доступу от владельца
   const v = (arr: (number | null)[], i?: number) => (i == null ? null : arr[i]);
   const rev = v(pnl?.revenue || [], cur ?? undefined), prof = v(pnl?.profit || [], cur ?? undefined);
@@ -116,9 +117,7 @@ export default function ClientPortal() {
 
   return (
     <>
-      {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a>
-        <span style={{ marginLeft: 12 }}>Вид кабинета: {(["goods", "services"] as const).map((t) => <button key={t} className={(p.bizType || "goods") === t ? "" : "ghost"} style={{ marginLeft: 4, padding: "2px 10px" }}
-          onClick={() => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { bizType: t })}>{t === "goods" ? "📦 Товары" : "🛠 Услуги"}</button>)}</span></div>}
+      {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a></div>}
       {staffView && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Кабинет клиента — только просмотр. <a href="#/monthly">← к моим клиентам</a></div>}
       {(() => {
         // Месяц отчётности: один выбор на весь кабинет — слева в меню (на телефоне — над разделом)
@@ -148,7 +147,7 @@ export default function ClientPortal() {
       })()}
       {preview && <h1>{p.name}</h1>}
       {preview && <div className="chips" style={{ marginTop: 12 }}>
-        {([...(svc ? [["chome", "🏠 Главная"], ["cfin", "₽ Финансы"], ["ccli", "👥 Клиенты"]] as const : []), ["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").map(([k, l]) =>
+        {([...(svc ? [["chome", "🏠 Главная"], ["cfin", "₽ Финансы"], ["ccli", "👥 Клиенты"]] as const : []), ["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => !(svc && !p.pnlUrl && ["dash", "rep", "op"].includes(k))).map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
@@ -156,7 +155,7 @@ export default function ClientPortal() {
           <button key={k} className={`chipbtn ${rep === k ? "on" : ""}`} onClick={() => setRep(k)}>{l}</button>)}
       </div>}
 
-      {(view === "dash" || view === "pnl" || view === "dds") && !p.pnlUrl && <div className="card muted">Отчётность скоро появится здесь.</div>}
+      {!svc && (view === "dash" || view === "pnl" || view === "dds") && !p.pnlUrl && <div className="card muted">Отчётность скоро появится здесь.</div>}
       {(view === "dash" || view === "pnl" || view === "dds") && pnl?.stale && <div className="card small muted">⚠️ Таблица сейчас не отвечает — показан последний загруженный отчёт{pnl.at ? " от " + new Date(pnl.at).toLocaleString("ru-RU") : ""}.</div>}
       {(view === "dash" || view === "pnl" || view === "dds") && pnlErr && <div className="card error">Не удалось загрузить отчёт: {pnlErr}</div>}
       {(view === "dash" || view === "pnl" || view === "dds" || view === "an") && pnl && cur == null && !pnlErr && <div className="card muted">{isOwner ? "В таблице пока нет операций за месяцы" : "Отчётность готовится и скоро появится здесь"}{isOwner ? <>. Проверь в ⚙ подключении поле «Направление»: оно должно совпадать с колонкой «Направление» в базе (например: Одежда). Затем нажми 🌀.</> : "."}</div>}
