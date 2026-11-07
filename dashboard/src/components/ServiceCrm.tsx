@@ -20,10 +20,18 @@ const CATS = ["Аренда", "Реклама", "Зарплата", "Налог�
 const SOURCES = ["Instagram", "Сарафан / рекомендация", "Авито", "Сайт", "Telegram", "ВКонтакте", "Повторный клиент"];
 const ACCOUNTS = ["Расчётный счёт", "Карта", "Наличные"];
 // статусы клиента в базе (воронка) и их цвета
-const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Ждёт предложение", "#8a3ab9"], ["Начали работу", "#16a34a"], ["Вернуться", "#2a5bd7"], ["Отказ", "#b02a2a"]];
+const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Ждёт предложение", "#8a3ab9"], ["Вернуться", "#2a5bd7"], ["Отказ", "#b02a2a"], ["Закончили работу", "#16a34a"]];
 const cstColor = (s?: string) => CST.find(([k]) => k === s)?.[1] || "#888";
 const Badge = ({ s }: { s?: string }) => <span style={{ background: cstColor(s), color: "#fff", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{s || "без статуса"}</span>;
-// статус — крупными цветными кнопками
+// компактная сводка в одну строку внутри карточки: «● Статус 5 · 22%», нажал — фильтр
+function Summary({ items, cur, onPick }: { items: { k: string; l: string; c: string; n: number; extra?: string }[]; cur: string; onPick: (k: string) => void }) {
+  const total = items[0]?.n || 0;
+  return <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", margin: "8px 0", fontSize: 13 }}>
+    {items.map((x, i) => <span key={x.k} onClick={() => onPick(cur === x.k ? "all" : x.k)} style={{ cursor: "pointer", fontWeight: cur === x.k ? 800 : 500, textDecoration: cur === x.k ? "underline" : undefined }}>
+      <span style={{ color: x.c }}>●</span> {x.l} <b style={{ color: x.c }}>{x.n}</b>{i > 0 && total ? <span className="muted"> · {Math.round(x.n / total * 100)}%</span> : null}{x.extra ? <span className="muted"> · {x.extra}</span> : null}</span>)}
+  </div>;
+}
+// статус — цветными кнопками
 function StatusBtns({ cur, onPick, pad = "0 14px 10px" }: { cur?: string; onPick: (k: string) => void; pad?: string }) {
   return <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap", padding: pad }}>
     {CST.map(([k, c]) => <button type="button" key={k} onClick={(e) => { e.stopPropagation(); onPick(k); }}
@@ -231,11 +239,15 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | Status | "debt">("all");
   const ql = q.trim().toLowerCase();
-  const shownC = clients.filter((x) => cst === "all" || (x.status || "") === cst).filter((x) => !ql || [x.name, x.company, x.phone, x.note].join(" ").toLowerCase().includes(ql));
-  const shownP = projects.filter((x) => (filter === "all" || (filter === "debt" ? debt(x) > 0 : x.status === filter)) && (!ql || (x.name + " " + cname(x.clientId)).toLowerCase().includes(ql)));
+  const active = (cid: string) => projects.some((p) => p.clientId === cid && p.status !== "done");
+  const leads = clients.filter((x) => !active(x.id));
+  const shownC = leads.filter((x) => cst === "all" || (x.status || "") === cst).filter((x) => !ql || [x.name, x.company, x.phone, x.note].join(" ").toLowerCase().includes(ql));
+  const shownP = projects.filter((x) => (filter === "all" ? x.status !== "done" : filter === "debt" ? debt(x) > 0 : x.status === filter) && (!ql || (x.name + " " + cname(x.clientId)).toLowerCase().includes(ql)));
   const bySrc: Record<string, { n: number; sum: number }> = {};
   clients.forEach((x) => { const k = x.source || "Не указан"; const s = bySrc[k] = bySrc[k] || { n: 0, sum: 0 }; s.n++;
     s.sum += moves.filter((m) => m.type === "in" && projects.some((p) => p.id === m.projectId && p.clientId === x.id)).reduce((a, m) => a + m.amount, 0); });
+  const finish = (x: CProject) => { if (!confirm(`Завершить работу по «${x.name}»? Клиент вернётся в базу лидов со статусом «Закончили работу», вся история сохранится.`)) return;
+    upd(x.id, { status: "done" }); upd(x.clientId, { status: "Закончили работу" }); setOpen(null); };
   const toProject = (x: CClient) => { setPr({ ...blankP, clientId: x.id }); setSub("projects"); setPAdd(true); setOpen(null); };
   const pickProduct = (id: string) => { const pd = products.find((x) => x.id === id); setPr({ ...pr, productId: id, name: pr.name || pd?.name || "", price: pd ? String(pd.price) : pr.price }); };
 
@@ -247,17 +259,14 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
     <input placeholder="🔍 Поиск" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 10 }} />
 
     {sub === "projects" && <>
-      {/* Сводка по проектам */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, marginBottom: 12 }}>
-        {([["all", "Всего проектов", "#16304f"], ["new", "Новые", "#e8873a"], ["work", "В работе", "#2a5bd7"], ["done", "Сданы", "#16a34a"], ["debt", "С долгом", "#b02a2a"]] as const).map(([k, l, c]) => {
-          const n = k === "all" ? projects.length : k === "debt" ? projects.filter((x) => debt(x) > 0).length : projects.filter((x) => x.status === k).length;
-          return <div key={k} onClick={() => setFilter(filter === k ? "all" : k)} className="card" style={{ cursor: "pointer", padding: "10px 12px", margin: 0, borderLeft: `5px solid ${c}`, outline: filter === k ? `2px solid ${c}` : undefined }}>
-            <div className="small muted">{l}</div><b style={{ fontSize: 22, color: c }}>{n}</b>
-            {k === "debt" && n > 0 && <div className="small neg">{rub(projects.reduce((a, x) => a + debt(x), 0))}</div>}</div>; })}
-      </div>
-
       <div className="card">
-        <div className="row"><b>🛠 Проекты</b><button onClick={() => setPAdd(!pAdd)}>{pAdd ? "✕ Закрыть" : "+ Новый проект"}</button></div>
+        <div className="row"><b>🛠 Проекты · {projects.filter((x) => x.status !== "done").length}</b><button onClick={() => setPAdd(!pAdd)}>{pAdd ? "✕ Закрыть" : "+ Новый проект"}</button></div>
+        <Summary cur={filter} onPick={(k) => setFilter(k as typeof filter)} items={[
+          { k: "all", l: "В работе всего", c: "#16304f", n: projects.filter((x) => x.status !== "done").length },
+          { k: "new", l: "Новые", c: "#e8873a", n: projects.filter((x) => x.status === "new").length },
+          { k: "work", l: "В работе", c: "#2a5bd7", n: projects.filter((x) => x.status === "work").length },
+          { k: "debt", l: "С долгом", c: "#b02a2a", n: projects.filter((x) => debt(x) > 0).length, extra: rub(projects.reduce((a, x) => a + debt(x), 0)) },
+          { k: "done", l: "Завершены", c: "#16a34a", n: projects.filter((x) => x.status === "done").length }]} />
         {pAdd && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!pr.name.trim() || !pr.clientId) return;
           add({ kind: "project", name: pr.name.trim(), clientId: pr.clientId, price: Number(pr.price) || 0, status: "new", start: today(),
             ...(pr.productId ? { productId: pr.productId } : {}), ...(pr.deadline ? { deadline: pr.deadline } : {}), ...(pr.payDate ? { payDate: pr.payDate } : {}) });
@@ -272,10 +281,8 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
           <button disabled={!pr.name.trim() || !pr.clientId}>✓ Создать проект</button>
           {!clients.length && <div className="muted small">Сначала добавь клиента во вкладке «База лидов».</div>}
         </form>}
-      </div>
-
       {/* Список проектов: нажал — провалился в проект */}
-      <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
+      <div style={{ margin: "4px -16px -16px", borderTop: "1px solid var(--border, #e5e5e5)" }}>
         {shownP.map((x) => { const on = open === x.id, paid = paidOf(x.id), cost = costOf(x.id), d = debt(x);
           const late = x.status !== "done" && x.deadline && x.deadline < today(), payLate = d > 0 && x.payDate && x.payDate < today();
           const pd = products.find((y) => y.id === x.productId);
@@ -287,14 +294,14 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
               <div style={{ minWidth: 0, flex: 1 }}><b>{on ? "▾" : "▸"} {x.name}</b> <span className="muted small">· {cname(x.clientId)}</span>
                 <div style={{ height: 6, background: "var(--border, #e5e5e5)", borderRadius: 3, margin: "6px 0 2px", maxWidth: 320 }}><div style={{ width: share + "%", height: "100%", background: d ? "#e8873a" : "#16a34a", borderRadius: 3 }} /></div>
                 <div className="small muted">оплачено {rub(paid)} из {rub(x.price)}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}{x.payDate ? ` до ${dmy(x.payDate)}` : ""}{payLate ? " ⚠️" : ""}</span>}{late && <span className="error"> · срок сдачи прошёл ⚠️</span>}</div></div>
-              <button onClick={(e) => { e.stopPropagation(); upd(x.id, { status: NEXT[x.status] }); }} title="Сменить статус"
+              <button onClick={(e) => { e.stopPropagation(); if (x.status !== "done") upd(x.id, { status: x.status === "new" ? "work" : "new" }); }} title="новый ↔ в работе"
                 style={{ background: x.status === "done" ? "#16a34a" : x.status === "work" ? "#2a5bd7" : "#e8873a", color: "#fff", border: 0, borderRadius: 999, padding: "5px 12px", fontWeight: 700, flexShrink: 0 }}>{ST[x.status]}</button>
             </div>
             {on && <div className="small" style={{ padding: "6px 14px 14px", background: "var(--bg)", display: "grid", gap: 10 }}>
               {/* итог по проекту */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 6 }}>
+              <div style={{ maxWidth: 420 }}>
                 {[["Сумма проекта", rub(x.price), ""], ["Оплачено", rub(paid), "ok"], ["Долг", rub(d), d ? "neg" : "ok"], ["Расходы", rub(cost), ""], ["Прибыль", rub(x.price - cost), x.price - cost < 0 ? "error" : "ok"], ["Маржа", x.price ? Math.round((x.price - cost) / x.price * 100) + "%" : "—", ""]].map(([l, v, cl]) =>
-                  <div key={l} className="card" style={{ margin: 0, padding: "6px 10px" }}><div className="muted">{l}</div><b className={cl}>{v}</b></div>)}
+                  <div key={l} className="row" style={{ padding: "2px 0", borderBottom: "1px dashed var(--border, #ddd)" }}><span className="muted">{l}</span><b className={cl}>{v}</b></div>)}
               </div>
               {/* оплаты */}
               <div><b>💰 Оплаты по проекту</b>
@@ -326,31 +333,24 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
                 </div>
                 {pd && <div className="muted" style={{ marginTop: 4 }}>Продукт: {pd.name}{pd.descr ? ` — ${pd.descr}` : ""}</div>}
               </div>
-              <div className="row"><span className="muted">изменения сохраняются сами</span><button className="ghost" onClick={() => del(x.id)}>🗑 Удалить проект</button></div>
+              <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">изменения сохраняются сами</span>
+                <span>{x.status !== "done" ? <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => finish(x)}>✓ Завершить работу</button>
+                  : <button className="ghost" onClick={() => upd(x.id, { status: "work" })}>↩ Вернуть в работу</button>} <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить проект</button></span></div>
             </div>}
           </div>; })}
         {!shownP.length && <div className="muted" style={{ padding: 14 }}>Проектов нет</div>}
       </div>
+      </div>
     </>}
 
     {sub === "base" && <>
-      {/* Сводка: всего лидов и сколько в каждом статусе (нажал — фильтр) */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, marginBottom: 12 }}>
-        {[["all", "Всего лидов", "#16304f"] as const, ...CST.map(([k, c]) => [k, k, c] as const), ["", "Без статуса", "#888"] as const].map(([k, l, c]) => {
-          const n = k === "all" ? clients.length : clients.filter((x) => (x.status || "") === k).length;
-          if (k === "" && !n) return null;
-          return <div key={k || "none"} onClick={() => setCst(cst === k ? "all" : k)} className="card" style={{ cursor: "pointer", padding: "10px 12px", margin: 0,
-            borderLeft: `5px solid ${c}`, outline: cst === k ? `2px solid ${c}` : undefined }}>
-            <div className="small muted">{l}</div>
-            <b style={{ fontSize: 22, color: c }}>{n}</b>
-            {k !== "all" && clients.length > 0 && <span className="small muted"> · {Math.round(n / clients.length * 100)}%</span>}
-          </div>; })}
-      </div>
       {/* Добавить лида — отдельная форма */}
       <div className="card">
-        <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>👥 База лидов · {clients.length}</b>
+        <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>👥 База лидов · {leads.length}</b>
           <span><button onClick={() => { setAddOpen(!addOpen); setBulk(null); }}>{addOpen ? "✕ Закрыть" : "+ Добавить лида"}</button>
             <button className="ghost" style={{ marginLeft: 6 }} onClick={() => { setBulk(bulk == null ? "" : null); setAddOpen(false); }}>{bulk == null ? "📋 Списком из таблицы" : "✕ Закрыть"}</button></span></div>
+        <Summary cur={cst} onPick={setCst} items={[{ k: "all", l: "Всего лидов", c: "#16304f", n: leads.length },
+          ...CST.map(([k, c]) => ({ k, l: k, c, n: leads.filter((x) => (x.status || "") === k).length }))]} />
         {addOpen && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!c.name.trim()) return;
           add({ kind: "client", name: c.name.trim(), company: c.company.trim(), phone: c.phone.trim(), note: c.note.trim(), source: c.source.trim(), status: c.status || "Ждёт обработку", created: today() });
           setC({ name: "", company: "", phone: "", note: "", source: c.source, status: "" }); setAddOpen(false); }}>
@@ -373,10 +373,8 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
             return <button disabled={!fresh.length} onClick={() => { fresh.forEach((x) => add({ kind: "client", name: x[0], company: "", phone: x[1] || "", note: [x[2], x[3]].filter(Boolean).join(" · "), source: c.source.trim(), created: today() })); setBulk(null); }}>
               ✓ Добавить {fresh.length} клиент.{rows.length - fresh.length ? ` (повторов пропущено: ${rows.length - fresh.length})` : ""}</button>; })()}
         </div>}
-      </div>
-
       {/* Список лидов: имя слева, статус справа; нажал — карточка с правкой и комментариями */}
-      <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
+      <div style={{ margin: "4px -16px -16px", borderTop: "1px solid var(--border, #e5e5e5)" }}>
         {shownC.map((x) => { const ps = projects.filter((p) => p.clientId === x.id), d = ps.reduce((a, p) => a + debt(p), 0), on = open === x.id;
           return <div key={x.id} style={{ borderBottom: "1px solid var(--border, #e5e5e5)" }}>
             <div className="row" style={{ padding: "10px 14px", cursor: "pointer", gap: 8 }} onClick={() => setOpen(on ? null : x.id)}>
@@ -408,6 +406,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
             </div>}
           </div>; })}
         {!shownC.length && <div className="muted" style={{ padding: 14 }}>Лидов нет</div>}
+      </div>
       </div>
       {clients.length > 0 && <div className="card" style={{ marginTop: 12 }}>
         <h3 style={{ marginTop: 0 }}>📣 Откуда приходят клиенты</h3>
