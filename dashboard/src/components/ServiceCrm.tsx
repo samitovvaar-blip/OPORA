@@ -25,9 +25,9 @@ const cstColor = (s?: string) => CST.find(([k]) => k === s)?.[1] || "#888";
 const Badge = ({ s }: { s?: string }) => <span style={{ background: cstColor(s), color: "#fff", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{s || "без статуса"}</span>;
 // статус — крупными цветными кнопками
 function StatusBtns({ cur, onPick, pad = "0 14px 10px" }: { cur?: string; onPick: (k: string) => void; pad?: string }) {
-  return <div className="row" style={{ justifyContent: "flex-start", gap: 6, flexWrap: "wrap", padding: pad }}>
+  return <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap", padding: pad }}>
     {CST.map(([k, c]) => <button type="button" key={k} onClick={(e) => { e.stopPropagation(); onPick(k); }}
-      style={{ background: cur === k ? c : "transparent", color: cur === k ? "#fff" : c, border: `2px solid ${c}`, borderRadius: 999, padding: "6px 14px", fontWeight: 700 }}>
+      style={{ background: cur === k ? c : "transparent", color: cur === k ? "#fff" : c, border: `1.5px solid ${c}`, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>
       {cur === k ? "✓ " : ""}{k}</button>)}</div>;
 }
 const ST: Record<Status, string> = { new: "🆕 новый", work: "🛠 в работе", done: "✓ сдан" };
@@ -350,7 +350,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
                   <button disabled={!(cmt[x.id] || "").trim()}>➤</button></form></div>
               {ps.length > 0 && <div>{ps.map((p) => <div key={p.id}>• {p.name} — {rub(p.price)}{debt(p) ? `, долг ${rub(debt(p))}` : ", оплачен"} · {ST[p.status]}</div>)}</div>}
               <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">{x.created ? `в базе с ${dmy(x.created)} · ` : ""}изменения сохраняются сами</span>
-                <span><button className="ghost" onClick={() => toProject(x)}>→ В проект</button> <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
+                <span><button onClick={() => toProject(x)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>→ В проект</button> <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
             </div>}
           </div>; })}
         {!shownC.length && <div className="muted" style={{ padding: 14 }}>Лидов нет</div>}
