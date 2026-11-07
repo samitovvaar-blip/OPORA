@@ -234,7 +234,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
   const [addOpen, setAddOpen] = useState(false);
   const [pick, setPick] = useState<string | null>(null);
   const [pAdd, setPAdd] = useState(false);
-  const [cfg, setCfg] = useState<string | null>(null);
+  const [costF, setCostF] = useState<{ id: string; amount: string; category: string; note: string; date: string; account: string } | null>(null);
   const [cmt, setCmt] = useState<Record<string, string>>({});
   const blankP = { name: "", clientId: "", productId: "", price: "", deadline: "", payDate: "", monthly: true, payDay: "" };
   const [pr, setPr] = useState(blankP);
@@ -288,73 +288,97 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
           <button disabled={!pr.name.trim() || !pr.clientId}>✓ Создать проект</button>
           {!clients.length && <div className="muted small">Сначала добавь клиента во вкладке «База лидов».</div>}
         </form>}
-      {/* Список проектов: нажал — провалился в проект */}
-      <div style={{ margin: "4px -16px -16px", borderTop: "1px solid var(--border, #e5e5e5)" }}>
+      {filter !== "done" && <div style={{ margin: "10px 0 4px", fontSize: 15 }}>🟢 В работе сейчас: <b style={{ fontSize: 20 }}>{projects.filter((x) => x.status !== "done").length}</b>
+        <span className="muted small"> · ждём в этом месяце {rub(projects.filter((x) => x.status !== "done" && x.monthly).reduce((a, x) => a + x.price, 0))}{projects.some((x) => debt(x) > 0) ? ` · долг ${rub(projects.reduce((a, x) => a + debt(x), 0))}` : ""}</span></div>}
+      {/* Проекты — плитками; ⚙ раскрывает проект на всю ширину */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 10, marginTop: 8 }}>
         {shownP.map((x) => { const on = open === x.id, paid = paidOf(x.id), cost = costOf(x.id), d = debt(x);
-          const late = x.status !== "done" && x.deadline && x.deadline < today(), payLate = d > 0 && x.payDate && x.payDate < today();
-          const pd = products.find((y) => y.id === x.productId);
-          const pays = moves.filter((m) => m.projectId === x.id && m.type === "in").sort((a, b) => a.date.localeCompare(b.date));
-          const costs = moves.filter((m) => m.projectId === x.id && m.type === "out").sort((a, b) => a.date.localeCompare(b.date));
-          const exp = expectedOf(x), share = exp ? Math.min(100, Math.round(paid / exp * 100)) : paid ? 100 : 0, base = x.monthly ? paid : x.price, margin = base ? Math.round((base - cost) / base * 100) : null;
-          return <div key={x.id} style={{ borderBottom: "1px solid var(--border, #e5e5e5)" }}>
-            <div className="row" style={{ padding: "10px 14px", cursor: "pointer", gap: 8 }} onClick={() => setOpen(on ? null : x.id)}>
-              <div style={{ minWidth: 0, flex: 1 }}><b>{on ? "▾" : "▸"} {x.name}</b> <span className="muted small">· {cname(x.clientId)}</span>
+          const payLate = d > 0 && !x.monthly && x.payDate && x.payDate < today();
+          const pays = moves.filter((m) => m.projectId === x.id && m.type === "in").sort((a, b) => b.date.localeCompare(a.date));
+          const costs = moves.filter((m) => m.projectId === x.id && m.type === "out").sort((a, b) => b.date.localeCompare(a.date));
+          const exp = expectedOf(x), share = exp ? Math.min(100, Math.round(paid / exp * 100)) : paid ? 100 : 0;
+          const profit = paid - cost, margin = paid ? Math.round(profit / paid * 100) : null;
+          const L = ({ l, children }: { l: string; children: React.ReactNode }) => <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>{l}</span><span style={{ flex: 1, display: "flex" }}>{children}</span></label>;
+          return <div key={x.id} style={{ gridColumn: on ? "1 / -1" : undefined, border: `1px solid ${on ? "#16304f" : "var(--border, #e5e5e5)"}`, borderRadius: 12, overflow: "hidden", background: "var(--surface, #fff)", opacity: x.status === "done" ? .7 : 1 }}>
+            <div style={{ padding: "10px 12px", display: "grid", gap: 6 }}>
+              <div style={{ minWidth: 0 }}><b>{x.name}</b><div className="muted small">{cname(x.clientId)}</div>
                 <div style={{ height: 6, background: "var(--border, #e5e5e5)", borderRadius: 3, margin: "6px 0 2px", maxWidth: 320 }}><div style={{ width: share + "%", height: "100%", background: d ? "#e8873a" : "#16a34a", borderRadius: 3 }} /></div>
-                <div className="small muted">{x.monthly ? `${rub(x.price)} в месяц, ${x.payDay || 1}-го · оплачено всего ${rub(paid)}` : `оплачено ${rub(paid)} из ${rub(x.price)}`}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}{!x.monthly && x.payDate ? ` до ${dmy(x.payDate)}` : ""}{payLate ? " ⚠️" : ""}</span>}{late && <span className="error"> · срок сдачи прошёл ⚠️</span>}</div></div>
-              <span style={{ textAlign: "right", flexShrink: 0 }} className="small"><div className="muted">маржа</div><b className={margin != null && margin < 0 ? "error" : "ok"} style={{ fontSize: 16 }}>{margin != null ? margin + "%" : "—"}</b></span>
+                <div className="small muted">{x.monthly ? `${rub(x.price)} в месяц, ${x.payDay || 1}-го` : `${rub(x.price)} разово`} · доходы {rub(paid)} · расходы {rub(cost)}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}</span>}</div></div>
+              <div className="row" style={{ alignItems: "center" }}>
+                <span className="small"><span className="muted">маржа </span><b className={margin != null && margin < 0 ? "error" : "ok"} style={{ fontSize: 18 }}>{margin != null ? margin + "%" : "—"}</b></span>
+                <button onClick={() => { setOpen(on ? null : x.id); setPay(null); setCostF(null); }} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button></div>
             </div>
-            {on && <div className="small" style={{ padding: "6px 14px 14px", background: "var(--bg)", display: "grid", gap: 10 }}>
-              {/* итог по проекту */}
-              <div style={{ maxWidth: 420 }}>
-                {[[x.monthly ? "Сумма в месяц" : "Сумма проекта", rub(x.price), ""], ...(x.monthly ? [["Ожидалось за всё время", rub(exp), ""]] : []), ["Оплачено", rub(paid), "ok"], ["Долг", rub(d), d ? "neg" : "ok"], ["Расходы", rub(cost), ""], ["Прибыль", rub(base - cost), base - cost < 0 ? "error" : "ok"], ["Маржа", margin != null ? margin + "%" : "—", ""]].map(([l, v, cl]) =>
-                  <div key={l} className="row" style={{ padding: "2px 0", borderBottom: "1px dashed var(--border, #ddd)" }}><span className="muted">{l}</span><b className={cl}>{v}</b></div>)}
+            {on && <div className="small" style={{ padding: "8px 14px 14px", background: "var(--bg)", display: "grid", gap: 12 }}>
+              {/* итог: доходы − расходы = прибыль, маржа */}
+              <div className="card" style={{ margin: 0, padding: "10px 14px", display: "flex", flexWrap: "wrap", gap: "6px 22px", alignItems: "baseline" }}>
+                <span><span className="muted">Доходы</span> <b className="ok" style={{ fontSize: 16 }}>{rub(paid)}</b></span>
+                <span className="muted">−</span>
+                <span><span className="muted">Расходы</span> <b className="neg" style={{ fontSize: 16 }}>{rub(cost)}</b></span>
+                <span className="muted">=</span>
+                <span><span className="muted">Прибыль</span> <b className={profit < 0 ? "error" : "ok"} style={{ fontSize: 16 }}>{rub(profit)}</b></span>
+                <span><span className="muted">Маржа</span> <b style={{ fontSize: 18 }} className={margin != null && margin < 0 ? "error" : ""}>{margin != null ? margin + "%" : "—"}</b></span>
+                {d > 0 && <span className="neg">долг {rub(d)}</span>}
               </div>
-              {x.monthly && <div><b>📅 Оплаты по месяцам</b> <span className="muted">· {x.payDay || 1}-го числа</span>
-                <table className="pnl-table" style={{ marginTop: 4, maxWidth: 520 }}><tbody>
-                  <tr className="muted"><td>Месяц</td><td>Ожидалось</td><td>Оплачено</td><td>Расходы</td><td /></tr>
-                  {monthsOf(x).slice().reverse().map((k) => { const pm = pays.filter((m) => mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0), cm = costs.filter((m) => mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0);
-                    return <tr key={k}><td>{MONTHS[Number(k.slice(5)) - 1]} {k.slice(0, 4)}</td><td>{rub(x.price)}</td><td className={pm >= x.price ? "ok" : pm ? "neg" : "error"}>{rub(pm)}</td><td className="muted">{cm ? rub(cm) : "—"}</td>
-                      <td>{pm >= x.price ? "✓" : pm ? "частично" : "не оплачен"}</td></tr>; })}
-                  {!monthsOf(x).length && <tr><td className="muted" colSpan={5}>Первая оплата ещё не наступила</td></tr>}
-                </tbody></table></div>}
-              {/* оплаты */}
-              <div><b>💰 Все оплаты по проекту</b>
-                {pays.map((m) => <div key={m.id} className="row" style={{ borderBottom: "1px dashed var(--border, #ddd)", padding: "3px 0" }}><span>{dmy(m.date)} · {m.account || ""}{m.note ? " · " + m.note : ""}</span><span><b className="ok">+{rub(m.amount)}</b> <button className="ghost" style={{ padding: "0 6px" }} onClick={() => del(m.id)}>✕</button></span></div>)}
-                {!pays.length && <div className="muted">Оплат пока нет</div>}
-                {(d > 0 || x.monthly) && (pay?.id === x.id
-                  ? <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-                      <input type="number" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} style={{ width: 110 }} />
-                      <input type="date" value={pay.date} onChange={(e) => setPay({ ...pay, date: e.target.value })} />
-                      <select value={pay.account} onChange={(e) => setPay({ ...pay, account: e.target.value })}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
-                      <button disabled={!Number(pay.amount)} onClick={() => { add({ kind: "move", type: "in", amount: Number(pay.amount), date: pay.date, note: "", projectId: x.id, account: pay.account }); setPay(null); }}>✓ Внести</button>
-                      <button className="ghost" onClick={() => setPay(null)}>✕</button></div>
-                  : <button style={{ marginTop: 6 }} onClick={() => setPay({ id: x.id, amount: String(x.monthly ? (d ? Math.min(d, x.price) : x.price) : d), date: today(), account: ACCOUNTS[0] })}>💰 Внести оплату</button>)}
-              </div>
-              {/* расходы */}
-              {costs.length > 0 && <div><b>➖ Расходы по проекту</b>
-                {costs.map((m) => <div key={m.id} className="row" style={{ borderBottom: "1px dashed var(--border, #ddd)", padding: "3px 0" }}><span>{dmy(m.date)} · {m.category || "Расход"}{m.note ? " · " + m.note : ""}</span><b className="neg">−{rub(m.amount)}</b></div>)}</div>}
-              <div className="muted">Расход на проект (ЗП исполнителю, сервисы) вносится в «Финансах» → Расход → «на проект».</div>
-              {/* настройки проекта */}
-              <div><button className={cfg === x.id ? "" : "ghost"} style={{ padding: "3px 10px" }} onClick={() => setCfg(cfg === x.id ? null : x.id)}>⚙ Настройки проекта</button>
-                {cfg === x.id && <><div style={{ display: "grid", gap: 4, marginTop: 6 }}>
-                  <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Название</span><input key={x.id + "n" + x.name} defaultValue={x.name} style={{ flex: 1 }} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== x.name && upd(x.id, { name: e.target.value.trim() })} /></label>
-                  <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Клиент</span><select value={x.clientId} onChange={(e) => upd(x.id, { clientId: e.target.value })} style={{ flex: 1 }}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-                  <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Продукт</span><select value={x.productId || ""} onChange={(e) => upd(x.id, { productId: e.target.value })} style={{ flex: 1 }}><option value="">—</option>{products.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}</select></label>
-                  <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>{x.monthly ? "Сумма в месяц" : "Сумма оплаты"}</span><input type="number" key={x.id + "p" + x.price} defaultValue={x.price} style={{ flex: 1 }} onBlur={(e) => Number(e.target.value) !== x.price && upd(x.id, { price: Number(e.target.value) || 0 })} /></label>
-                  <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Оплата</span><select value={x.monthly ? "m" : "o"} onChange={(e) => upd(x.id, { monthly: e.target.value === "m" })} style={{ flex: 1 }}><option value="m">каждый месяц</option><option value="o">разово</option></select></label>
-                  {x.monthly ? <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Число оплаты</span><input type="number" min={1} max={31} key={x.id + "d" + (x.payDay || "")} defaultValue={x.payDay || 1} onBlur={(e) => upd(x.id, { payDay: Math.min(31, Math.max(1, Number(e.target.value) || 1)) })} style={{ flex: 1 }} /></label>
-                    : <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Оплата до</span><input type="date" value={x.payDate || ""} onChange={(e) => upd(x.id, { payDate: e.target.value })} style={{ flex: 1 }} /></label>}
-                  <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Срок сдачи</span><input type="date" value={x.deadline || ""} onChange={(e) => upd(x.id, { deadline: e.target.value })} style={{ flex: 1 }} /></label>
-                  <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Начало</span><input type="date" value={x.start} onChange={(e) => e.target.value && upd(x.id, { start: e.target.value })} style={{ flex: 1 }} /></label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+                {/* доходы */}
+                <div className="card" style={{ margin: 0 }}>
+                  <div className="row"><b>💰 Доходы по проекту</b><b className="ok">{rub(paid)}</b></div>
+                  {pays.map((m) => <div key={m.id} className="row" style={{ borderBottom: "1px dashed var(--border, #ddd)", padding: "3px 0" }}>
+                    <span>{dmy(m.date)}<span className="muted"> · {m.account || ""}{m.note ? " · " + m.note : ""}</span></span><span><b className="ok">+{rub(m.amount)}</b> <button className="ghost" style={{ padding: "0 6px" }} onClick={() => del(m.id)}>✕</button></span></div>)}
+                  {!pays.length && <div className="muted">Оплат пока нет</div>}
+                  {pay?.id === x.id
+                    ? <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                        <input type="number" placeholder="Сумма" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} />
+                        <input type="date" value={pay.date} onChange={(e) => setPay({ ...pay, date: e.target.value })} />
+                        <select value={pay.account} onChange={(e) => setPay({ ...pay, account: e.target.value })}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
+                        <span><button disabled={!Number(pay.amount)} onClick={() => { add({ kind: "move", type: "in", amount: Number(pay.amount), date: pay.date, note: "", projectId: x.id, account: pay.account }); setPay(null); }}>✓ Внести</button> <button className="ghost" onClick={() => setPay(null)}>Отмена</button></span></div>
+                    : <button style={{ marginTop: 8 }} onClick={() => { setCostF(null); setPay({ id: x.id, amount: String(x.monthly ? (d ? Math.min(d, x.price) : x.price) : d || x.price), date: today(), account: ACCOUNTS[0] }); }}>+ Внести оплату</button>}
                 </div>
-                {pd && <div className="muted" style={{ marginTop: 4 }}>Продукт: {pd.name}{pd.descr ? ` — ${pd.descr}` : ""}</div>}</>}
+                {/* расходы */}
+                <div className="card" style={{ margin: 0 }}>
+                  <div className="row"><b>➖ Расходы по проекту</b><b className="neg">{rub(cost)}</b></div>
+                  {costs.map((m) => <div key={m.id} className="row" style={{ borderBottom: "1px dashed var(--border, #ddd)", padding: "3px 0" }}>
+                    <span>{dmy(m.date)} · {m.category || "Расход"}<span className="muted">{m.note ? " · " + m.note : ""}</span></span><span><b className="neg">−{rub(m.amount)}</b> <button className="ghost" style={{ padding: "0 6px" }} onClick={() => del(m.id)}>✕</button></span></div>)}
+                  {!costs.length && <div className="muted">Расходов пока нет</div>}
+                  {costF?.id === x.id
+                    ? <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                        <input type="number" placeholder="Сумма" value={costF.amount} onChange={(e) => setCostF({ ...costF, amount: e.target.value })} />
+                        <input list="crm-pcats" placeholder="Статья (ЗП исполнителю, сервисы…)" value={costF.category} onChange={(e) => setCostF({ ...costF, category: e.target.value })} />
+                        <datalist id="crm-pcats">{["ЗП исполнителю", "Сервисы", "Реклама", "Налоги", ...CATS].map((c) => <option key={c} value={c} />)}</datalist>
+                        <input placeholder="Кому / комментарий" value={costF.note} onChange={(e) => setCostF({ ...costF, note: e.target.value })} />
+                        <input type="date" value={costF.date} onChange={(e) => setCostF({ ...costF, date: e.target.value })} />
+                        <select value={costF.account} onChange={(e) => setCostF({ ...costF, account: e.target.value })}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
+                        <span><button disabled={!Number(costF.amount)} onClick={() => { add({ kind: "move", type: "out", amount: Number(costF.amount), date: costF.date, note: costF.note.trim(), category: costF.category.trim() || "Прочее", projectId: x.id, account: costF.account }); setCostF(null); }}>✓ Внести</button> <button className="ghost" onClick={() => setCostF(null)}>Отмена</button></span></div>
+                    : <button style={{ marginTop: 8 }} onClick={() => { setPay(null); setCostF({ id: x.id, amount: "", category: "", note: "", date: today(), account: ACCOUNTS[0] }); }}>+ Внести расход</button>}
+                </div>
               </div>
-              <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">изменения сохраняются сами</span>
-                <span>{x.status !== "done" ? <button style={{ background: "#6b7280", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => finish(x)}>⏸ Отключить проект</button>
-                  : <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => { upd(x.id, { status: "work" }); setFilter("all"); }}>▶ Включить проект</button>} <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить проект</button></span></div>
+              {x.monthly && monthsOf(x).length > 0 && <details><summary style={{ cursor: "pointer" }}><b>📅 По месяцам</b></summary>
+                <table className="pnl-table" style={{ marginTop: 4, maxWidth: 560 }}><tbody>
+                  <tr className="muted"><td>Месяц</td><td>Ожидалось</td><td>Доходы</td><td>Расходы</td><td>Маржа</td></tr>
+                  {monthsOf(x).slice().reverse().map((k) => { const pm = pays.filter((m) => mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0), cm = costs.filter((m) => mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0);
+                    return <tr key={k}><td>{MONTHS[Number(k.slice(5)) - 1]} {k.slice(0, 4)}</td><td>{rub(x.price)}</td><td className={pm >= x.price ? "ok" : pm ? "neg" : "error"}>{rub(pm)}</td><td className="muted">{cm ? rub(cm) : "—"}</td><td>{pm ? Math.round((pm - cm) / pm * 100) + "%" : "—"}</td></tr>; })}
+                </tbody></table></details>}
+              {/* общие настройки */}
+              <div className="card" style={{ margin: 0 }}>
+                <b>⚙ Общие настройки</b>
+                <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                  <L l="Название"><input key={x.id + "n" + x.name} defaultValue={x.name} style={{ flex: 1 }} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== x.name && upd(x.id, { name: e.target.value.trim() })} /></L>
+                  <L l="Клиент"><select value={x.clientId} onChange={(e) => upd(x.id, { clientId: e.target.value })} style={{ flex: 1 }}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></L>
+                  <L l="Продукт"><select value={x.productId || ""} onChange={(e) => upd(x.id, { productId: e.target.value })} style={{ flex: 1 }}><option value="">—</option>{products.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}</select></L>
+                  <L l={x.monthly ? "Сумма в месяц" : "Сумма"}><input type="number" key={x.id + "p" + x.price} defaultValue={x.price} style={{ flex: 1 }} onBlur={(e) => Number(e.target.value) !== x.price && upd(x.id, { price: Number(e.target.value) || 0 })} /></L>
+                  <L l="Периодичность"><select value={x.monthly ? "m" : "o"} onChange={(e) => upd(x.id, { monthly: e.target.value === "m" })} style={{ flex: 1 }}><option value="m">каждый месяц</option><option value="o">разово</option></select></L>
+                  {x.monthly
+                    ? <L l="Дата оплаты (число)"><input type="number" min={1} max={31} key={x.id + "d" + (x.payDay || "")} defaultValue={x.payDay || 1} style={{ flex: 1 }} onBlur={(e) => upd(x.id, { payDay: Math.min(31, Math.max(1, Number(e.target.value) || 1)) })} /></L>
+                    : <L l="Оплата до"><input type="date" value={x.payDate || ""} onChange={(e) => upd(x.id, { payDate: e.target.value })} style={{ flex: 1 }} /></L>}
+                  <L l="Начало"><input type="date" value={x.start} onChange={(e) => e.target.value && upd(x.id, { start: e.target.value })} style={{ flex: 1 }} /></L>
+                </div>
+                <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 10 }}><span className="muted">изменения сохраняются сами</span>
+                  <span>{x.status !== "done" ? <button style={{ background: "#6b7280", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => finish(x)}>⏸ Отключить проект</button>
+                    : <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => { upd(x.id, { status: "work" }); setFilter("all"); }}>▶ Включить проект</button>} <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
+              </div>
             </div>}
           </div>; })}
-        {!shownP.length && <div className="muted" style={{ padding: 14 }}>Проектов нет</div>}
+        {!shownP.length && <div className="muted" style={{ padding: 6 }}>Проектов нет</div>}
       </div>
       </div>
     </>}
@@ -409,12 +433,11 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
         {shownC.map((x) => { const ps = projects.filter((p) => p.clientId === x.id), d = ps.reduce((a, p) => a + debt(p), 0), on = open === x.id;
           return <div key={x.id} style={{ borderBottom: "1px solid var(--border, #e5e5e5)" }}>
             <div className="row" style={{ padding: "10px 14px", gap: 8 }}>
-              <div style={{ minWidth: 0 }}><b>{x.name}</b>{x.company && <span className="muted"> · {x.company}</span>}
+              <div style={{ minWidth: 0, flex: 1 }}><b>{x.name}</b>{x.company && <span className="muted"> · {x.company}</span>}{" "}
+                <button onClick={() => setPick(pick === x.id ? null : x.id)} title="Сменить статус"
+                  style={{ background: cstColor(x.status), color: "#fff", border: 0, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 700, marginLeft: 4 }}>{x.status || "Статус"} ▾</button>
                 <div className="small muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[x.phone, x.source, ps.length ? `${ps.length} проект.` : "", d > 0 ? `долг ${rub(d)}` : ""].filter(Boolean).join(" · ") || "—"}</div></div>
-              <span style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
-              <button className={on ? "" : "ghost"} title="Карточка лида: данные, заметки, комментарии" style={{ padding: "3px 8px" }} onClick={() => setOpen(on ? null : x.id)}>⚙</button>
-              <button onClick={(e) => { e.stopPropagation(); setPick(pick === x.id ? null : x.id); }} title="Сменить статус"
-                style={{ background: cstColor(x.status), color: "#fff", border: 0, borderRadius: 999, padding: "5px 12px", fontWeight: 700, flexShrink: 0 }}>{x.status || "Статус"} ▾</button></span>
+              <button onClick={() => setOpen(on ? null : x.id)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700, flexShrink: 0 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button>
             </div>
             {pick === x.id && <StatusBtns cur={x.status} onPick={(k) => { upd(x.id, { status: k }); setPick(null); }} />}
             {on && <div className="small" style={{ padding: "4px 14px 14px", display: "grid", gap: 6, background: "var(--bg)" }}>
