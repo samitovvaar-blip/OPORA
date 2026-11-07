@@ -346,11 +346,23 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
     {sub === "base" && <>
       {/* Добавить лида — отдельная форма */}
       <div className="card">
-        <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>👥 База лидов · {leads.length}</b>
+        <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>📊 Свод по лидам · {leads.length}</b>
           <span><button onClick={() => { setAddOpen(!addOpen); setBulk(null); }}>{addOpen ? "✕ Закрыть" : "+ Добавить лида"}</button>
             <button className="ghost" style={{ marginLeft: 6 }} onClick={() => { setBulk(bulk == null ? "" : null); setAddOpen(false); }}>{bulk == null ? "📋 Списком из таблицы" : "✕ Закрыть"}</button></span></div>
-        <Summary cur={cst} onPick={setCst} items={[{ k: "all", l: "Всего лидов", c: "#16304f", n: leads.length },
-          ...CST.map(([k, c]) => ({ k, l: k, c, n: leads.filter((x) => (x.status || "") === k).length }))]} />
+        {/* Свод: статусы и источники — списком */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, margin: "10px 0" }}>
+          <div className="small"><div className="muted" style={{ marginBottom: 4 }}>По статусам</div>
+            {[["all", "Всего лидов", "#16304f"] as [string, string, string], ...CST.map(([k, c]) => [k, k, c] as [string, string, string])].map(([k, l, c]) => {
+              const n = k === "all" ? leads.length : leads.filter((x) => (x.status || "") === k).length;
+              return <div key={k} className="row" onClick={() => setCst(cst === k ? "all" : k)} style={{ cursor: "pointer", padding: "3px 6px", borderRadius: 6, background: cst === k ? "var(--bg)" : undefined, fontWeight: k === "all" || cst === k ? 700 : 400 }}>
+                <span><span style={{ color: c, fontSize: 14 }}>●</span> {l}</span><span><b>{n}</b>{k !== "all" && leads.length ? <span className="muted"> · {Math.round(n / leads.length * 100)}%</span> : null}</span></div>; })}
+          </div>
+          <div className="small"><div className="muted" style={{ marginBottom: 4 }}>📣 Откуда приходят</div>
+            {Object.entries(bySrc).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => <div key={k} className="row" style={{ padding: "3px 6px" }}>
+              <span>{k}</span><span><b>{v.n}</b>{v.sum ? <span className="muted"> · оплатили {rub(v.sum)}</span> : null}</span></div>)}
+            {!clients.length && <div className="muted">Пока нет лидов</div>}
+          </div>
+        </div>
         {addOpen && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!c.name.trim()) return;
           add({ kind: "client", name: c.name.trim(), company: c.company.trim(), phone: c.phone.trim(), note: c.note.trim(), source: c.source.trim(), status: c.status || "Ждёт обработку", created: today() });
           setC({ name: "", company: "", phone: "", note: "", source: c.source, status: "" }); setAddOpen(false); }}>
@@ -373,8 +385,11 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
             return <button disabled={!fresh.length} onClick={() => { fresh.forEach((x) => add({ kind: "client", name: x[0], company: "", phone: x[1] || "", note: [x[2], x[3]].filter(Boolean).join(" · "), source: c.source.trim(), created: today() })); setBulk(null); }}>
               ✓ Добавить {fresh.length} клиент.{rows.length - fresh.length ? ` (повторов пропущено: ${rows.length - fresh.length})` : ""}</button>; })()}
         </div>}
-      {/* Список лидов: имя слева, статус справа; нажал — карточка с правкой и комментариями */}
-      <div style={{ margin: "4px -16px -16px", borderTop: "1px solid var(--border, #e5e5e5)" }}>
+      </div>
+      {/* База лидов: имя слева, статус справа; нажал — карточка с правкой и комментариями */}
+      <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
+        <div className="row" style={{ padding: "10px 14px", borderBottom: "1px solid var(--border, #e5e5e5)" }}><b>📋 База лидов{cst !== "all" ? ` · ${cst}` : ""} · {shownC.length}</b>
+          {cst !== "all" && <button className="ghost small" onClick={() => setCst("all")}>показать всех</button>}</div>
         {shownC.map((x) => { const ps = projects.filter((p) => p.clientId === x.id), d = ps.reduce((a, p) => a + debt(p), 0), on = open === x.id;
           return <div key={x.id} style={{ borderBottom: "1px solid var(--border, #e5e5e5)" }}>
             <div className="row" style={{ padding: "10px 14px", cursor: "pointer", gap: 8 }} onClick={() => setOpen(on ? null : x.id)}>
@@ -407,11 +422,6 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
           </div>; })}
         {!shownC.length && <div className="muted" style={{ padding: 14 }}>Лидов нет</div>}
       </div>
-      </div>
-      {clients.length > 0 && <div className="card" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}>📣 Откуда приходят клиенты</h3>
-        {Object.entries(bySrc).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => <div key={k} className="row small"><span>{k}</span><span><b>{v.n}</b> клиент. · оплатили {rub(v.sum)}</span></div>)}
-      </div>}
     </>}
   </>;
 }
