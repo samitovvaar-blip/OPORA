@@ -411,11 +411,11 @@ function ClientsTab({ clients, projects, products, moves, regulars, paidOf, cost
             <div className="row" style={{ padding: "10px 14px", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0, flex: "1 1 240px" }}><b>{x.name}</b> <span className="muted small">· {cname(x.clientId)}</span>
                 <div className="small muted">{x.monthly ? `${rub(x.price)} в месяц, ${x.payDay || 1}-го` : `${rub(x.price)} разово`}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}</span>}</div>
-                <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: "4px 18px", alignItems: "baseline" }}>
-                  <span><span className="muted">Доходы</span> <b className="ok" style={{ fontSize: 16 }}>{rub(paid)}</b></span><span className="muted">−</span>
-                  <span><span className="muted">Расходы</span> <b className="neg" style={{ fontSize: 16 }}>{rub(cost)}</b></span><span className="muted">=</span>
-                  <span><span className="muted">Прибыль</span> <b className={profit < 0 ? "error" : "ok"} style={{ fontSize: 16 }}>{rub(profit)}</b></span>
-                  <span><span className="muted">Маржа</span> <b style={{ fontSize: 18 }} className={margin != null && margin < 0 ? "error" : ""}>{margin != null ? margin + "%" : "—"}</b></span></div></div>
+                <div className="small" style={{ marginTop: 6, display: "inline-flex", flexWrap: "wrap", gap: "2px 10px", alignItems: "baseline", background: "var(--bg)", border: "1px solid var(--border, #e5e5e5)", borderRadius: 999, padding: "4px 12px" }}>
+                  <span><span className="muted">Доходы</span> <b className="ok">{rub(paid)}</b></span><span className="muted">−</span>
+                  <span><span className="muted">Расходы</span> <b className="neg">{rub(cost)}</b></span><span className="muted">=</span>
+                  <span><span className="muted">Прибыль</span> <b className={profit < 0 ? "error" : "ok"}>{rub(profit)}</b></span>
+                  <span><span className="muted">Маржа</span> <b className={margin != null && margin < 0 ? "error" : ""}>{margin != null ? margin + "%" : "—"}</b></span></div></div>
               <div className="row" style={{ alignItems: "center", gap: 14 }}>
                 <button onClick={() => { setOpen(on ? null : x.id); setPay(null); setCostF(null); }} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button></div>
             </div>
