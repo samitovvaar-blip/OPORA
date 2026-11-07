@@ -169,34 +169,8 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
       <div className="small muted" style={{ marginTop: 6 }}>Нажми «Доходы» или «Расходы», чтобы увидеть по каждому проекту и расходу. Стрелки ‹ › вверху — другой месяц.</div>
     </div>;
   };
-  if (view === "fin") return <>
-    {MonthPick}
-    {planFact(mk)}
-    <div style={{ marginTop: 12 }}><FinTab {...{ MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} /></div>
-  </>;
-  return <>
-    {MonthPick}
-    <div className="dash-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, alignItems: "stretch" }}>
-      <div className="card stat g-blue tile"><span className="tile-ico">💰</span><div className="muted">Выручка</div><b>{rub(S.inc)}</b><Delta v={S.inc} w={P.inc} /></div>
-      <div className="card stat g-orange tile tile-link" onClick={() => onNav("clients")}><span className="tile-ico">🛠</span><div className="muted">Проектов в работе</div><b>{work.length}</b>
-        <span className="small">{unpaidM.length ? `⏳ не оплатили в этом месяце: ${unpaidM.length}` : "✓ все оплатили"}</span></div>
-      <div className={`card stat ${S.prof < 0 ? "g-red" : "g-green"} tile`}><span className="tile-ico">{S.prof < 0 ? "🔻" : "💎"}</span><div className="muted">{S.prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{rub(S.prof)}</b>{S.prof > 0 && P.prof > 0 && <Delta v={S.prof} w={P.prof} />}</div>
-      <div className="card stat g-orange t-light tile"><span className="tile-ico">📈</span><div className="muted">Рентабельность</div><b>{pctS(S.rent)}</b><span className="small">прибыль ÷ выручка</span></div>
-      <div className="card stat g-blue t-light tile tile-link" onClick={() => setMargOpen(!margOpen)}><span className="tile-ico">🎯</span><div className="muted">Маржинальность {margOpen ? "▾" : "▸"}</div><b>{pctS(S.marg)}</b><span className="small">по проектам · нажми</span></div>
-    </div>
-    {unpaidM.length > 0 && <div className="card small" style={{ marginTop: 12 }}><b>⏳ Не оплатили · {MONTHS[m - 1]}</b>
-      {unpaidM.map((x) => <div key={x.id} className="row"><span>{cname(x.clientId)} · {x.name}{x.monthly ? ` · ${x.payDay || 1}-го` : ""}</span><b className="neg">{rub(x.monthly ? x.price - projIncome(mk, x.id) : debt(x))}</b></div>)}</div>}
-    {margOpen && <div className="card" style={{ marginTop: 12 }}>
-      <h3 style={{ marginTop: 0 }}>🎯 Маржинальность по проектам · {MONTHS[m - 1]}</h3>
-      <div style={{ overflowX: "auto" }}><table className="pnl-table"><tbody>
-        <tr className="muted small"><td>Проект</td><td>Доходы</td><td>Расходы проекта</td><td>Доля общих</td><td>Прибыль</td><td>Маржа</td><td>Маржа с общими</td></tr>
-        {margRows.map(({ x, i, c, sh, mm, mm2 }) => <tr key={x.id}><td>{x.name}<div className="small muted">{cname(x.clientId)}</div></td><td>{rub(i)}</td><td className="neg">{c ? rub(c) : "—"}</td>
-          <td className="neg">{sh ? rub(sh) : "—"}</td><td className={i - c - sh < 0 ? "error" : "ok"}>{rub(i - c - sh)}</td><td>{pctS(mm)}</td><td><b className={mm2 != null && mm2 < 0 ? "error" : ""}>{pctS(mm2)}</b></td></tr>)}
-        {!margRows.length && <tr><td className="muted">Нет проектов</td></tr>}
-      </tbody></table></div>
-      <div className="small muted">Маржа = (доходы проекта − расходы проекта) ÷ доходы проекта. «Доля общих» — общие расходы месяца ({rub(shared(mk))}) ÷ проектов в работе ({activeIn(mk).length}) = {rub(shareOf(mk))} на проект.</div>
-    </div>}
-    {(() => {
+  const donut = (
+(() => {
       // структура расходов месяца: по статьям (проектные и общие вместе), круговая диаграмма как в кабинете по таблице
       const COLORS = ["#16304f", "#25476f", "#3b6db3", "#6f8fc9", "#a9c0e8", "#e8873a", "#8a3ab9", "#16a34a"];
       const by: Record<string, number> = {};
@@ -218,7 +192,37 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
             <span>{rub(d.v)} <span className="muted">· {Math.round(d.v / tot * 100)}%</span></span></div>)}</div>
         </div>
       </div>;
-    })()}
+    })()
+  );
+  if (view === "fin") return <>
+    {MonthPick}
+    {planFact(mk)}
+    {donut}
+    <div style={{ marginTop: 12 }}><FinTab {...{ MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} /></div>
+  </>;
+  return <>
+    {MonthPick}
+    <div className="dash-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "stretch" }}>
+      <div className="card stat g-blue tile"><span className="tile-ico">💰</span><div className="muted">Выручка</div><b>{rub(S.inc)}</b><Delta v={S.inc} w={P.inc} /></div>
+      <div className="card stat g-orange tile tile-link" onClick={() => onNav("fin")}><span className="tile-ico">💸</span><div className="muted">Расходы</div><b>{rub(S.out)}</b><span className="small">{S.inc ? Math.round(S.out / S.inc * 100) + "% выручки" : ""}</span></div>
+      <div className={`card stat ${S.prof < 0 ? "g-red" : "g-green"} tile`}><span className="tile-ico">{S.prof < 0 ? "🔻" : "💎"}</span><div className="muted">{S.prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{rub(S.prof)}</b>{S.prof > 0 && P.prof > 0 && <Delta v={S.prof} w={P.prof} />}</div>
+      <div className="card stat g-orange t-light tile"><span className="tile-ico">📈</span><div className="muted">Рентабельность</div><b>{pctS(S.rent)}</b><span className="small">маржинальность <b>{pctS(S.marg)}</b></span></div>
+      <div className="card stat g-blue t-light tile tile-link" style={{ gridColumn: "1 / -1" }} onClick={() => setMargOpen(!margOpen)}>
+        <div className="row" style={{ flexWrap: "wrap", gap: 8 }}><span><span className="tile-ico" style={{ position: "static", marginRight: 6 }}>🛠</span><span className="muted">Проекты в работе</span> <b style={{ fontSize: 22 }}>{work.length}</b></span>
+          <span className="small">{unpaidM.length ? `⏳ не оплатили: ${unpaidM.length} · ${rub(unpaidM.reduce((a, x) => a + (x.monthly ? x.price - projIncome(mk, x.id) : debt(x)), 0))}` : "✓ все оплатили"} · {margOpen ? "▾ скрыть" : "▸ открыть"}</span></div></div>
+    </div>
+    {margOpen && <div className="card" style={{ marginTop: 12 }}>
+      <h3 style={{ marginTop: 0 }}>🛠 Проекты в работе · {MONTHS[m - 1]}</h3>
+      <div style={{ overflowX: "auto" }}><table className="pnl-table"><tbody>
+        <tr className="muted small"><td>Проект</td><td>Оплата</td><td>Доходы</td><td>Расходы</td><td>Прибыль</td><td>Маржа</td><td>С общими</td></tr>
+        {margRows.map(({ x, i, c, sh, mm, mm2 }) => { const un = unpaidM.some((y) => y.id === x.id);
+          return <tr key={x.id}><td>{x.name}<div className="small muted">{cname(x.clientId)}</div></td>
+            <td className={un ? "error" : "ok"}>{un ? `⏳ не оплатил ${rub(x.monthly ? x.price - i : debt(x))}` : i ? "✓ оплатил" : "—"}</td>
+            <td>{rub(i)}</td><td className="neg">{c ? rub(c) : "—"}</td><td className={i - c < 0 ? "error" : "ok"}>{rub(i - c)}</td><td><b>{pctS(mm)}</b></td><td className={mm2 != null && mm2 < 0 ? "error" : "muted"}>{pctS(mm2)}</td></tr>; })}
+        {!margRows.length && <tr><td className="muted">Нет проектов</td></tr>}
+      </tbody></table></div>
+      <div className="small muted">Маржа = (доходы проекта − расходы проекта) ÷ доходы. «С общими» — ещё минус доля общих расходов: {rub(shared(mk))} ÷ {activeIn(mk).length} = {rub(shareOf(mk))} на проект.</div>
+    </div>}
     <div className="card" style={{ marginTop: 12 }}>
       <h3 style={{ marginTop: 0 }}>Показатели · {MONTHS[m - 1]}</h3>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0 24px" }}>
@@ -280,28 +284,22 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p,
     prevOut.forEach((m) => add({ kind: "move", type: "out", amount: m.amount, date: `${mk}-${String(Math.min(Number(m.date.slice(8)), lastDay)).padStart(2, "0")}`, note: m.note, category: m.category || "Прочее", account: m.account || ACCOUNTS[0] })); };
   return <>
     {MonthPick}
-    <div className="card small" style={{ marginBottom: 12, background: "var(--bg)" }}>
+    <div className="card" style={{ marginTop: 12 }}>
+    <div className="small" style={{ marginBottom: 10, padding: "6px 10px", background: "var(--bg)", borderRadius: 8 }}>
       {p.crmSheet?.exec
         ? <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span>📗 Все доходы и расходы сами попадают в Google-таблицу (лист «ПРИЛОЖЕНИЕ ФИНАНСЫ»)
           {sync === "wait" ? " · отправляю…" : sync === "sent" ? " · ✓ отправлено" : sync === "fail" ? " · ⚠️ не отправилось" : ""}</span>
           <span>{p.crmSheet.url && <a className="linkbtn" href={p.crmSheet.url} target="_blank" rel="noopener noreferrer">Открыть таблицу</a>} <button className="ghost" onClick={push}>🔄 Отправить сейчас</button></span></div>
         : <span className="muted">📗 Таблица пока не привязана — бухгалтер подключит её в настройках, и операции будут попадать туда сами.</span>}
     </div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
-      <div className="card">
-        <div className="row"><span>Доходы</span><b className="ok">+{rub(income)}</b></div>
-        <div className="row"><span>Расходы</span><b className="neg">−{rub(expense)}</b></div>
-        <div className="row" style={{ borderTop: "1px solid var(--border, #ddd)", paddingTop: 4 }}><b>Чистая прибыль</b><b className={income - expense < 0 ? "error" : "ok"}>{rub(income - expense)}</b></div>
-        {Object.keys(byCat).length > 0 && <div className="small" style={{ marginTop: 8 }}><b>Расходы по статьям</b>{Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([k, v]) =>
-          <div key={k} className="row muted"><span>{k}</span><span>{rub(v)} · {expense ? Math.round(v / expense * 100) : 0}%</span></div>)}</div>}
-      </div>
-      <div className="card">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+        <div>
         <b>💳 Остатки на конец месяца</b>
         {accs.map((a) => <div key={a} className="row small"><span>{a}</span><b className={bal(a) < 0 ? "error" : ""}>{rub(bal(a))}</b></div>)}
         <div className="row small" style={{ borderTop: "1px solid var(--border, #ddd)", paddingTop: 4 }}><b>Всего</b><b>{rub(accs.reduce((x, a) => x + bal(a), 0))}</b></div>
-      </div>
-    </div>
-    <Regulars {...{ mk, regulars: regulars.filter((x) => !x.projectId), moves, projects, pname, add, del, upd, nActive }} extra={<>
+        </div>
+        <div>
+    <Regulars {...{ mk, regulars: regulars.filter((x) => !x.projectId), moves, projects, pname, add, del, upd, nActive, projectId: undefined, flat: true }} extra={<>
       <div className="row small" style={{ justifyContent: "flex-start", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
         <button onClick={() => setAddF(!addF)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addF ? "✕ Закрыть" : "+ Добавить"}</button>
         <button className="ghost" onClick={copyPrev}>⧉ Скопировать расходы прошлого месяца</button>
@@ -318,6 +316,9 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p,
       <button disabled={!Number(f.amount)}>✓ Сохранить</button>
     </form>}
     </>} />
+        </div>
+      </div>
+    </div>
     <div className="card" style={{ marginTop: 12 }}>
       <b>📒 Операции за месяц</b> <span className="small muted">— справочник: все доходы и расходы месяца, по проектам и общие</span>
     <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
@@ -594,9 +595,9 @@ function ProductsTab({ products, projects, add, del, upd }: {
 }
 
 // Ежемесячные расходы (сервисы, аренда, подписки): шаблон → каждый месяц «провести» в один клик
-function Regulars({ mk, regulars, moves, projects, pname, add, del, upd, nActive, projectId, extra }: {
+function Regulars({ mk, regulars, moves, projects, pname, add, del, upd, nActive, projectId, extra, flat }: {
   mk: string; regulars: CRegular[]; moves: CMove[]; projects: CProject[]; pname: (id?: string) => string;
-  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void; nActive: number; projectId?: string; extra?: React.ReactNode;
+  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void; nActive: number; projectId?: string; extra?: React.ReactNode; flat?: boolean;
 }) {
   const [f, setF] = useState<{ name: string; amount: string; day: string; category: string; account: string; projectId: string } | null>(null);
   const lastDay = new Date(Number(mk.slice(0, 4)), Number(mk.slice(5)), 0).getDate();
@@ -606,7 +607,7 @@ function Regulars({ mk, regulars, moves, projects, pname, add, del, upd, nActive
   const inProject = !!projectId;
   const act = regulars.filter((r) => !r.off), todo = act.filter((r) => !doneIn(r));
   const sharedM = moves.filter((m) => m.type === "out" && !m.projectId && mkOf(m.date) === mk).reduce((a, m) => a + m.amount, 0);
-  return <div className={inProject ? "" : "card"} style={{ marginTop: inProject ? 0 : 12 }}>
+  return <div className={inProject || flat ? "" : "card"} style={{ marginTop: inProject || flat ? 0 : 12 }}>
     <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>{inProject ? `🔁 Каждый месяц · ${rub(regulars.filter((r) => !r.off).reduce((a, r) => a + r.amount, 0))}` : `🧩 Общие расходы · ${rub(sharedM)} за месяц`}</b>
       <span>{todo.length > 0 && <button style={{ marginRight: 6 }} onClick={() => todo.forEach(run)}>✓ Провести все за месяц ({todo.length})</button>}
         {inProject && <button className="ghost" onClick={() => setF(f ? null : { name: "", amount: "", day: "1", category: "Сервисы", account: ACCOUNTS[0], projectId: "" })}>{f ? "✕" : "+ Добавить"}</button>}</span></div>
