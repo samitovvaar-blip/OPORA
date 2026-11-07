@@ -23,6 +23,13 @@ const ACCOUNTS = ["Расчётный счёт", "Карта", "Наличные
 const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Ждёт предложение", "#8a3ab9"], ["Начали работу", "#16a34a"], ["Вернуться", "#2a5bd7"], ["Отказ", "#b02a2a"]];
 const cstColor = (s?: string) => CST.find(([k]) => k === s)?.[1] || "#888";
 const Badge = ({ s }: { s?: string }) => <span style={{ background: cstColor(s), color: "#fff", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{s || "без статуса"}</span>;
+// статус — крупными цветными кнопками
+function StatusBtns({ cur, onPick, pad = "0 14px 10px" }: { cur?: string; onPick: (k: string) => void; pad?: string }) {
+  return <div className="row" style={{ justifyContent: "flex-start", gap: 6, flexWrap: "wrap", padding: pad }}>
+    {CST.map(([k, c]) => <button type="button" key={k} onClick={(e) => { e.stopPropagation(); onPick(k); }}
+      style={{ background: cur === k ? c : "transparent", color: cur === k ? "#fff" : c, border: `2px solid ${c}`, borderRadius: 999, padding: "6px 14px", fontWeight: 700 }}>
+      {cur === k ? "✓ " : ""}{k}</button>)}</div>;
+}
 const ST: Record<Status, string> = { new: "🆕 новый", work: "🛠 в работе", done: "✓ сдан" };
 const NEXT: Record<Status, Status> = { new: "work", work: "done", done: "new" };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -212,6 +219,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
   const [sub, setSub] = useState<"projects" | "base">("projects");
   const [c, setC] = useState({ name: "", company: "", phone: "", note: "", source: "", status: "" });
   const [addOpen, setAddOpen] = useState(false);
+  const [pick, setPick] = useState<string | null>(null);
   const [cmt, setCmt] = useState<Record<string, string>>({});
   const blankP = { name: "", clientId: "", productId: "", price: "", deadline: "", payDate: "" };
   const [pr, setPr] = useState(blankP);
@@ -295,7 +303,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
           <input placeholder="Телефон / Telegram" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} />
           <input list="crm-src" placeholder="Откуда пришёл" value={c.source} onChange={(e) => setC({ ...c, source: e.target.value })} />
           <datalist id="crm-src">{SOURCES.map((x) => <option key={x} value={x} />)}</datalist>
-          <select value={c.status || "Ждёт обработку"} onChange={(e) => setC({ ...c, status: e.target.value })}>{CST.map(([k]) => <option key={k}>{k}</option>)}</select>
+          <div><span className="small muted">Статус</span><StatusBtns cur={c.status || "Ждёт обработку"} onPick={(k) => setC({ ...c, status: k })} pad="4px 0" /></div>
           <textarea rows={2} placeholder="Заметка" value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} />
           <button disabled={!c.name.trim()}>✓ Добавить</button>
         </form>}
@@ -320,10 +328,10 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
             <div className="row" style={{ padding: "10px 14px", cursor: "pointer", gap: 8 }} onClick={() => setOpen(on ? null : x.id)}>
               <div style={{ minWidth: 0 }}><b>{x.name}</b>{x.company && <span className="muted"> · {x.company}</span>}
                 <div className="small muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[x.phone, x.source, ps.length ? `${ps.length} проект.` : "", d > 0 ? `долг ${rub(d)}` : ""].filter(Boolean).join(" · ") || "—"}</div></div>
-              <select value={x.status || ""} onClick={(e) => e.stopPropagation()} onChange={(e) => upd(x.id, { status: e.target.value })}
-                style={{ background: cstColor(x.status), color: "#fff", border: 0, borderRadius: 999, padding: "4px 10px", fontWeight: 700, flexShrink: 0 }}>
-                <option value="">без статуса</option>{CST.map(([k]) => <option key={k} value={k}>{k}</option>)}</select>
+              <button onClick={(e) => { e.stopPropagation(); setPick(pick === x.id ? null : x.id); }} title="Сменить статус"
+                style={{ background: cstColor(x.status), color: "#fff", border: 0, borderRadius: 999, padding: "5px 12px", fontWeight: 700, flexShrink: 0 }}>{x.status || "Статус"} ▾</button>
             </div>
+            {(pick === x.id || on) && <StatusBtns cur={x.status} onPick={(k) => { upd(x.id, { status: k }); setPick(null); }} />}
             {on && <div className="small" style={{ padding: "4px 14px 14px", display: "grid", gap: 6, background: "var(--bg)" }}>
               {([["name", "Имя"], ["company", "Компания"], ["phone", "Телефон / Telegram"], ["source", "Откуда пришёл"]] as const).map(([k, l]) =>
                 <label key={k} className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 130 }}>{l}</span>
@@ -342,7 +350,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
                   <button disabled={!(cmt[x.id] || "").trim()}>➤</button></form></div>
               {ps.length > 0 && <div>{ps.map((p) => <div key={p.id}>• {p.name} — {rub(p.price)}{debt(p) ? `, долг ${rub(debt(p))}` : ", оплачен"} · {ST[p.status]}</div>)}</div>}
               <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">{x.created ? `в базе с ${dmy(x.created)} · ` : ""}изменения сохраняются сами</span>
-                <span><button onClick={() => toProject(x)}>→ В проект</button> <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
+                <span><button className="ghost" onClick={() => toProject(x)}>→ В проект</button> <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
             </div>}
           </div>; })}
         {!shownC.length && <div className="muted" style={{ padding: 14 }}>Лидов нет</div>}
