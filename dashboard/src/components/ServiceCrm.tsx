@@ -11,8 +11,9 @@ type CProduct = { id: string; kind: "product"; name: string; price: number; desc
 type CClient = { id: string; kind: "client"; name: string; status?: string; comments?: { at: string; text: string }[]; company?: string; phone?: string; note?: string; source?: string; created?: string };
 type Status = "new" | "work" | "done";
 type CProject = { id: string; kind: "project"; name: string; clientId: string; productId?: string; price: number; status: Status; start: string; deadline?: string; payDate?: string; monthly?: boolean; payDay?: number };
-type CMove = { id: string; kind: "move"; type: "in" | "out"; amount: number; date: string; note: string; projectId?: string; category?: string; account?: string };
-type Item = CProduct | CClient | CProject | CMove;
+type CMove = { id: string; kind: "move"; type: "in" | "out"; amount: number; date: string; note: string; projectId?: string; category?: string; account?: string; regularId?: string };
+type CRegular = { id: string; kind: "regular"; name: string; amount: number; day: number; category?: string; account?: string; projectId?: string; off?: boolean };
+type Item = CProduct | CClient | CProject | CMove | CRegular;
 export type CrmView = "home" | "fin" | "clients" | "products";
 
 const MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
@@ -59,6 +60,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   const clients = items.filter((x): x is CClient => x.kind === "client").sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const projects = items.filter((x): x is CProject => x.kind === "project").map((x) => ({ ...x, status: (["new", "work", "done"].includes(x.status) ? x.status : "work") as Status }))
     .sort((a, b) => b.start.localeCompare(a.start));
+  const regulars = items.filter((x): x is CRegular => x.kind === "regular").sort((a, b) => a.day - b.day);
   const moves = items.filter((x): x is CMove => x.kind === "move").sort((a, b) => b.date.localeCompare(a.date));
   const paidOf = (pid: string) => moves.filter((m) => m.type === "in" && m.projectId === pid).reduce((a, m) => a + m.amount, 0);
   const costOf = (pid: string) => moves.filter((m) => m.type === "out" && m.projectId === pid).reduce((a, m) => a + m.amount, 0);
@@ -98,7 +100,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
     <button className="ghost" onClick={() => setMk(shift(mk, 1))}>›</button></div>;
 
   if (err) return <div className="card error">Нет доступа к данным: {err}</div>;
-  if (view === "fin") return <FinTab {...{ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push, sync }} />;
+  if (view === "fin") return <FinTab {...{ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars }} />;
   if (view === "clients") return <ClientsTab {...{ clients, projects, products, moves, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} />;
   if (view === "products") return <ProductsTab {...{ products, projects, add, del, upd }} />;
 
@@ -155,9 +157,9 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   </>;
 }
 
-function FinTab({ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push, sync }: {
+function FinTab({ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars }: {
   MonthPick: JSX.Element; mk: string; moves: CMove[]; projects: CProject[]; pname: (id?: string) => string;
-  add: (d: object) => void; del: (id: string) => void; sumM: (k: string, t: "in" | "out") => number; p: ClientProject; push: () => void; sync: string;
+  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void; sumM: (k: string, t: "in" | "out") => number; p: ClientProject; push: () => void; sync: string; regulars: CRegular[];
 }) {
   const [f, setF] = useState({ type: "in" as "in" | "out", amount: "", date: today(), note: "", projectId: "", category: "", account: ACCOUNTS[0] });
   const inM = moves.filter((m) => mkOf(m.date) === mk);
@@ -212,6 +214,7 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push
       <input placeholder="Комментарий" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} style={{ flex: "1 1 140px" }} />
       <button disabled={!Number(f.amount)}>+ Добавить</button>
     </form>
+    <Regulars {...{ mk, regulars, moves, projects, pname, add, del, upd }} />
     <div className="row small" style={{ justifyContent: "flex-start", gap: 6, marginTop: 8 }}>
       <button className="ghost" onClick={copyPrev}>⧉ Расходы как в прошлом месяце</button>
     </div>
@@ -291,7 +294,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
       {filter !== "done" && <div style={{ margin: "10px 0 4px", fontSize: 15 }}>🟢 В работе сейчас: <b style={{ fontSize: 20 }}>{projects.filter((x) => x.status !== "done").length}</b>
         <span className="muted small"> · ждём в этом месяце {rub(projects.filter((x) => x.status !== "done" && x.monthly).reduce((a, x) => a + x.price, 0))}{projects.some((x) => debt(x) > 0) ? ` · долг ${rub(projects.reduce((a, x) => a + debt(x), 0))}` : ""}</span></div>}
       {/* Проекты — плитками; ⚙ раскрывает проект на всю ширину */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 10, marginTop: 8 }}>
+      <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
         {shownP.map((x) => { const on = open === x.id, paid = paidOf(x.id), cost = costOf(x.id), d = debt(x);
           const payLate = d > 0 && !x.monthly && x.payDate && x.payDate < today();
           const pays = moves.filter((m) => m.projectId === x.id && m.type === "in").sort((a, b) => b.date.localeCompare(a.date));
@@ -299,12 +302,12 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
           const exp = expectedOf(x), share = exp ? Math.min(100, Math.round(paid / exp * 100)) : paid ? 100 : 0;
           const profit = paid - cost, margin = paid ? Math.round(profit / paid * 100) : null;
           const L = ({ l, children }: { l: string; children: React.ReactNode }) => <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>{l}</span><span style={{ flex: 1, display: "flex" }}>{children}</span></label>;
-          return <div key={x.id} style={{ gridColumn: on ? "1 / -1" : undefined, border: `1px solid ${on ? "#16304f" : "var(--border, #e5e5e5)"}`, borderRadius: 12, overflow: "hidden", background: "var(--surface, #fff)", opacity: x.status === "done" ? .7 : 1 }}>
-            <div style={{ padding: "10px 12px", display: "grid", gap: 6 }}>
-              <div style={{ minWidth: 0 }}><b>{x.name}</b><div className="muted small">{cname(x.clientId)}</div>
+          return <div key={x.id} style={{ border: `1px solid ${on ? "#16304f" : "var(--border, #e5e5e5)"}`, borderRadius: 12, overflow: "hidden", background: "var(--surface, #fff)", opacity: x.status === "done" ? .7 : 1 }}>
+            <div className="row" style={{ padding: "10px 14px", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ minWidth: 0, flex: "1 1 240px" }}><b>{x.name}</b> <span className="muted small">· {cname(x.clientId)}</span>
                 <div style={{ height: 6, background: "var(--border, #e5e5e5)", borderRadius: 3, margin: "6px 0 2px", maxWidth: 320 }}><div style={{ width: share + "%", height: "100%", background: d ? "#e8873a" : "#16a34a", borderRadius: 3 }} /></div>
                 <div className="small muted">{x.monthly ? `${rub(x.price)} в месяц, ${x.payDay || 1}-го` : `${rub(x.price)} разово`} · доходы {rub(paid)} · расходы {rub(cost)}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}</span>}</div></div>
-              <div className="row" style={{ alignItems: "center" }}>
+              <div className="row" style={{ alignItems: "center", gap: 14 }}>
                 <span className="small"><span className="muted">маржа </span><b className={margin != null && margin < 0 ? "error" : "ok"} style={{ fontSize: 18 }}>{margin != null ? margin + "%" : "—"}</b></span>
                 <button onClick={() => { setOpen(on ? null : x.id); setPay(null); setCostF(null); }} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button></div>
             </div>
@@ -487,6 +490,45 @@ function ProductsTab({ products, projects, add, del, upd }: {
           <td><input type="number" style={{ width: 110 }} key={x.id + x.price} defaultValue={x.price} onBlur={(e) => Number(e.target.value) !== x.price && upd(x.id, { price: Number(e.target.value) || 0 })} /></td>
           <td><button className="ghost" onClick={() => del(x.id)}>🗑</button></td></tr>; })}
       {!products.length && <tr><td className="muted">Продуктов пока нет</td></tr>}
+    </tbody></table>
+  </div>;
+}
+
+// Ежемесячные расходы (сервисы, аренда, подписки): шаблон → каждый месяц «провести» в один клик
+function Regulars({ mk, regulars, moves, projects, pname, add, del, upd }: {
+  mk: string; regulars: CRegular[]; moves: CMove[]; projects: CProject[]; pname: (id?: string) => string;
+  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void;
+}) {
+  const [f, setF] = useState<{ name: string; amount: string; day: string; category: string; account: string; projectId: string } | null>(null);
+  const lastDay = new Date(Number(mk.slice(0, 4)), Number(mk.slice(5)), 0).getDate();
+  const doneIn = (r: CRegular) => moves.find((m) => m.regularId === r.id && mkOf(m.date) === mk);
+  const run = (r: CRegular) => add({ kind: "move", type: "out", amount: r.amount, date: `${mk}-${String(Math.min(r.day, lastDay)).padStart(2, "0")}`, note: r.name,
+    category: r.category || "Сервисы", account: r.account || ACCOUNTS[0], regularId: r.id, ...(r.projectId ? { projectId: r.projectId } : {}) });
+  const act = regulars.filter((r) => !r.off), todo = act.filter((r) => !doneIn(r));
+  const total = act.reduce((a, r) => a + r.amount, 0);
+  return <div className="card" style={{ marginTop: 12 }}>
+    <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>🔁 Ежемесячные расходы · {rub(total)} в месяц</b>
+      <span>{todo.length > 0 && <button style={{ marginRight: 6 }} onClick={() => todo.forEach(run)}>✓ Провести все за месяц ({todo.length})</button>}
+        <button className="ghost" onClick={() => setF(f ? null : { name: "", amount: "", day: "1", category: "Сервисы", account: ACCOUNTS[0], projectId: "" })}>{f ? "✕" : "+ Добавить"}</button></span></div>
+    {f && <div className="row small" style={{ flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+      <input placeholder="Название (Тильда, Figma, аренда…)" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} style={{ flex: "1 1 180px" }} />
+      <input type="number" placeholder="Сумма" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} style={{ width: 100 }} />
+      <span className="muted">число</span><input type="number" min={1} max={31} value={f.day} onChange={(e) => setF({ ...f, day: e.target.value })} style={{ width: 60 }} />
+      <input list="crm-rcats" placeholder="Статья" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} style={{ width: 130 }} />
+      <datalist id="crm-rcats">{["Сервисы", ...CATS].map((c) => <option key={c} value={c} />)}</datalist>
+      <select value={f.account} onChange={(e) => setF({ ...f, account: e.target.value })}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
+      <select value={f.projectId} onChange={(e) => setF({ ...f, projectId: e.target.value })}><option value="">— общий —</option>{projects.filter((x) => x.status !== "done").map((x) => <option key={x.id} value={x.id}>{pname(x.id)}</option>)}</select>
+      <button disabled={!f.name.trim() || !Number(f.amount)} onClick={() => { add({ kind: "regular", name: f.name.trim(), amount: Number(f.amount), day: Math.min(31, Math.max(1, Number(f.day) || 1)),
+        category: f.category.trim() || "Сервисы", account: f.account, ...(f.projectId ? { projectId: f.projectId } : {}) }); setF(null); }}>✓ Сохранить</button>
+    </div>}
+    <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
+      {regulars.map((r) => { const m = doneIn(r);
+        return <tr key={r.id} style={{ opacity: r.off ? .5 : 1 }}><td>{r.name}<div className="small muted">{r.day}-го · {r.category || "Сервисы"}{r.projectId ? " · " + pname(r.projectId) : ""}</div></td>
+          <td className="neg">−{rub(r.amount)}</td>
+          <td style={{ whiteSpace: "nowrap" }}>{r.off ? <span className="muted small">пауза</span> : m ? <span className="ok small">✓ проведён {dmy(m.date)}</span> : <button onClick={() => run(r)}>Провести</button>}
+            {" "}<button className="ghost" title={r.off ? "Включить" : "Пауза"} onClick={() => upd(r.id, { off: !r.off })}>{r.off ? "▶" : "⏸"}</button>
+            <button className="ghost" onClick={() => del(r.id)}>🗑</button></td></tr>; })}
+      {!regulars.length && <tr><td className="muted">Добавь сервисы и подписки, которые оплачиваются каждый месяц — потом проводишь их одной кнопкой</td></tr>}
     </tbody></table>
   </div>;
 }
