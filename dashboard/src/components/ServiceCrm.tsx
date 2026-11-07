@@ -372,7 +372,6 @@ function ClientsTab({ clients, projects, products, moves, regulars, paidOf, cost
           return <div key={x.id} style={{ border: `1px solid ${on ? "#16304f" : "var(--border, #e5e5e5)"}`, borderRadius: 12, overflow: "hidden", background: "var(--surface, #fff)", opacity: x.status === "done" ? .7 : 1 }}>
             <div className="row" style={{ padding: "10px 14px", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0, flex: "1 1 240px" }}><b>{x.name}</b> <span className="muted small">· {cname(x.clientId)}</span>
-                <div style={{ height: 6, background: "var(--border, #e5e5e5)", borderRadius: 3, margin: "6px 0 2px", maxWidth: 320 }}><div style={{ width: share + "%", height: "100%", background: d ? "#e8873a" : "#16a34a", borderRadius: 3 }} /></div>
                 <div className="small muted">{x.monthly ? `${rub(x.price)} в месяц, ${x.payDay || 1}-го` : `${rub(x.price)} разово`} · доходы {rub(paid)} · расходы {rub(cost)}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}</span>}</div></div>
               <div className="row" style={{ alignItems: "center", gap: 14 }}>
                 <span className="small"><span className="muted">маржа </span><b className={margin != null && margin < 0 ? "error" : "ok"} style={{ fontSize: 18 }}>{margin != null ? margin + "%" : "—"}</b></span>
