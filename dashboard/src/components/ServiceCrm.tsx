@@ -10,7 +10,7 @@ import { ClientProject } from "../lib/catalog";
 type CProduct = { id: string; kind: "product"; name: string; price: number; descr?: string };
 type CClient = { id: string; kind: "client"; name: string; status?: string; comments?: { at: string; text: string }[]; company?: string; phone?: string; note?: string; source?: string; created?: string };
 type Status = "new" | "work" | "done";
-type CProject = { id: string; kind: "project"; name: string; clientId: string; productId?: string; price: number; status: Status; start: string; deadline?: string; payDate?: string };
+type CProject = { id: string; kind: "project"; name: string; clientId: string; productId?: string; price: number; status: Status; start: string; deadline?: string; payDate?: string; monthly?: boolean; payDay?: number };
 type CMove = { id: string; kind: "move"; type: "in" | "out"; amount: number; date: string; note: string; projectId?: string; category?: string; account?: string };
 type Item = CProduct | CClient | CProject | CMove;
 export type CrmView = "home" | "fin" | "clients" | "products";
@@ -62,7 +62,12 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   const moves = items.filter((x): x is CMove => x.kind === "move").sort((a, b) => b.date.localeCompare(a.date));
   const paidOf = (pid: string) => moves.filter((m) => m.type === "in" && m.projectId === pid).reduce((a, m) => a + m.amount, 0);
   const costOf = (pid: string) => moves.filter((m) => m.type === "out" && m.projectId === pid).reduce((a, m) => a + m.amount, 0);
-  const debt = (pr: CProject) => Math.max(0, pr.price - paidOf(pr.id));
+  // ежемесячный проект: ожидается price за каждый месяц с начала (текущий — когда наступил день оплаты)
+  const monthsOf = (pr: CProject) => { const t = today(), out: string[] = []; let k = mkOf(pr.start);
+    const lastMk = Number(t.slice(8)) >= (pr.payDay || 1) ? mkOf(t) : shift(mkOf(t), -1);
+    while (k <= lastMk && out.length < 120) { out.push(k); k = shift(k, 1); } return out; };
+  const expectedOf = (pr: CProject) => pr.monthly ? pr.price * monthsOf(pr).length : pr.price;
+  const debt = (pr: CProject) => pr.status === "done" && pr.monthly ? 0 : Math.max(0, expectedOf(pr) - paidOf(pr.id));
   const cname = (id: string) => clients.find((c) => c.id === id)?.name || "—";
   const pname = (id?: string) => { const x = projects.find((y) => y.id === id); return x ? cname(x.clientId) + " · " + x.name : ""; };
   const sumM = (k: string, t: "in" | "out") => moves.filter((m) => mkOf(m.date) === k && m.type === t).reduce((a, m) => a + m.amount, 0);
@@ -94,7 +99,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
 
   if (err) return <div className="card error">Нет доступа к данным: {err}</div>;
   if (view === "fin") return <FinTab {...{ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push, sync }} />;
-  if (view === "clients") return <ClientsTab {...{ clients, projects, products, moves, paidOf, costOf, debt, cname, add, del, upd }} />;
+  if (view === "clients") return <ClientsTab {...{ clients, projects, products, moves, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} />;
   if (view === "products") return <ProductsTab {...{ products, projects, add, del, upd }} />;
 
   // ── Мой кабинет ──
@@ -220,8 +225,8 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push
   </>;
 }
 
-function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, cname, add, del, upd }: {
-  clients: CClient[]; projects: CProject[]; products: CProduct[]; moves: CMove[]; paidOf: (id: string) => number; costOf: (id: string) => number; debt: (p: CProject) => number; cname: (id: string) => string;
+function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }: {
+  clients: CClient[]; projects: CProject[]; products: CProduct[]; moves: CMove[]; paidOf: (id: string) => number; costOf: (id: string) => number; monthsOf: (p: CProject) => string[]; expectedOf: (p: CProject) => number; debt: (p: CProject) => number; cname: (id: string) => string;
   add: (d: object) => Promise<unknown>; del: (id: string) => void; upd: (id: string, d: object) => void;
 }) {
   const [sub, setSub] = useState<"projects" | "base">("projects");
@@ -230,7 +235,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
   const [pick, setPick] = useState<string | null>(null);
   const [pAdd, setPAdd] = useState(false);
   const [cmt, setCmt] = useState<Record<string, string>>({});
-  const blankP = { name: "", clientId: "", productId: "", price: "", deadline: "", payDate: "" };
+  const blankP = { name: "", clientId: "", productId: "", price: "", deadline: "", payDate: "", monthly: true, payDay: "" };
   const [pr, setPr] = useState(blankP);
   const [pay, setPay] = useState<{ id: string; amount: string; date: string; account: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -246,7 +251,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
   const bySrc: Record<string, { n: number; sum: number }> = {};
   clients.forEach((x) => { const k = x.source || "Не указан"; const s = bySrc[k] = bySrc[k] || { n: 0, sum: 0 }; s.n++;
     s.sum += moves.filter((m) => m.type === "in" && projects.some((p) => p.id === m.projectId && p.clientId === x.id)).reduce((a, m) => a + m.amount, 0); });
-  const finish = (x: CProject) => { if (!confirm(`Завершить работу по «${x.name}»? Клиент вернётся в базу лидов со статусом «Закончили работу», вся история сохранится.`)) return;
+  const finish = (x: CProject) => { if (!confirm(`Отключить проект «${x.name}»? Клиент вернётся в базу лидов со статусом «Закончили работу», вся история сохранится.`)) return;
     upd(x.id, { status: "done" }); upd(x.clientId, { status: "Закончили работу" }); setOpen(null); };
   const toProject = (x: CClient) => { setPr({ ...blankP, clientId: x.id }); setSub("projects"); setPAdd(true); setOpen(null); };
   const pickProduct = (id: string) => { const pd = products.find((x) => x.id === id); setPr({ ...pr, productId: id, name: pr.name || pd?.name || "", price: pd ? String(pd.price) : pr.price }); };
@@ -260,23 +265,24 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
 
     {sub === "projects" && <>
       <div className="card">
-        <div className="row"><b>🛠 Проекты · {projects.filter((x) => x.status !== "done").length}</b><button onClick={() => setPAdd(!pAdd)}>{pAdd ? "✕ Закрыть" : "+ Новый проект"}</button></div>
-        <Summary cur={filter} onPick={(k) => setFilter(k as typeof filter)} items={[
-          { k: "all", l: "В работе всего", c: "#16304f", n: projects.filter((x) => x.status !== "done").length },
-          { k: "new", l: "Новые", c: "#e8873a", n: projects.filter((x) => x.status === "new").length },
-          { k: "work", l: "В работе", c: "#2a5bd7", n: projects.filter((x) => x.status === "work").length },
-          { k: "debt", l: "С долгом", c: "#b02a2a", n: projects.filter((x) => debt(x) > 0).length, extra: rub(projects.reduce((a, x) => a + debt(x), 0)) },
-          { k: "done", l: "Завершены", c: "#16a34a", n: projects.filter((x) => x.status === "done").length }]} />
+        <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>🛠 {filter === "done" ? "Отключённые проекты" : "Проекты"} · {shownP.length}</b><span>
+          {projects.some((x) => x.status === "done") && <button className="ghost" style={{ marginRight: 6 }} onClick={() => setFilter(filter === "done" ? "all" : "done")}>{filter === "done" ? "← Активные" : `⏸ Отключённые · ${projects.filter((x) => x.status === "done").length}`}</button>}
+          <button onClick={() => setPAdd(!pAdd)}>{pAdd ? "✕ Закрыть" : "+ Новый проект"}</button></span></div>
         {pAdd && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!pr.name.trim() || !pr.clientId) return;
           add({ kind: "project", name: pr.name.trim(), clientId: pr.clientId, price: Number(pr.price) || 0, status: "new", start: today(),
-            ...(pr.productId ? { productId: pr.productId } : {}), ...(pr.deadline ? { deadline: pr.deadline } : {}), ...(pr.payDate ? { payDate: pr.payDate } : {}) });
+            ...(pr.productId ? { productId: pr.productId } : {}), ...(pr.deadline ? { deadline: pr.deadline } : {}), ...(!pr.monthly && pr.payDate ? { payDate: pr.payDate } : {}), monthly: pr.monthly, ...(pr.monthly ? { payDay: Math.min(31, Math.max(1, Number(pr.payDay) || Number(today().slice(8)))) } : {}) });
           setPr(blankP); setPAdd(false); }}>
           <b>Новый проект</b>
           <select value={pr.clientId} onChange={(e) => setPr({ ...pr, clientId: e.target.value })}><option value="">— клиент * —</option>{clients.map((x) => <option key={x.id} value={x.id}>{x.name}{x.company ? ` (${x.company})` : ""}</option>)}</select>
           <select value={pr.productId} onChange={(e) => pickProduct(e.target.value)}><option value="">— продукт —</option>{products.map((x) => <option key={x.id} value={x.id}>{x.name} · {rub(x.price)}</option>)}</select>
           <input placeholder="Название проекта / услуга *" value={pr.name} onChange={(e) => setPr({ ...pr, name: e.target.value })} />
-          <input type="number" placeholder="Сумма оплаты по проекту" value={pr.price} onChange={(e) => setPr({ ...pr, price: e.target.value })} />
-          <label className="row small" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Оплата до</span><input type="date" value={pr.payDate} onChange={(e) => setPr({ ...pr, payDate: e.target.value })} style={{ flex: 1 }} /></label>
+          <div className="row small" style={{ justifyContent: "flex-start", gap: 6 }}><span className="muted">Оплата:</span>
+            <button type="button" className={pr.monthly ? "" : "ghost"} onClick={() => setPr({ ...pr, monthly: true })}>каждый месяц</button>
+            <button type="button" className={!pr.monthly ? "" : "ghost"} onClick={() => setPr({ ...pr, monthly: false })}>разово</button></div>
+          <input type="number" placeholder={pr.monthly ? "Сумма в месяц" : "Сумма оплаты по проекту"} value={pr.price} onChange={(e) => setPr({ ...pr, price: e.target.value })} />
+          {pr.monthly
+            ? <label className="row small" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Число оплаты</span><input type="number" min={1} max={31} placeholder={"например " + Number(today().slice(8))} value={pr.payDay} onChange={(e) => setPr({ ...pr, payDay: e.target.value })} style={{ flex: 1 }} /></label>
+            : <label className="row small" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Оплата до</span><input type="date" value={pr.payDate} onChange={(e) => setPr({ ...pr, payDate: e.target.value })} style={{ flex: 1 }} /></label>}
           <label className="row small" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Срок сдачи</span><input type="date" value={pr.deadline} onChange={(e) => setPr({ ...pr, deadline: e.target.value })} style={{ flex: 1 }} /></label>
           <button disabled={!pr.name.trim() || !pr.clientId}>✓ Создать проект</button>
           {!clients.length && <div className="muted small">Сначала добавь клиента во вкладке «База лидов».</div>}
@@ -288,33 +294,40 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
           const pd = products.find((y) => y.id === x.productId);
           const pays = moves.filter((m) => m.projectId === x.id && m.type === "in").sort((a, b) => a.date.localeCompare(b.date));
           const costs = moves.filter((m) => m.projectId === x.id && m.type === "out").sort((a, b) => a.date.localeCompare(b.date));
-          const share = x.price ? Math.min(100, Math.round(paid / x.price * 100)) : 0;
+          const exp = expectedOf(x), share = exp ? Math.min(100, Math.round(paid / exp * 100)) : paid ? 100 : 0, base = x.monthly ? paid : x.price, margin = base ? Math.round((base - cost) / base * 100) : null;
           return <div key={x.id} style={{ borderBottom: "1px solid var(--border, #e5e5e5)" }}>
             <div className="row" style={{ padding: "10px 14px", cursor: "pointer", gap: 8 }} onClick={() => setOpen(on ? null : x.id)}>
               <div style={{ minWidth: 0, flex: 1 }}><b>{on ? "▾" : "▸"} {x.name}</b> <span className="muted small">· {cname(x.clientId)}</span>
                 <div style={{ height: 6, background: "var(--border, #e5e5e5)", borderRadius: 3, margin: "6px 0 2px", maxWidth: 320 }}><div style={{ width: share + "%", height: "100%", background: d ? "#e8873a" : "#16a34a", borderRadius: 3 }} /></div>
-                <div className="small muted">оплачено {rub(paid)} из {rub(x.price)}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}{x.payDate ? ` до ${dmy(x.payDate)}` : ""}{payLate ? " ⚠️" : ""}</span>}{late && <span className="error"> · срок сдачи прошёл ⚠️</span>}</div></div>
-              <button onClick={(e) => { e.stopPropagation(); if (x.status !== "done") upd(x.id, { status: x.status === "new" ? "work" : "new" }); }} title="новый ↔ в работе"
-                style={{ background: x.status === "done" ? "#16a34a" : x.status === "work" ? "#2a5bd7" : "#e8873a", color: "#fff", border: 0, borderRadius: 999, padding: "5px 12px", fontWeight: 700, flexShrink: 0 }}>{ST[x.status]}</button>
+                <div className="small muted">{x.monthly ? `${rub(x.price)} в месяц, ${x.payDay || 1}-го · оплачено всего ${rub(paid)}` : `оплачено ${rub(paid)} из ${rub(x.price)}`}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}{!x.monthly && x.payDate ? ` до ${dmy(x.payDate)}` : ""}{payLate ? " ⚠️" : ""}</span>}{late && <span className="error"> · срок сдачи прошёл ⚠️</span>}</div></div>
+              <span style={{ textAlign: "right", flexShrink: 0 }} className="small"><div className="muted">маржа</div><b className={margin != null && margin < 0 ? "error" : "ok"} style={{ fontSize: 16 }}>{margin != null ? margin + "%" : "—"}</b></span>
             </div>
             {on && <div className="small" style={{ padding: "6px 14px 14px", background: "var(--bg)", display: "grid", gap: 10 }}>
               {/* итог по проекту */}
               <div style={{ maxWidth: 420 }}>
-                {[["Сумма проекта", rub(x.price), ""], ["Оплачено", rub(paid), "ok"], ["Долг", rub(d), d ? "neg" : "ok"], ["Расходы", rub(cost), ""], ["Прибыль", rub(x.price - cost), x.price - cost < 0 ? "error" : "ok"], ["Маржа", x.price ? Math.round((x.price - cost) / x.price * 100) + "%" : "—", ""]].map(([l, v, cl]) =>
+                {[[x.monthly ? "Сумма в месяц" : "Сумма проекта", rub(x.price), ""], ...(x.monthly ? [["Ожидалось за всё время", rub(exp), ""]] : []), ["Оплачено", rub(paid), "ok"], ["Долг", rub(d), d ? "neg" : "ok"], ["Расходы", rub(cost), ""], ["Прибыль", rub(base - cost), base - cost < 0 ? "error" : "ok"], ["Маржа", margin != null ? margin + "%" : "—", ""]].map(([l, v, cl]) =>
                   <div key={l} className="row" style={{ padding: "2px 0", borderBottom: "1px dashed var(--border, #ddd)" }}><span className="muted">{l}</span><b className={cl}>{v}</b></div>)}
               </div>
+              {x.monthly && <div><b>📅 Оплаты по месяцам</b> <span className="muted">· {x.payDay || 1}-го числа</span>
+                <table className="pnl-table" style={{ marginTop: 4, maxWidth: 520 }}><tbody>
+                  <tr className="muted"><td>Месяц</td><td>Ожидалось</td><td>Оплачено</td><td>Расходы</td><td /></tr>
+                  {monthsOf(x).slice().reverse().map((k) => { const pm = pays.filter((m) => mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0), cm = costs.filter((m) => mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0);
+                    return <tr key={k}><td>{MONTHS[Number(k.slice(5)) - 1]} {k.slice(0, 4)}</td><td>{rub(x.price)}</td><td className={pm >= x.price ? "ok" : pm ? "neg" : "error"}>{rub(pm)}</td><td className="muted">{cm ? rub(cm) : "—"}</td>
+                      <td>{pm >= x.price ? "✓" : pm ? "частично" : "не оплачен"}</td></tr>; })}
+                  {!monthsOf(x).length && <tr><td className="muted" colSpan={5}>Первая оплата ещё не наступила</td></tr>}
+                </tbody></table></div>}
               {/* оплаты */}
-              <div><b>💰 Оплаты по проекту</b>
+              <div><b>💰 Все оплаты по проекту</b>
                 {pays.map((m) => <div key={m.id} className="row" style={{ borderBottom: "1px dashed var(--border, #ddd)", padding: "3px 0" }}><span>{dmy(m.date)} · {m.account || ""}{m.note ? " · " + m.note : ""}</span><span><b className="ok">+{rub(m.amount)}</b> <button className="ghost" style={{ padding: "0 6px" }} onClick={() => del(m.id)}>✕</button></span></div>)}
                 {!pays.length && <div className="muted">Оплат пока нет</div>}
-                {d > 0 && (pay?.id === x.id
+                {(d > 0 || x.monthly) && (pay?.id === x.id
                   ? <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 6 }}>
                       <input type="number" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} style={{ width: 110 }} />
                       <input type="date" value={pay.date} onChange={(e) => setPay({ ...pay, date: e.target.value })} />
                       <select value={pay.account} onChange={(e) => setPay({ ...pay, account: e.target.value })}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
                       <button disabled={!Number(pay.amount)} onClick={() => { add({ kind: "move", type: "in", amount: Number(pay.amount), date: pay.date, note: "", projectId: x.id, account: pay.account }); setPay(null); }}>✓ Внести</button>
                       <button className="ghost" onClick={() => setPay(null)}>✕</button></div>
-                  : <button style={{ marginTop: 6 }} onClick={() => setPay({ id: x.id, amount: String(d), date: today(), account: ACCOUNTS[0] })}>💰 Внести оплату</button>)}
+                  : <button style={{ marginTop: 6 }} onClick={() => setPay({ id: x.id, amount: String(x.monthly ? (d ? Math.min(d, x.price) : x.price) : d), date: today(), account: ACCOUNTS[0] })}>💰 Внести оплату</button>)}
               </div>
               {/* расходы */}
               {costs.length > 0 && <div><b>➖ Расходы по проекту</b>
@@ -326,16 +339,18 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
                   <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Название</span><input key={x.id + "n" + x.name} defaultValue={x.name} style={{ flex: 1 }} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== x.name && upd(x.id, { name: e.target.value.trim() })} /></label>
                   <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Клиент</span><select value={x.clientId} onChange={(e) => upd(x.id, { clientId: e.target.value })} style={{ flex: 1 }}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
                   <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Продукт</span><select value={x.productId || ""} onChange={(e) => upd(x.id, { productId: e.target.value })} style={{ flex: 1 }}><option value="">—</option>{products.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}</select></label>
-                  <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Сумма оплаты</span><input type="number" key={x.id + "p" + x.price} defaultValue={x.price} style={{ flex: 1 }} onBlur={(e) => Number(e.target.value) !== x.price && upd(x.id, { price: Number(e.target.value) || 0 })} /></label>
-                  <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Оплата до</span><input type="date" value={x.payDate || ""} onChange={(e) => upd(x.id, { payDate: e.target.value })} style={{ flex: 1 }} /></label>
+                  <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>{x.monthly ? "Сумма в месяц" : "Сумма оплаты"}</span><input type="number" key={x.id + "p" + x.price} defaultValue={x.price} style={{ flex: 1 }} onBlur={(e) => Number(e.target.value) !== x.price && upd(x.id, { price: Number(e.target.value) || 0 })} /></label>
+                  <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Оплата</span><select value={x.monthly ? "m" : "o"} onChange={(e) => upd(x.id, { monthly: e.target.value === "m" })} style={{ flex: 1 }}><option value="m">каждый месяц</option><option value="o">разово</option></select></label>
+                  {x.monthly ? <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Число оплаты</span><input type="number" min={1} max={31} key={x.id + "d" + (x.payDay || "")} defaultValue={x.payDay || 1} onBlur={(e) => upd(x.id, { payDay: Math.min(31, Math.max(1, Number(e.target.value) || 1)) })} style={{ flex: 1 }} /></label>
+                    : <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Оплата до</span><input type="date" value={x.payDate || ""} onChange={(e) => upd(x.id, { payDate: e.target.value })} style={{ flex: 1 }} /></label>}
                   <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Срок сдачи</span><input type="date" value={x.deadline || ""} onChange={(e) => upd(x.id, { deadline: e.target.value })} style={{ flex: 1 }} /></label>
                   <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Начало</span><input type="date" value={x.start} onChange={(e) => e.target.value && upd(x.id, { start: e.target.value })} style={{ flex: 1 }} /></label>
                 </div>
                 {pd && <div className="muted" style={{ marginTop: 4 }}>Продукт: {pd.name}{pd.descr ? ` — ${pd.descr}` : ""}</div>}
               </div>
               <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">изменения сохраняются сами</span>
-                <span>{x.status !== "done" ? <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => finish(x)}>✓ Завершить работу</button>
-                  : <button className="ghost" onClick={() => upd(x.id, { status: "work" })}>↩ Вернуть в работу</button>} <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить проект</button></span></div>
+                <span>{x.status !== "done" ? <button style={{ background: "#6b7280", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => finish(x)}>⏸ Отключить проект</button>
+                  : <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => { upd(x.id, { status: "work" }); setFilter("all"); }}>▶ Включить проект</button>} <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить проект</button></span></div>
             </div>}
           </div>; })}
         {!shownP.length && <div className="muted" style={{ padding: 14 }}>Проектов нет</div>}
