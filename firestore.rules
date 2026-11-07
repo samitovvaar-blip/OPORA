@@ -107,6 +107,14 @@ service cloud.firestore {
       allow update: if isClient(resource.data) && resource.data.get("opEdit", false) == true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["sales", "prepay", "kpi", "planSales", "plans", "payCal"]);
 
+      // Мини-CRM клиента на услугах (свои клиенты, проекты, доходы и расходы): ведёт сам клиент, владелец видит и может править
+      match /crm/{id} {
+        allow read: if isOwner(ws) || isClient(get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data)
+          || (isMember(ws) && request.auth.token.email.lower() in get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data.get("staffEmails", []));
+        allow write: if isOwner(ws) || (isClient(get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data)
+          && (request.resource == null || (request.resource.data.kind in ["client", "project", "move"] && request.resource.data.size() <= 20)));
+      }
+
       // Снимки сданных месяцев (заморозка цифр): пишет владелец, читают все, кто видит кабинет
       match /snapshots/{month} {
         allow read: if isOwner(ws) || isClient(get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data)
