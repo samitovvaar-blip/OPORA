@@ -103,6 +103,7 @@ export default function ClientPortal() {
   if (err) return <><h1>Кабинет клиента</h1><div className="card">🔒 {err}</div></>;
   if (!p) return <NeylaLoading text="Открываю кабинет клиента" />;
 
+  const svc = p.bizType === "services";   // вид кабинета: товарный бизнес (по умолчанию) или услуги
   const canEditClient = isOwner || (!staffView && !!p.opEdit);   // правка ОП и планирования — по доступу от владельца
   const v = (arr: (number | null)[], i?: number) => (i == null ? null : arr[i]);
   const rev = v(pnl?.revenue || [], cur ?? undefined), prof = v(pnl?.profit || [], cur ?? undefined);
@@ -114,7 +115,9 @@ export default function ClientPortal() {
 
   return (
     <>
-      {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a></div>}
+      {isOwner && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Предпросмотр: так кабинет видит клиент. <a href={"#/projects?p=" + p.id}>← к проекту</a>
+        <span style={{ marginLeft: 12 }}>Вид кабинета: {(["goods", "services"] as const).map((t) => <button key={t} className={(p.bizType || "goods") === t ? "" : "ghost"} style={{ marginLeft: 4, padding: "2px 10px" }}
+          onClick={() => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { bizType: t })}>{t === "goods" ? "📦 Товары" : "🛠 Услуги"}</button>)}</span></div>}
       {staffView && <div className="card small" style={{ marginBottom: 10, background: "var(--bg)" }}>👁 Кабинет клиента — только просмотр. <a href="#/monthly">← к моим клиентам</a></div>}
       {(() => {
         // Месяц отчётности: один выбор на весь кабинет — слева в меню (на телефоне — над разделом)
@@ -148,7 +151,7 @@ export default function ClientPortal() {
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
-        {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"], ["an", "Аналитика"], ...(pnl?.goods ? [["goods", "📦 Товары"]] as const : [])] as const).map(([k, l]) =>
+        {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"], ["an", "Аналитика"], ...(pnl?.goods && !svc ? [["goods", "📦 Товары"]] as const : [])] as const).map(([k, l]) =>
           <button key={k} className={`chipbtn ${rep === k ? "on" : ""}`} onClick={() => setRep(k)}>{l}</button>)}
       </div>}
 
@@ -204,7 +207,7 @@ export default function ClientPortal() {
                 // Точка безубыточности: постоянные / (1 − переменные / выручка); в штуках — через средний чек
                 const vr = Math.abs(pnl.variable[cur] || 0), fx = Math.abs(pnl.fixed[cur] || 0), share = rev ? vr / rev : null;
                 const be = share != null && share < 1 && fx ? fx / (1 - share) : null;
-                const qty = kp.units || kp.orders, qName = kp.units ? "товаров" : "заказов", avg = rev && qty ? rev / qty : null;
+                const qty = svc ? kp.orders : kp.units || kp.orders, qName = !svc && kp.units ? "товаров" : "заказов", avg = rev && qty ? rev / qty : null;
                 const beQ = be != null && avg ? Math.ceil(be / avg) : null, ok = be != null && rev != null && rev >= be;
                 const txt = !fx ? "укажи в справочнике постоянные расходы" : !rev ? "нужна выручка за месяц" : be == null ? "переменные расходы больше выручки"
                   : rub(Math.round(be)) + (beQ != null ? ` · ${beQ} ${qName}` : "");
@@ -233,15 +236,16 @@ export default function ClientPortal() {
               })()}
             </div>
             <div className="card span4">
-              <h3 style={{ marginTop: 0 }}>Себестоимость и клиенты · {pnl.months[cur].label}</h3>
-              <Row l="Себестоимость продаж" v={cost ? rub(cost) : "—"} />
-              <Num f="units" l="Количество проданных товаров" />
-              <Row l="Себестоимость на единицу" v={per(cost, kp.units)} />
+              <h3 style={{ marginTop: 0 }}>{svc ? "Клиенты и заказы" : "Себестоимость и клиенты"} · {pnl.months[cur].label}</h3>
+              <Row l={svc ? "Себестоимость услуг" : "Себестоимость продаж"} v={cost ? rub(cost) : "—"} />
+              {!svc && <><Num f="units" l="Количество проданных товаров" />
+              <Row l="Себестоимость на единицу" v={per(cost, kp.units)} /></>}
+              {svc && <Row l="Себестоимость одного заказа" v={per(cost, kp.orders)} />}
               <Num f="newClients" l="Новых клиентов (доставлено)" />
               <Num f="orders" l="Заказов всего (доставлено)" />
               <Row l="Средний чек" v={per(rev || 0, kp.orders)} />
               <Row l="Цена привлечения клиента (CAC)" v={per(mkt, kp.newClients)} />
-              {isOwner && <button className="ghost small" style={{ marginTop: 6 }} onClick={() => setTab("op")}>📥 Внести данные от ОП (кол-во товаров, заказы, клиенты) →</button>}
+              {isOwner && <button className="ghost small" style={{ marginTop: 6 }} onClick={() => setTab("op")}>📥 Внести данные от ОП {svc ? "(заказы, клиенты)" : "(кол-во товаров, заказы, клиенты)"} →</button>}
             </div></>;
           })()}
           </div>
@@ -409,7 +413,7 @@ export default function ClientPortal() {
         </div>;
       })() : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
 
-      {view === "goods" && pnl?.goods && cur != null && <GoodsReport g={pnl.goods} mk={pnl.months[cur].mk || ""} label={`${pnl.months[cur].label} ${pnl.months[cur].year}`} p={p} wsId={wsId!} isOwner={isOwner} />}
+      {view === "goods" && !svc && pnl?.goods && cur != null && <GoodsReport g={pnl.goods} mk={pnl.months[cur].mk || ""} label={`${pnl.months[cur].label} ${pnl.months[cur].year}`} p={p} wsId={wsId!} isOwner={isOwner} />}
       {view === "an" && pnl && cur != null && (() => {
         // Аналитика: ключевые строки ОПиУ за 3 или 6 месяцев (до выбранного включительно)
         // Календарные месяцы: «Год» — январь…декабрь года выбранного месяца, 3/6 — подряд до выбранного.
@@ -498,7 +502,7 @@ export default function ClientPortal() {
         const mks = [...new Set([...(pnl?.months.map((m) => m.mk!).filter(Boolean) || []), ...[1, 0, -1, -2].map((k) => monthKey(new Date(new Date().getFullYear(), new Date().getMonth() + k, 1)))])].sort().reverse();
         const cols: [string, string, (mk: string) => number | undefined][] = [
           ["sales", "Выручка (факт продаж ОП), ₽", (mk) => p.sales?.[mk]], ["prepay", "Факт предоплат, ₽", (mk) => p.prepay?.[mk]],
-          ["kpi.units", "Продано товаров", (mk) => p.kpi?.[mk]?.units], ["kpi.newClients", "Новых клиентов (доставлено)", (mk) => p.kpi?.[mk]?.newClients],
+          ...(svc ? [] : [["kpi.units", "Продано товаров", (mk: string) => p.kpi?.[mk]?.units] as [string, string, (mk: string) => number | undefined]]), ["kpi.newClients", "Новых клиентов (доставлено)", (mk) => p.kpi?.[mk]?.newClients],
           ["kpi.orders", "Заказов всего (доставлено)", (mk) => p.kpi?.[mk]?.orders]];
         const save = (path: string, mk: string, v: string) => {
           const field = path.startsWith("kpi.") ? `kpi.${mk}.${path.slice(4)}` : `${path}.${mk}`;
