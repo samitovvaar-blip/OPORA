@@ -139,16 +139,19 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
       const regs = regulars.filter((r) => !r.off && (!r.projectId || act.some((x) => x.id === r.projectId)));
       const pIn = planP.reduce((a, y) => a + y.plan, 0), pOut = regs.reduce((a, r) => a + r.amount, 0);
       const fIn = stat(K).inc, fOut = stat(K).out;
-      const Row = ({ l, pl, fa, inv }: { l: string; pl: number; fa: number; inv?: boolean }) => { const pc = pl ? Math.round(fa / pl * 100) : null, good = inv ? fa <= pl : fa >= pl;
-        return <tr><td><b>{l}</b></td><td>{rub(pl)}</td><td><b>{rub(fa)}</b></td><td className={good ? "ok" : "neg"}>{fa - pl >= 0 ? "+" : "−"}{rub(Math.abs(fa - pl))}</td><td className={pc == null ? "muted" : good ? "ok" : "neg"}>{pc == null ? "—" : pc + "%"}</td></tr>; };
+      const Row = ({ l, pl, fa, inv, bold }: { l: string; pl: number; fa: number; inv?: boolean; bold?: boolean }) => { const pc = pl ? Math.round(fa / pl * 100) : null, good = inv ? fa <= pl : fa >= pl, isP = /прибыль/i.test(l);
+        return <tr className={bold ? "pnl-key" : ""}><td className={isP ? "profit" : ""}>{l}</td><td>{pl ? rub(pl) : "—"}</td><td className={isP ? (fa < 0 ? "error profit" : "profit") : ""}>{fa ? rub(fa) : "—"}</td>
+          <td className={pc == null ? "muted" : good ? "ok" : "error"}>{pc == null ? "—" : pc + "%"}</td></tr>; };
       return <div className="card" style={{ margin: 0 }}>
         <h3 style={{ marginTop: 0 }}>🎯 План / факт · {MONTHS[Number(K.slice(5)) - 1]} {K.slice(0, 4)}{K === today().slice(0, 7) ? " · текущий" : K > today().slice(0, 7) ? " · следующий" : ""}</h3>
-        <div style={{ overflowX: "auto" }}><table className="pnl-table" style={{ maxWidth: 640 }}><tbody>
-          <tr className="muted small"><td /><td>План</td><td>Факт</td><td>Отклонение</td><td>Выполнение</td></tr>
-          <Row l="Доходы" pl={pIn} fa={fIn} />
-          <Row l="Расходы" pl={pOut} fa={fOut} inv />
-          <Row l="Прибыль" pl={pIn - pOut} fa={fIn - fOut} />
-        </tbody></table></div>
+        <div style={{ overflowX: "auto" }}><table className="pnl-table">
+          <thead><tr><th /><th className="small">План</th><th className="small">Факт</th><th className="small">%</th></tr></thead>
+          <tbody>
+            <Row l="Доходы" pl={pIn} fa={fIn} bold />
+            <Row l="Расходы" pl={pOut} fa={fOut} inv bold />
+            <Row l="Чистая прибыль" pl={pIn - pOut} fa={fIn - fOut} bold />
+            <tr><td>Рентабельность</td><td>{pIn ? Math.round((pIn - pOut) / pIn * 100) + "%" : "—"}</td><td>{fIn ? Math.round((fIn - fOut) / fIn * 100) + "%" : "—"}</td><td /></tr>
+          </tbody></table></div>
         <details style={{ marginTop: 8 }}><summary className="small" style={{ cursor: "pointer" }}>Откуда план: {planP.length} оплат по проектам · {regs.length} ежемесячных расходов</summary>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginTop: 6 }} className="small">
             <div><b>💰 Ожидаемые оплаты</b>{planP.map(({ x, plan, fact, day }) => <div key={x.id} className="row"><span>{day}-го · {cname(x.clientId)} · {x.name}</span>
@@ -186,6 +189,29 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
       </tbody></table></div>
       <div className="small muted">Маржа = (доходы проекта − расходы проекта) ÷ доходы проекта. «Доля общих» — общие расходы месяца ({rub(shared(mk))}) ÷ проектов в работе ({activeIn(mk).length}) = {rub(shareOf(mk))} на проект.</div>
     </div>}
+    {(() => {
+      // структура расходов месяца: по статьям (проектные и общие вместе), круговая диаграмма как в кабинете по таблице
+      const COLORS = ["#16304f", "#25476f", "#3b6db3", "#6f8fc9", "#a9c0e8", "#e8873a", "#8a3ab9", "#16a34a"];
+      const by: Record<string, number> = {};
+      moves.filter((x) => x.type === "out" && mkOf(x.date) === mk).forEach((x) => { const k = x.category || "Прочее"; by[k] = (by[k] || 0) + x.amount; });
+      const ds = Object.entries(by).sort((a, b) => b[1] - a[1]).map(([n, v], i) => ({ n, v, c: COLORS[i % COLORS.length] }));
+      if (!ds.length) return null;
+      const tot = ds.reduce((x, d) => x + d.v, 0); let acc = 0;
+      const grad = ds.map((d) => { const from = acc / tot * 360; acc += d.v; return `${d.c} ${from}deg ${acc / tot * 360}deg`; }).join(", ");
+      return <div className="card" style={{ marginTop: 12 }}>
+        <h3 style={{ marginTop: 0 }}>Структура расходов · {MONTHS[m - 1]}</h3>
+        <div className="row small" style={{ marginBottom: 6 }}><b>Расходы итого</b><b>{rub(tot)} <span className="muted">· {S.inc ? (tot / S.inc * 100).toFixed(1) + "% выручки" : ""}</span></b></div>
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ width: 150, height: 150, borderRadius: "50%", background: `conic-gradient(${grad})`, display: "grid", placeItems: "center", flexShrink: 0 }}>
+            <div style={{ width: 92, height: 92, borderRadius: "50%", background: "var(--surface)", display: "grid", placeItems: "center", textAlign: "center" }} className="small">
+              <div><div className="muted">расходы</div><b>{S.inc ? Math.round(tot / S.inc * 100) + "%" : "—"}</b><div className="muted">выручки</div></div></div>
+          </div>
+          <div style={{ flex: 1, minWidth: 180 }}>{ds.map((d) => <div key={d.n} className="row small" style={{ padding: "3px 0" }}>
+            <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: d.c, marginRight: 6 }} />{d.n}</span>
+            <span>{rub(d.v)} <span className="muted">· {Math.round(d.v / tot * 100)}%</span></span></div>)}</div>
+        </div>
+      </div>;
+    })()}
     <div className="card" style={{ marginTop: 12 }}>
       <h3 style={{ marginTop: 0 }}>Показатели · {MONTHS[m - 1]}</h3>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0 24px" }}>
