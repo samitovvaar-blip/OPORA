@@ -289,6 +289,18 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
     </div>}
 
     {sub === "base" && <>
+      {/* Сводка: всего лидов и сколько в каждом статусе (нажал — фильтр) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, marginBottom: 12 }}>
+        {[["all", "Всего лидов", "#16304f"] as const, ...CST.map(([k, c]) => [k, k, c] as const), ["", "Без статуса", "#888"] as const].map(([k, l, c]) => {
+          const n = k === "all" ? clients.length : clients.filter((x) => (x.status || "") === k).length;
+          if (k === "" && !n) return null;
+          return <div key={k || "none"} onClick={() => setCst(cst === k ? "all" : k)} className="card" style={{ cursor: "pointer", padding: "10px 12px", margin: 0,
+            borderLeft: `5px solid ${c}`, outline: cst === k ? `2px solid ${c}` : undefined }}>
+            <div className="small muted">{l}</div>
+            <b style={{ fontSize: 22, color: c }}>{n}</b>
+            {k !== "all" && clients.length > 0 && <span className="small muted"> · {Math.round(n / clients.length * 100)}%</span>}
+          </div>; })}
+      </div>
       {/* Добавить лида — отдельная форма */}
       <div className="card">
         <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>👥 База лидов · {clients.length}</b>
@@ -316,9 +328,6 @@ function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, 
             return <button disabled={!fresh.length} onClick={() => { fresh.forEach((x) => add({ kind: "client", name: x[0], company: "", phone: x[1] || "", note: [x[2], x[3]].filter(Boolean).join(" · "), source: c.source.trim(), created: today() })); setBulk(null); }}>
               ✓ Добавить {fresh.length} клиент.{rows.length - fresh.length ? ` (повторов пропущено: ${rows.length - fresh.length})` : ""}</button>; })()}
         </div>}
-        <div className="row small" style={{ justifyContent: "flex-start", gap: 4, marginTop: 10, flexWrap: "wrap" }}>
-          {[["all", "Все"], ...CST.map(([k]) => [k, k]), ["", "Без статуса"]].map(([k, l]) => { const n = k === "all" ? clients.length : clients.filter((x) => (x.status || "") === k).length;
-            return <button key={k || "none"} className={cst === k ? "" : "ghost"} style={{ padding: "2px 10px" }} onClick={() => setCst(k)}>{l} · {n}</button>; })}</div>
       </div>
 
       {/* Список лидов: имя слева, статус справа; нажал — карточка с правкой и комментариями */}
