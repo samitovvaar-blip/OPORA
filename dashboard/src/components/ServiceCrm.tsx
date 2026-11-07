@@ -42,6 +42,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
     .sort((a, b) => b.start.localeCompare(a.start));
   const moves = items.filter((x): x is CMove => x.kind === "move").sort((a, b) => b.date.localeCompare(a.date));
   const paidOf = (pid: string) => moves.filter((m) => m.type === "in" && m.projectId === pid).reduce((a, m) => a + m.amount, 0);
+  const costOf = (pid: string) => moves.filter((m) => m.type === "out" && m.projectId === pid).reduce((a, m) => a + m.amount, 0);
   const debt = (pr: CProject) => Math.max(0, pr.price - paidOf(pr.id));
   const cname = (id: string) => clients.find((c) => c.id === id)?.name || "—";
   const pname = (id?: string) => { const x = projects.find((y) => y.id === id); return x ? cname(x.clientId) + " · " + x.name : ""; };
@@ -57,8 +58,8 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
     setSync("wait");
     const body = JSON.stringify({ key: s.key,
       moves: [...moves].reverse().map((m) => { const pr = projects.find((x) => x.id === m.projectId);
-        return [dmy(m.date), MONTHS[Number(m.date.slice(5, 7)) - 1] + " " + m.date.slice(0, 4), m.type === "in" ? "Приход" : "Расход", m.amount, m.account || "", m.type === "in" ? "Оплата проекта" : m.category || "Прочее", pr?.name || "", pr ? cname(pr.clientId) : "", m.note]; }),
-      projects: projects.map((x) => [dmy(x.start), x.name, products.find((y) => y.id === x.productId)?.name || "", cname(x.clientId), x.price, paidOf(x.id), debt(x), ST[x.status], dmy(x.deadline), dmy(x.payDate)]),
+        return [dmy(m.date), MONTHS[Number(m.date.slice(5, 7)) - 1] + " " + m.date.slice(0, 4), m.type === "in" ? "Приход" : "Расход", m.amount, m.account || "", m.type === "in" ? (pr ? "Оплата проекта" : "Доход") : m.category || "Прочее", pr?.name || "", pr ? cname(pr.clientId) : "", m.note]; }),
+      projects: projects.map((x) => [dmy(x.start), x.name, products.find((y) => y.id === x.productId)?.name || "", cname(x.clientId), x.price, paidOf(x.id), debt(x), ST[x.status], dmy(x.deadline), dmy(x.payDate), costOf(x.id), x.price - costOf(x.id), x.price ? Math.round((x.price - costOf(x.id)) / x.price * 100) + "%" : ""]),
       clients: clients.map((x) => [x.name, x.company || "", x.phone || "", x.source || "", x.note || "", dmy(x.created)]) });
     // no-cors: Apps Script не отдаёт CORS-заголовки, ответ не читаем — запись в таблицу всё равно происходит
     fetch(s.exec, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body })
@@ -74,7 +75,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
 
   if (err) return <div className="card error">Нет доступа к данным: {err}</div>;
   if (view === "fin") return <FinTab {...{ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push, sync }} />;
-  if (view === "clients") return <ClientsTab {...{ clients, projects, products, moves, paidOf, debt, cname, add, del, upd }} />;
+  if (view === "clients") return <ClientsTab {...{ clients, projects, products, moves, paidOf, costOf, debt, cname, add, del, upd }} />;
   if (view === "products") return <ProductsTab {...{ products, projects, add, del, upd }} />;
 
   // ── Мой кабинет ──
@@ -139,7 +140,7 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push
   const income = sumM(mk, "in"), expense = sumM(mk, "out");
   const submit = (e: FormEvent) => { e.preventDefault(); const amount = Number(f.amount); if (!amount) return;
     add({ kind: "move", type: f.type, amount, date: f.date, note: f.note.trim(), account: f.account,
-      ...(f.type === "in" && f.projectId ? { projectId: f.projectId } : {}), ...(f.type === "out" ? { category: f.category.trim() || "Прочее" } : {}) });
+      ...(f.projectId ? { projectId: f.projectId } : {}), ...(f.type === "out" ? { category: f.category.trim() || "Прочее" } : {}) });
     setF({ ...f, amount: "", note: "" }); };
   const byCat: Record<string, number> = {};
   inM.filter((m) => m.type === "out").forEach((m) => { const k = m.category || "Прочее"; byCat[k] = (byCat[k] || 0) + m.amount; });
@@ -181,7 +182,9 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push
       {f.type === "in" ? <select value={f.projectId} onChange={(e) => setF({ ...f, projectId: e.target.value })}><option value="">— оплата по проекту —</option>
         {projects.map((x) => <option key={x.id} value={x.id}>{pname(x.id)}</option>)}</select>
         : <><input list="crm-cats" placeholder="Статья" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} style={{ width: 150 }} />
-          <datalist id="crm-cats">{CATS.map((c) => <option key={c} value={c} />)}</datalist></>}
+          <datalist id="crm-cats">{CATS.map((c) => <option key={c} value={c} />)}</datalist>
+          <select value={f.projectId} onChange={(e) => setF({ ...f, projectId: e.target.value })}><option value="">— на проект (необязательно) —</option>
+            {projects.map((x) => <option key={x.id} value={x.id}>{pname(x.id)}</option>)}</select></>}
       <input placeholder="Комментарий" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} style={{ flex: "1 1 140px" }} />
       <button disabled={!Number(f.amount)}>+ Добавить</button>
     </form>
@@ -190,7 +193,7 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push
     </div>
     <table className="pnl-table" style={{ marginTop: 12 }}><tbody>
       {inM.map((x) => <tr key={x.id}><td className="small">{dmy(x.date)}</td>
-        <td>{x.type === "in" ? (x.projectId ? `Оплата: ${pname(x.projectId) || "проект"}` : "Доход") : x.category || "Расход"}<div className="small muted">{x.account || ""}{x.note ? " · " + x.note : ""}</div></td>
+        <td>{x.type === "in" ? (x.projectId ? `Оплата: ${pname(x.projectId) || "проект"}` : "Доход") : (x.category || "Расход") + (x.projectId ? ` · ${pname(x.projectId)}` : "")}<div className="small muted">{x.account || ""}{x.note ? " · " + x.note : ""}</div></td>
         <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
         <td><button className="ghost" onClick={() => del(x.id)}>🗑</button></td></tr>)}
       {!inM.length && <tr><td className="muted">В этом месяце операций нет</td></tr>}
@@ -198,8 +201,8 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push
   </>;
 }
 
-function ClientsTab({ clients, projects, products, moves, paidOf, debt, cname, add, del, upd }: {
-  clients: CClient[]; projects: CProject[]; products: CProduct[]; moves: CMove[]; paidOf: (id: string) => number; debt: (p: CProject) => number; cname: (id: string) => string;
+function ClientsTab({ clients, projects, products, moves, paidOf, costOf, debt, cname, add, del, upd }: {
+  clients: CClient[]; projects: CProject[]; products: CProduct[]; moves: CMove[]; paidOf: (id: string) => number; costOf: (id: string) => number; debt: (p: CProject) => number; cname: (id: string) => string;
   add: (d: object) => Promise<unknown>; del: (id: string) => void; upd: (id: string, d: object) => void;
 }) {
   const [sub, setSub] = useState<"projects" | "base">("projects");
@@ -208,6 +211,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, debt, cname, a
   const [pr, setPr] = useState(blankP);
   const [pay, setPay] = useState<{ id: string; amount: string; date: string; account: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [bulk, setBulk] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | Status | "debt">("all");
   const ql = q.trim().toLowerCase();
@@ -251,7 +255,8 @@ function ClientsTab({ clients, projects, products, moves, paidOf, debt, cname, a
             <td>{x.name}<div className="small muted">{cname(x.clientId)}{pd ? " · " + pd.name : ""} · с {dmy(x.start)}
               {x.deadline && <span className={late ? "error" : ""}> · сдать {dmy(x.deadline)}{late ? " ⚠️" : ""}</span>}
               {x.payDate && debt(x) > 0 && <span className={payLate ? "error" : ""}> · оплата до {dmy(x.payDate)}{payLate ? " ⚠️" : ""}</span>}</div></td>
-            <td className="small">{rub(x.price)}<div className={debt(x) ? "neg" : "ok"}>{debt(x) ? `долг ${rub(debt(x))}` : "✓ оплачен"}</div><div className="muted">оплачено {rub(paidOf(x.id))}</div></td>
+            <td className="small">{rub(x.price)}<div className={debt(x) ? "neg" : "ok"}>{debt(x) ? `долг ${rub(debt(x))}` : "✓ оплачен"}</div><div className="muted">оплачено {rub(paidOf(x.id))}</div>
+              {costOf(x.id) > 0 && <div className="muted">расходы {rub(costOf(x.id))} · прибыль <b className={x.price - costOf(x.id) < 0 ? "error" : "ok"}>{rub(x.price - costOf(x.id))}</b>{x.price ? ` · маржа ${Math.round((x.price - costOf(x.id)) / x.price * 100)}%` : ""}</div>}</td>
             <td style={{ whiteSpace: "nowrap" }}>
               {debt(x) > 0 && <button title="Внести оплату" onClick={() => setPay(pay?.id === x.id ? null : { id: x.id, amount: String(debt(x)), date: today(), account: ACCOUNTS[0] })}>💰</button>}
               <button className={x.status === "done" ? "ghost" : ""} title="Нажми, чтобы сменить статус" onClick={() => upd(x.id, { status: NEXT[x.status] })}>{ST[x.status]}</button>
@@ -274,7 +279,7 @@ function ClientsTab({ clients, projects, products, moves, paidOf, debt, cname, a
           add({ kind: "client", name: c.name.trim(), company: c.company.trim(), phone: c.phone.trim(), note: c.note.trim(), source: c.source.trim(), created: today() }); setC({ name: "", company: "", phone: "", note: "", source: c.source }); }}>
           <input placeholder="Имя" value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} style={{ flex: "1 1 130px" }} />
           <input placeholder="Компания" value={c.company} onChange={(e) => setC({ ...c, company: e.target.value })} style={{ flex: "1 1 130px" }} />
-          <input placeholder="Телефон" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} style={{ width: 140 }} />
+          <input placeholder="Телефон / Telegram" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} style={{ width: 140 }} />
           <input list="crm-src" placeholder="Откуда пришёл" value={c.source} onChange={(e) => setC({ ...c, source: e.target.value })} style={{ width: 160 }} />
           <datalist id="crm-src">{SOURCES.map((s) => <option key={s} value={s} />)}</datalist>
           <input placeholder="Заметка" value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} style={{ flex: "1 1 140px" }} />
@@ -292,6 +297,16 @@ function ClientsTab({ clients, projects, products, moves, paidOf, debt, cname, a
                 <button className="ghost" onClick={(e) => { e.stopPropagation(); del(x.id); }}>🗑</button></td></tr>; })}
           {!shownC.length && <tr><td className="muted">Клиентов нет</td></tr>}
         </tbody></table>
+        <button className="ghost small" style={{ marginTop: 6 }} onClick={() => setBulk(bulk == null ? "" : null)}>📋 Вставить списком</button>
+        {bulk != null && <div style={{ marginTop: 6 }}>
+          <div className="small muted">Скопируй строки из таблицы (Имя · Телефон или Telegram · Комментарий) и вставь сюда — каждая строка станет клиентом. Строка заголовков и повторы пропускаются.</div>
+          <textarea rows={6} style={{ width: "100%" }} value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder={"Артур\t@ArturBilimbaev\nИнсаф и Лия\t\tпо Максу предложить"} />
+          {(() => { const have = new Set(clients.map((x) => x.name.trim().toLowerCase()));
+            const rows = bulk.split(/\r?\n/).map((l) => l.split("\t").map((x) => x.trim())).filter((x) => x[0] && !/^имя$/i.test(x[0]));
+            const fresh = rows.filter((x, i) => !have.has(x[0].toLowerCase()) && rows.findIndex((y) => y[0].toLowerCase() === x[0].toLowerCase()) === i);
+            return <button disabled={!fresh.length} onClick={() => { fresh.forEach((x) => add({ kind: "client", name: x[0], company: "", phone: x[1] || "", note: [x[2], x[3]].filter(Boolean).join(" · "), source: c.source.trim(), created: today() })); setBulk(null); }}>
+              ✓ Добавить {fresh.length} клиент.{rows.length - fresh.length ? ` (повторов пропущено: ${rows.length - fresh.length})` : ""}</button>; })()}
+        </div>}
         <div className="small muted">«→ В проект» — открывает форму проекта с этим клиентом: выбери продукт, сумму и дату оплаты.</div>
       </div>
       {clients.length > 0 && <div className="card" style={{ marginTop: 12 }}>
