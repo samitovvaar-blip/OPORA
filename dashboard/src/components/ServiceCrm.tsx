@@ -102,7 +102,6 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
     <button className="ghost" onClick={() => setMk(shift(mk, 1))}>›</button></div>;
 
   if (err) return <div className="card error">Нет доступа к данным: {err}</div>;
-  if (view === "fin") return <FinTab {...{ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: projects.filter((x) => x.status !== "done").length }} />;
   if (view === "clients") return <ClientsTab {...{ clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} />;
   if (view === "products") return <ProductsTab {...{ products, projects, add, del, upd }} />;
 
@@ -132,6 +131,39 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   const shareOf = (k: string) => { const n = activeIn(k).length; return n ? shared(k) / n : 0; };
   const margRows = projects.filter((x) => x.status !== "done" || projIncome(mk, x.id)).map((x) => { const i = projIncome(mk, x.id), c = projCost(mk, x.id); const sh = activeIn(mk).some((y) => y.id === x.id) ? shareOf(mk) : 0; return { x, i, c, sh, mm: i ? Math.round((i - c) / i * 100) : null, mm2: i ? Math.round((i - c - sh) / i * 100) : null }; })
     .sort((a, b) => (b.mm ?? -999) - (a.mm ?? -999));
+  const planFact = (K: string) => {
+      // План: ежемесячные проекты (сумма в месяц, число оплаты) + разовые с «оплата до» в этом месяце; расходы — шаблоны «каждый месяц» (общие и по проектам)
+      const act = projects.filter((x) => x.status !== "done" && mkOf(x.start) <= K);
+      const planP = act.filter((x) => x.monthly || (x.payDate && mkOf(x.payDate) === K)).map((x) => ({ x, plan: x.price, fact: projIncome(K, x.id), day: x.monthly ? x.payDay || 1 : Number(x.payDate!.slice(8)) }))
+        .sort((a, b) => a.day - b.day);
+      const regs = regulars.filter((r) => !r.off && (!r.projectId || act.some((x) => x.id === r.projectId)));
+      const pIn = planP.reduce((a, y) => a + y.plan, 0), pOut = regs.reduce((a, r) => a + r.amount, 0);
+      const fIn = stat(K).inc, fOut = stat(K).out;
+      const Row = ({ l, pl, fa, inv }: { l: string; pl: number; fa: number; inv?: boolean }) => { const pc = pl ? Math.round(fa / pl * 100) : null, good = inv ? fa <= pl : fa >= pl;
+        return <tr><td><b>{l}</b></td><td>{rub(pl)}</td><td><b>{rub(fa)}</b></td><td className={good ? "ok" : "neg"}>{fa - pl >= 0 ? "+" : "−"}{rub(Math.abs(fa - pl))}</td><td className={pc == null ? "muted" : good ? "ok" : "neg"}>{pc == null ? "—" : pc + "%"}</td></tr>; };
+      return <div className="card" style={{ margin: 0 }}>
+        <h3 style={{ marginTop: 0 }}>🎯 План / факт · {MONTHS[Number(K.slice(5)) - 1]} {K.slice(0, 4)}{K === today().slice(0, 7) ? " · текущий" : K > today().slice(0, 7) ? " · следующий" : ""}</h3>
+        <div style={{ overflowX: "auto" }}><table className="pnl-table" style={{ maxWidth: 640 }}><tbody>
+          <tr className="muted small"><td /><td>План</td><td>Факт</td><td>Отклонение</td><td>Выполнение</td></tr>
+          <Row l="Доходы" pl={pIn} fa={fIn} />
+          <Row l="Расходы" pl={pOut} fa={fOut} inv />
+          <Row l="Прибыль" pl={pIn - pOut} fa={fIn - fOut} />
+        </tbody></table></div>
+        <details style={{ marginTop: 8 }}><summary className="small" style={{ cursor: "pointer" }}>Откуда план: {planP.length} оплат по проектам · {regs.length} ежемесячных расходов</summary>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginTop: 6 }} className="small">
+            <div><b>💰 Ожидаемые оплаты</b>{planP.map(({ x, plan, fact, day }) => <div key={x.id} className="row"><span>{day}-го · {cname(x.clientId)} · {x.name}</span>
+              <span className={fact >= plan ? "ok" : day < Number(today().slice(8)) && K === today().slice(0, 7) ? "error" : "muted"}>{rub(plan)}{fact >= plan ? " ✓" : fact ? ` (пришло ${rub(fact)})` : ""}</span></div>)}
+              {!planP.length && <div className="muted">Нет ежемесячных проектов</div>}</div>
+            <div><b>➖ Плановые расходы</b>{regs.map((r) => <div key={r.id} className="row"><span>{r.day}-го · {r.name}{r.projectId ? ` · ${pname(r.projectId)}` : " · общий"}</span><span>{rub(r.amount)}</span></div>)}
+              {!regs.length && <div className="muted">Добавь ежемесячные расходы: общие — ниже, по проекту — внутри проекта</div>}</div>
+          </div></details>
+              </div>;
+  };
+  if (view === "fin") return <>
+    {MonthPick}
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12 }}>{planFact(mk)}{planFact(shift(mk, 1))}</div>
+    <div style={{ marginTop: 12 }}><FinTab {...{ MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} /></div>
+  </>;
   return <>
     {MonthPick}
     <div className="dash-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, alignItems: "stretch" }}>
@@ -188,38 +220,6 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
           <td>{pctS(tot.pi ? Math.round((tot.pi - tot.pc) / tot.pi * 100) : null)}</td><td>{pctS(tot.inc ? Math.round((tot.inc - tot.out) / tot.inc * 100) : null)}</td></tr>
       </tbody></table></div>
     </div>
-    {(() => {
-      // План: ежемесячные проекты (сумма в месяц, число оплаты) + разовые с «оплата до» в этом месяце; расходы — шаблоны «каждый месяц» (общие и по проектам)
-      const act = projects.filter((x) => x.status !== "done" && mkOf(x.start) <= mk);
-      const planP = act.filter((x) => x.monthly || (x.payDate && mkOf(x.payDate) === mk)).map((x) => ({ x, plan: x.price, fact: projIncome(mk, x.id), day: x.monthly ? x.payDay || 1 : Number(x.payDate!.slice(8)) }))
-        .sort((a, b) => a.day - b.day);
-      const regs = regulars.filter((r) => !r.off && (!r.projectId || act.some((x) => x.id === r.projectId)));
-      const pIn = planP.reduce((a, y) => a + y.plan, 0), pOut = regs.reduce((a, r) => a + r.amount, 0);
-      const fIn = S.inc, fOut = S.out;
-      const Row = ({ l, pl, fa, inv }: { l: string; pl: number; fa: number; inv?: boolean }) => { const pc = pl ? Math.round(fa / pl * 100) : null, good = inv ? fa <= pl : fa >= pl;
-        return <tr><td><b>{l}</b></td><td>{rub(pl)}</td><td><b>{rub(fa)}</b></td><td className={good ? "ok" : "neg"}>{fa - pl >= 0 ? "+" : "−"}{rub(Math.abs(fa - pl))}</td><td className={pc == null ? "muted" : good ? "ok" : "neg"}>{pc == null ? "—" : pc + "%"}</td></tr>; };
-      return <div className="card" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}>🎯 План / факт · {MONTHS[m - 1]} {y}</h3>
-        <div style={{ overflowX: "auto" }}><table className="pnl-table" style={{ maxWidth: 640 }}><tbody>
-          <tr className="muted small"><td /><td>План</td><td>Факт</td><td>Отклонение</td><td>Выполнение</td></tr>
-          <Row l="Доходы" pl={pIn} fa={fIn} />
-          <Row l="Расходы" pl={pOut} fa={fOut} inv />
-          <Row l="Прибыль" pl={pIn - pOut} fa={fIn - fOut} />
-        </tbody></table></div>
-        <details style={{ marginTop: 8 }}><summary className="small" style={{ cursor: "pointer" }}>Откуда план: {planP.length} оплат по проектам · {regs.length} ежемесячных расходов</summary>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginTop: 6 }} className="small">
-            <div><b>💰 Ожидаемые оплаты</b>{planP.map(({ x, plan, fact, day }) => <div key={x.id} className="row"><span>{day}-го · {cname(x.clientId)} · {x.name}</span>
-              <span className={fact >= plan ? "ok" : day < Number(today().slice(8)) && mk === today().slice(0, 7) ? "error" : "muted"}>{rub(plan)}{fact >= plan ? " ✓" : fact ? ` (пришло ${rub(fact)})` : ""}</span></div>)}
-              {!planP.length && <div className="muted">Нет ежемесячных проектов</div>}</div>
-            <div><b>➖ Плановые расходы</b>{regs.map((r) => <div key={r.id} className="row"><span>{r.day}-го · {r.name}{r.projectId ? ` · ${pname(r.projectId)}` : " · общий"}</span><span>{rub(r.amount)}</span></div>)}
-              {!regs.length && <div className="muted">Добавь ежемесячные расходы: общие — ниже, по проекту — внутри проекта</div>}</div>
-          </div></details>
-        <div className="small muted" style={{ marginTop: 6 }}>Переключи месяц стрелками ‹ › вверху — увидишь план на следующий месяц.</div>
-      </div>;
-    })()}
-    <h3 style={{ margin: "22px 0 8px" }}>₽ Общие доходы и расходы · {MONTHS[m - 1]}</h3>
-    <div className="small muted" style={{ marginBottom: 6 }}>Здесь — то, что не относится к проекту. Оплаты и расходы по проекту вносятся внутри проекта (👥 Клиенты → Проекты → ⚙ Настройки).</div>
-    <FinTab {...{ MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} />
   </>;
 }
 
@@ -229,6 +229,7 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p,
 }) {
   const [f, setF] = useState({ type: "in" as "in" | "out", amount: "", date: today(), note: "", projectId: "", category: "", account: ACCOUNTS[0] });
   const inM = moves.filter((m) => mkOf(m.date) === mk);
+  const [addF, setAddF] = useState(false);
   const income = sumM(mk, "in"), expense = sumM(mk, "out");
   const submit = (e: FormEvent) => { e.preventDefault(); const amount = Number(f.amount); if (!amount) return;
     add({ kind: "move", type: f.type, amount, date: f.date, note: f.note.trim(), account: f.account,
@@ -266,7 +267,21 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p,
         <div className="row small" style={{ borderTop: "1px solid var(--border, #ddd)", paddingTop: 4 }}><b>Всего</b><b>{rub(accs.reduce((x, a) => x + bal(a), 0))}</b></div>
       </div>
     </div>
-    <form className="card row small" onSubmit={submit} style={{ flexWrap: "wrap", gap: 6, marginTop: 12 }}>
+    <Regulars {...{ mk, regulars: regulars.filter((x) => !x.projectId), moves, projects, pname, add, del, upd, nActive }} />
+    <div className="card" style={{ marginTop: 12 }}>
+      <b>📒 Операции за месяц</b>
+    <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
+      {inM.map((x) => <tr key={x.id}><td className="small">{dmy(x.date)}</td>
+        <td>{x.type === "in" ? (x.projectId ? `Оплата: ${pname(x.projectId) || "проект"}` : x.category || "Доход") : (x.category || "Расход") + (x.projectId ? ` · ${pname(x.projectId)}` : "")}<div className="small muted">{x.account || ""}{x.note ? " · " + x.note : ""}</div></td>
+        <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
+        <td>{x.projectId ? <span className="small muted" title="Меняется внутри проекта">🛠 в проекте</span> : <button className="ghost" onClick={() => del(x.id)}>🗑</button>}</td></tr>)}
+      {!inM.length && <tr><td className="muted">В этом месяце операций нет</td></tr>}
+    </tbody></table>
+      <div className="row small" style={{ justifyContent: "flex-start", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+        <button onClick={() => setAddF(!addF)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addF ? "✕ Закрыть" : "+ Добавить общий доход / расход"}</button>
+        <button className="ghost" onClick={copyPrev}>⧉ Скопировать расходы прошлого месяца</button>
+      </div>
+      {addF &&     <form className="row small" onSubmit={submit} style={{ flexWrap: "wrap", gap: 6, marginTop: 10 }}>
       <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value as "in" | "out" })}><option value="in">➕ Доход</option><option value="out">➖ Расход</option></select>
       <input type="number" step="any" placeholder="Сумма" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} style={{ width: 110 }} />
       <input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} />
@@ -275,18 +290,8 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p,
       <datalist id="crm-cats">{(f.type === "in" ? ["Прочий доход", "Возврат", "Проценты банка"] : CATS).map((c) => <option key={c} value={c} />)}</datalist>
       <input placeholder="Комментарий" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} style={{ flex: "1 1 140px" }} />
       <button disabled={!Number(f.amount)}>+ Добавить</button>
-    </form>
-    <Regulars {...{ mk, regulars: regulars.filter((x) => !x.projectId), moves, projects, pname, add, del, upd, nActive }} />
-    <div className="row small" style={{ justifyContent: "flex-start", gap: 6, marginTop: 8 }}>
-      <button className="ghost" onClick={copyPrev}>⧉ Расходы как в прошлом месяце</button>
+    </form>}
     </div>
-    <table className="pnl-table" style={{ marginTop: 12 }}><tbody>
-      {inM.map((x) => <tr key={x.id}><td className="small">{dmy(x.date)}</td>
-        <td>{x.type === "in" ? (x.projectId ? `Оплата: ${pname(x.projectId) || "проект"}` : x.category || "Доход") : (x.category || "Расход") + (x.projectId ? ` · ${pname(x.projectId)}` : "")}<div className="small muted">{x.account || ""}{x.note ? " · " + x.note : ""}</div></td>
-        <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
-        <td>{x.projectId ? <span className="small muted" title="Меняется внутри проекта">🛠 в проекте</span> : <button className="ghost" onClick={() => del(x.id)}>🗑</button>}</td></tr>)}
-      {!inM.length && <tr><td className="muted">В этом месяце операций нет</td></tr>}
-    </tbody></table>
   </>;
 }
 
