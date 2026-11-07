@@ -11,10 +11,12 @@ type CProduct = { id: string; kind: "product"; name: string; price: number; desc
 type CClient = { id: string; kind: "client"; name: string; status?: string; comments?: { at: string; text: string }[]; company?: string; phone?: string; note?: string; source?: string; created?: string };
 type Status = "new" | "work" | "done";
 type CProject = { id: string; kind: "project"; name: string; clientId: string; productId?: string; price: number; status: Status; start: string; deadline?: string; payDate?: string; monthly?: boolean; payDay?: number };
-type CMove = { id: string; kind: "move"; type: "in" | "out"; amount: number; date: string; note: string; projectId?: string; category?: string; account?: string; regularId?: string };
+type CMove = { id: string; kind: "move"; type: "in" | "out"; amount: number; date: string; note: string; projectId?: string; category?: string; account?: string; regularId?: string; employeeId?: string };
 type CRegular = { id: string; kind: "regular"; name: string; amount: number; day: number; category?: string; account?: string; projectId?: string; off?: boolean };
-type Item = CProduct | CClient | CProject | CMove | CRegular;
-export type CrmView = "home" | "fin" | "clients" | "products";
+type PayType = "fixed" | "fixedProj" | "percent";
+type CEmployee = { id: string; kind: "employee"; name: string; contact?: string; projectIds?: string[]; payType: PayType; amount: number; day?: number; off?: boolean };
+type Item = CProduct | CClient | CProject | CMove | CRegular | CEmployee;
+export type CrmView = "home" | "fin" | "clients" | "products" | "staff";
 
 const MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 const CATS = ["Аренда", "Реклама", "Зарплата", "Налоги", "Материалы", "Связь и сервисы", "Транспорт", "Обучение", "Банк и комиссии", "Прочее"];
@@ -64,6 +66,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   const projects = items.filter((x): x is CProject => x.kind === "project").map((x) => ({ ...x, status: (["new", "work", "done"].includes(x.status) ? x.status : "work") as Status }))
     .sort((a, b) => b.start.localeCompare(a.start));
   const regulars = items.filter((x): x is CRegular => x.kind === "regular").sort((a, b) => a.day - b.day);
+  const staff = items.filter((x): x is CEmployee => x.kind === "employee").sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const moves = items.filter((x): x is CMove => x.kind === "move").sort((a, b) => b.date.localeCompare(a.date));
   const paidOf = (pid: string) => moves.filter((m) => m.type === "in" && m.projectId === pid).reduce((a, m) => a + m.amount, 0);
   const costOf = (pid: string) => moves.filter((m) => m.type === "out" && m.projectId === pid).reduce((a, m) => a + m.amount, 0);
@@ -105,6 +108,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   if (err) return <div className="card error">Нет доступа к данным: {err}</div>;
   if (view === "clients") return <ClientsTab {...{ clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} />;
   if (view === "products") return <ProductsTab {...{ products, projects, add, del, upd }} />;
+  if (view === "staff") return <StaffTab {...{ MonthPick, mk, staff, projects, moves, cname, add, del, upd }} />;
 
   // ── Мой кабинет = финансы ──
   const projIncome = (k: string, pid?: string) => moves.filter((m) => m.type === "in" && m.projectId && (!pid || m.projectId === pid) && mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0);
@@ -139,9 +143,10 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
       .sort((a, b) => a.day - b.day);
     const regs = regulars.filter((r) => !r.off && (!r.projectId || act.some((x) => x.id === r.projectId)));
     const factReg = (r: CRegular) => moves.filter((m) => m.regularId === r.id && mkOf(m.date) === K).reduce((a, m) => a + m.amount, 0);
-    const otherOut = moves.filter((m) => m.type === "out" && !m.regularId && mkOf(m.date) === K);
+    const otherOut = moves.filter((m) => m.type === "out" && !m.regularId && !m.employeeId && mkOf(m.date) === K);
     const otherIn = moves.filter((m) => m.type === "in" && !m.projectId && mkOf(m.date) === K);
-    const pIn = planP.reduce((a, y) => a + y.plan, 0), pOut = regs.reduce((a, r) => a + r.amount, 0);
+    const staffPlan = staff.filter((e) => !e.off).map((e) => ({ e, v: salaryLines(e, K, (pid) => projIncome(K, pid) || projects.find((x) => x.id === pid)?.price || 0).reduce((a, l) => a + l.amount, 0) }));
+    const pIn = planP.reduce((a, y) => a + y.plan, 0), pOut = regs.reduce((a, r) => a + r.amount, 0) + staffPlan.reduce((a, x) => a + x.v, 0);
     const fIn = stat(K).inc, fOut = stat(K).out;
     const projPlanCost = regs.filter((r) => r.projectId).reduce((a, r) => a + r.amount, 0);
     const pMarg = pIn ? Math.round((pIn - projPlanCost) / pIn * 100) : null, fMarg = stat(K).marg;
@@ -160,6 +165,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
             {!planP.length && <tr className="small muted"><td style={{ paddingLeft: 22 }} colSpan={4}>Нет ежемесячных проектов</td></tr>}</>}
           <tr className="pnl-key" style={{ cursor: "pointer" }} onClick={() => tog("out")}><td>{pfOpen.out ? "▾" : "▸"} Расходы</td><td>{rub(pOut)}</td><td>{rub(fOut)}</td>{pc(pOut, fOut, true)}</tr>
           {pfOpen.out && <>{regs.map((r) => <Sub key={r.id} l={`${r.day}-го · ${r.name}${r.projectId ? " · " + pname(r.projectId) : " · общий"}`} pl={r.amount} fa={factReg(r)} />)}
+            {staffPlan.map(({ e, v }) => <Sub key={e.id} l={`👷 ${e.name} · зарплата`} pl={v} fa={moves.filter((m) => m.employeeId === e.id && mkOf(m.date) === K).reduce((a, m) => a + m.amount, 0)} />)}
             {otherOut.length > 0 && <Sub l="Разовые расходы" pl={null} fa={otherOut.reduce((a, m) => a + m.amount, 0)} />}
             {!regs.length && <tr className="small muted"><td style={{ paddingLeft: 22 }} colSpan={4}>Ежемесячных расходов нет — добавь ниже или внутри проекта</td></tr>}</>}
           <tr className="pnl-key"><td className="profit">Чистая прибыль</td><td>{rub(pIn - pOut)}</td><td className={fIn - fOut < 0 ? "error profit" : "profit"}>{rub(fIn - fOut)}</td>{pc(pIn - pOut, fIn - fOut)}</tr>
@@ -635,4 +641,87 @@ function Regulars({ mk, regulars, moves, projects, pname, add, del, upd, nActive
     </tbody></table>
     {extra}
   </div>;
+}
+
+// Зарплата сотрудника за месяц → строки расходов:
+//  fixed — фикса, общий расход (делится на все проекты); fixedProj — фикса поровну на его проекты; percent — % от дохода каждого его проекта
+function salaryLines(e: CEmployee, mk: string, incomeOf: (pid: string) => number): { amount: number; projectId?: string }[] {
+  const ps = e.projectIds || [];
+  if (e.payType === "fixed" || !ps.length) return e.amount ? [{ amount: e.amount }] : [];
+  if (e.payType === "fixedProj") return ps.map((pid) => ({ amount: Math.round(e.amount / ps.length * 100) / 100, projectId: pid }));
+  return ps.map((pid) => ({ amount: Math.round(incomeOf(pid) * e.amount) / 100, projectId: pid })).filter((l) => l.amount > 0);
+}
+const PAY: Record<PayType, string> = { fixed: "Фикса · общий расход", fixedProj: "Фикса · делится на его проекты", percent: "% от дохода его проектов" };
+
+function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd }: {
+  MonthPick: JSX.Element; mk: string; staff: CEmployee[]; projects: CProject[]; moves: CMove[]; cname: (id: string) => string;
+  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void;
+}) {
+  const blank = { name: "", contact: "", projectIds: [] as string[], payType: "fixed" as PayType, amount: "", day: "10" };
+  const [f, setF] = useState(blank);
+  const [addOpen, setAddOpen] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
+  const active = projects.filter((x) => x.status !== "done");
+  const pn = (id: string) => { const x = projects.find((y) => y.id === id); return x ? x.name + " · " + cname(x.clientId) : "—"; };
+  const incomeOf = (pid: string) => moves.filter((m) => m.type === "in" && m.projectId === pid && mkOf(m.date) === mk).reduce((a, m) => a + m.amount, 0);
+  const lastDay = new Date(Number(mk.slice(0, 4)), Number(mk.slice(5)), 0).getDate();
+  const paidIn = (e: CEmployee) => moves.filter((m) => m.employeeId === e.id && mkOf(m.date) === mk);
+  const pay = (e: CEmployee) => { const date = `${mk}-${String(Math.min(e.day || 10, lastDay)).padStart(2, "0")}`;
+    salaryLines(e, mk, incomeOf).forEach((l) => add({ kind: "move", type: "out", amount: l.amount, date, note: e.name, category: "Зарплата", account: ACCOUNTS[0], employeeId: e.id, ...(l.projectId ? { projectId: l.projectId } : {}) })); };
+  const total = staff.filter((e) => !e.off).reduce((a, e) => a + salaryLines(e, mk, incomeOf).reduce((x, l) => x + l.amount, 0), 0);
+  const ProjPick = ({ ids, onChange }: { ids: string[]; onChange: (v: string[]) => void }) => <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap" }}>
+    {active.map((x) => { const on = ids.includes(x.id); return <button type="button" key={x.id} className={on ? "" : "ghost"} style={{ padding: "2px 10px" }}
+      onClick={() => onChange(on ? ids.filter((i) => i !== x.id) : [...ids, x.id])}>{on ? "✓ " : ""}{x.name}</button>; })}
+    {!active.length && <span className="muted">Проектов в работе нет</span>}</div>;
+  return <>
+    {MonthPick}
+    <div className="card">
+      <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>👷 Сотрудники · {staff.length}</b>
+        <button onClick={() => setAddOpen(!addOpen)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addOpen ? "✕ Закрыть" : "+ Добавить сотрудника"}</button></div>
+      <div className="small" style={{ marginTop: 6 }}>Зарплаты за месяц: <b>{rub(total)}</b> <span className="muted">· фикса идёт общим расходом и делится на все проекты, остальное — в расходы своих проектов</span></div>
+      {addOpen && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!f.name.trim()) return;
+        add({ kind: "employee", name: f.name.trim(), contact: f.contact.trim(), projectIds: f.projectIds, payType: f.payType, amount: Number(f.amount) || 0, day: Math.min(31, Math.max(1, Number(f.day) || 10)) });
+        setF(blank); setAddOpen(false); }}>
+        <b>Новый сотрудник</b>
+        <input placeholder="Имя *" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus />
+        <input placeholder="Телефон / Telegram / Instagram" value={f.contact} onChange={(e) => setF({ ...f, contact: e.target.value })} />
+        <div className="small"><span className="muted">Проекты, с которыми работает</span><ProjPick ids={f.projectIds} onChange={(v) => setF({ ...f, projectIds: v })} /></div>
+        <div className="small"><span className="muted">Способ оплаты</span>
+          <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap" }}>{(Object.keys(PAY) as PayType[]).map((k) =>
+            <button type="button" key={k} className={f.payType === k ? "" : "ghost"} style={{ padding: "2px 10px" }} onClick={() => setF({ ...f, payType: k })}>{PAY[k]}</button>)}</div></div>
+        <input type="number" placeholder={f.payType === "percent" ? "Процент, например 30" : "Сумма в месяц"} value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
+        <label className="row small" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>День выплаты</span><input type="number" min={1} max={31} value={f.day} onChange={(e) => setF({ ...f, day: e.target.value })} style={{ flex: 1 }} /></label>
+        <button disabled={!f.name.trim()}>✓ Добавить</button>
+      </form>}
+    </div>
+    <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+      {staff.map((e) => { const lines = salaryLines(e, mk, incomeOf), sum = lines.reduce((a, l) => a + l.amount, 0), done = paidIn(e), on = open === e.id;
+        return <div key={e.id} style={{ border: "1px solid var(--border, #e5e5e5)", borderRadius: 12, overflow: "hidden", background: "var(--surface, #fff)", opacity: e.off ? .6 : 1 }}>
+          <div className="row" style={{ padding: "10px 14px", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 240px", minWidth: 0 }}><b>{e.name}</b> {e.contact && <span className="muted small">· {e.contact}</span>}
+              <div className="small muted">{PAY[e.payType]}{e.payType === "percent" ? ` · ${e.amount}%` : ` · ${rub(e.amount)}`} · {e.day || 10}-го{(e.projectIds || []).length ? ` · проекты: ${(e.projectIds || []).map(pn).join(", ")}` : ""}</div>
+              <div className="small" style={{ marginTop: 6, display: "inline-flex", gap: 10, flexWrap: "wrap", background: "var(--bg)", border: "1px solid var(--border, #e5e5e5)", borderRadius: 999, padding: "4px 12px" }}>
+                <span><span className="muted">к выплате</span> <b className="neg">{rub(sum)}</b></span>
+                {lines.map((l, k) => <span key={k} className="muted">{l.projectId ? projects.find((x) => x.id === l.projectId)?.name : "общий"} {rub(l.amount)}</span>)}
+                {done.length > 0 && <span className="ok">✓ выплачено {rub(done.reduce((a, m) => a + m.amount, 0))}</span>}</div></div>
+            <span style={{ display: "flex", gap: 6 }}>
+              {!e.off && !done.length && sum > 0 && <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => pay(e)}>✓ Провести ЗП</button>}
+              <button onClick={() => setOpen(on ? null : e.id)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button></span>
+          </div>
+          {on && <div className="small" style={{ padding: "8px 14px 14px", background: "var(--bg)", display: "grid", gap: 6 }}>
+            <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>Имя</span><input key={e.id + "n" + e.name} defaultValue={e.name} style={{ flex: 1 }} onBlur={(ev) => ev.target.value.trim() && upd(e.id, { name: ev.target.value.trim() })} /></label>
+            <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>Контакт</span><input key={e.id + "c" + (e.contact || "")} defaultValue={e.contact || ""} style={{ flex: 1 }} onBlur={(ev) => upd(e.id, { contact: ev.target.value.trim() })} /></label>
+            <div><span className="muted">Проекты</span><ProjPick ids={e.projectIds || []} onChange={(v) => upd(e.id, { projectIds: v })} /></div>
+            <div><span className="muted">Способ оплаты</span><div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap" }}>{(Object.keys(PAY) as PayType[]).map((k) =>
+              <button key={k} className={e.payType === k ? "" : "ghost"} style={{ padding: "2px 10px" }} onClick={() => upd(e.id, { payType: k })}>{PAY[k]}</button>)}</div></div>
+            <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>{e.payType === "percent" ? "Процент" : "Сумма в месяц"}</span><input type="number" key={e.id + "a" + e.amount} defaultValue={e.amount} style={{ flex: 1 }} onBlur={(ev) => upd(e.id, { amount: Number(ev.target.value) || 0 })} /></label>
+            <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>День выплаты</span><input type="number" min={1} max={31} key={e.id + "d" + (e.day || "")} defaultValue={e.day || 10} style={{ flex: 1 }} onBlur={(ev) => upd(e.id, { day: Math.min(31, Math.max(1, Number(ev.target.value) || 10)) })} /></label>
+            {done.length > 0 && <div><span className="muted">Выплаты за месяц</span>{done.map((m) => <div key={m.id} className="row"><span>{dmy(m.date)} · {m.projectId ? projects.find((x) => x.id === m.projectId)?.name : "общий"}</span><span>{rub(m.amount)} <button className="ghost" style={{ padding: "0 6px" }} onClick={() => del(m.id)}>✕</button></span></div>)}</div>}
+            <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">изменения сохраняются сами · % считается от дохода проекта за месяц</span>
+              <span><button className="ghost" onClick={() => upd(e.id, { off: !e.off })}>{e.off ? "▶ Вернуть" : "⏸ Не работает"}</button> <button className="ghost" onClick={() => del(e.id)}>🗑</button></span></div>
+          </div>}
+        </div>; })}
+      {!staff.length && <div className="card muted">Сотрудников пока нет — нажми «+ Добавить сотрудника»</div>}
+    </div>
+  </>;
 }
