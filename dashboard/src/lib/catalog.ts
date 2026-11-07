@@ -102,7 +102,7 @@ export interface ClientProject {
   calendarOpen: boolean;  // сотрудник видит задачи с дедлайном в календаре
   links?: { sheet?: string; folder?: string; chat?: string };
   // Кабинет клиента
-  clientEmails?: string[]; clientOpen?: boolean; pnlUrl?: string; closedMonths?: string[]; hiddenMonths?: string[]; opEdit?: boolean; bizType?: "goods" | "services"; ddsOpening?: Record<string, number>; fundStart?: { mk: string; amounts: Record<string, number> };
+  clientEmails?: string[]; clientOpen?: boolean; pnlUrl?: string; closedMonths?: string[]; hiddenMonths?: string[]; opEdit?: boolean; bizType?: "goods" | "services"; ddsOpening?: Record<string, number>; crmSheet?: { exec: string; key: string; url?: string }; fundStart?: { mk: string; amounts: Record<string, number> };
   workStatus?: Record<string, { loadedTo?: string; reportsDone?: boolean; taxesPaid?: boolean; reportsDoneFor?: string; taxesPaidFor?: string; callNote?: string }>;
   calls?: { id: string; at: string; text: string; archived?: boolean }[];
   sales?: Record<string, number>;

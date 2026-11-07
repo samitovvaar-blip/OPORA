@@ -72,7 +72,7 @@ export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: stri
         <input type="email" placeholder="Почта клиента" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
         <button>+ Клиент</button>
       </form>
-      {p.bizType === "services" ? <div className="small muted" style={{ margin: "6px 0" }}>🛠 Кабинет «Услуги»: таблица не нужна — клиент сам ведёт данные в кабинете.</div> : <ReportConnect p={p} wsId={wsId} />}
+      {p.bizType === "services" ? <CrmSheet p={p} wsId={wsId} /> : <ReportConnect p={p} wsId={wsId} />}
       <div className="small" style={{ marginTop: 10 }}><b>💳 Тариф клиента</b> <span className="muted">— клиент видит внизу меню</span></div>
       <div className="inline" style={{ margin: "4px 0" }}>
         <select value={p.tariff?.name || ""} onChange={(e) => pickTariff(e.target.value)}>
@@ -104,4 +104,22 @@ export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: stri
       <div className="muted small">Клиент видит: показатели и ОПиУ из таблицы, ход работы (без задач финансиста и без имён), план. Цены, оплаты и твои деньги — нет.</div>
     </div>
   );
+}
+
+// Кабинет «Услуги»: Google-таблица, куда приложение само выгружает финансы, проекты и клиентов
+function CrmSheet({ p, wsId }: { p: ClientProject; wsId: string }) {
+  const [url, setUrl] = useState(p.crmSheet?.url || ""), [exec, setExec] = useState(p.crmSheet?.exec || "");
+  const key = (url.match(/\/d\/([\w-]{20,})/) || [])[1] || "";
+  const save = () => updateDoc(doc(db, "workspaces", wsId, "clients", p.id), exec.trim() && key
+    ? { crmSheet: { url: url.trim(), exec: exec.trim().replace(/\?.*$/, ""), key } } : { crmSheet: deleteField() });
+  return <div className="small" style={{ margin: "8px 0" }}>
+    <b>📗 Таблица для данных клиента</b> <span className="muted">— сюда сами выгружаются его доходы, расходы, проекты и клиенты (листы «ПРИЛОЖЕНИЕ …»)</span>
+    <ol style={{ margin: "4px 0", paddingLeft: 18 }}>
+      <li>Создай Google-таблицу клиента и вставь ссылку: <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…/edit" style={{ width: "100%" }} />{key && <span className="muted">🔑 {key}</span>}</li>
+      <li>Расширения → Apps Script → вставь общий <code>pnl.gs</code> → Развёртывание → «Веб-приложение», доступ «Все» → ссылка …/exec:
+        <input value={exec} onChange={(e) => setExec(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" style={{ width: "100%" }} /></li>
+    </ol>
+    <button onClick={save} disabled={!!exec.trim() !== !!key}>💾 Сохранить</button>
+    {p.crmSheet?.exec && <span className="ok"> ✓ привязана — в «Финансах» клиента кнопка «🔄 Отправить сейчас» проверит связь</span>}
+  </div>;
 }

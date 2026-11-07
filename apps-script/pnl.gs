@@ -262,3 +262,25 @@ function doGet(e) {
 }
 
 function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+
+// Кабинет «Услуги»: приложение присылает все операции, проекты и клиентов — скрипт переписывает листы «ПРИЛОЖЕНИЕ …».
+// Тело запроса (text/plain): { key, moves: [[...]], projects: [[...]], clients: [[...]] }. Ключ — ID этой таблицы.
+function doPost(e) {
+  var b = {};
+  try { b = JSON.parse(e.postData.contents); } catch (x) { return out({ error: 'Плохой запрос' }); }
+  if (!okKey(b.key)) return out({ error: 'Неверный ключ' });
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var put = function (name, head, rows) {
+    if (!rows) return;
+    var sh = ss.getSheetByName(name) || ss.insertSheet(name);
+    sh.clearContents();
+    var data = [head].concat(rows.map(function (r) { var x = r.slice(0, head.length); while (x.length < head.length) x.push(''); return x; }));
+    sh.getRange(1, 1, data.length, head.length).setValues(data);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  };
+  put('ПРИЛОЖЕНИЕ ФИНАНСЫ', ['Дата', 'Месяц', 'Приход/Расход', 'Сумма', 'Счёт', 'Статья', 'Проект', 'Клиент', 'Комментарий'], b.moves);
+  put('ПРИЛОЖЕНИЕ ПРОЕКТЫ', ['Начало', 'Проект', 'Продукт', 'Клиент', 'Стоимость', 'Оплачено', 'Долг', 'Статус', 'Срок', 'Дата оплаты'], b.projects);
+  put('ПРИЛОЖЕНИЕ КЛИЕНТЫ', ['Клиент', 'Компания', 'Телефон', 'Откуда', 'Заметка', 'В базе с'], b.clients);
+  return out({ ok: true, at: new Date().toISOString() });
+}

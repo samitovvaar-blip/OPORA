@@ -1,15 +1,19 @@
-// Мини-CRM клиента на услугах: его клиенты, проекты, доходы и расходы.
-// Хранится в workspaces/{ws}/clients/{cid}/crm (kind: client | project | move). Ведёт сам клиент, владелец видит.
-import { FormEvent, useEffect, useState } from "react";
+// Кабинет «Услуги»: мини-CRM клиента — продукты, база клиентов, проекты, доходы и расходы.
+// Хранится в workspaces/{ws}/clients/{cid}/crm (kind: product | client | project | move). Ведёт сам клиент, владелец видит.
+// Если к кабинету привязана Google-таблица (p.crmSheet), после каждого изменения всё переписывается в листы «ПРИЛОЖЕНИЕ …».
+import { FormEvent, Fragment, useEffect, useRef, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { rub } from "../lib/money";
+import { ClientProject } from "../lib/catalog";
 
-type CClient = { id: string; kind: "client"; name: string; phone?: string; note?: string; source?: string; created?: string };
+type CProduct = { id: string; kind: "product"; name: string; price: number; descr?: string };
+type CClient = { id: string; kind: "client"; name: string; company?: string; phone?: string; note?: string; source?: string; created?: string };
 type Status = "new" | "work" | "done";
-type CProject = { id: string; kind: "project"; name: string; clientId: string; price: number; status: Status; start: string; deadline?: string };
+type CProject = { id: string; kind: "project"; name: string; clientId: string; productId?: string; price: number; status: Status; start: string; deadline?: string; payDate?: string };
 type CMove = { id: string; kind: "move"; type: "in" | "out"; amount: number; date: string; note: string; projectId?: string; category?: string; account?: string };
-type Item = CClient | CProject | CMove;
+type Item = CProduct | CClient | CProject | CMove;
+export type CrmView = "home" | "fin" | "clients" | "products";
 
 const MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 const CATS = ["Аренда", "Реклама", "Зарплата", "Налоги", "Материалы", "Связь и сервисы", "Транспорт", "Обучение", "Банк и комиссии", "Прочее"];
@@ -20,27 +24,47 @@ const NEXT: Record<Status, Status> = { new: "work", work: "done", done: "new" };
 const today = () => new Date().toISOString().slice(0, 10);
 const mkOf = (d: string) => d.slice(0, 7);
 const shift = (mk: string, n: number) => { const [y, m] = mk.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
-const dmy = (d: string) => d.split("-").reverse().join(".");
+const dmy = (d?: string) => d ? d.split("-").reverse().join(".") : "";
 const pct = (a: number, b: number) => b ? Math.round((a - b) / Math.abs(b) * 100) : null;
 
-export default function ServiceCrm({ wsId, cid, view }: { wsId: string; cid: string; view: "home" | "fin" | "clients" }) {
-  const col = collection(db, "workspaces", wsId, "clients", cid, "crm");
+export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: ClientProject; view: CrmView; onNav: (v: CrmView) => void }) {
+  const col = collection(db, "workspaces", wsId, "clients", p.id, "crm");
   const [items, setItems] = useState<Item[]>([]);
   const [err, setErr] = useState("");
-  useEffect(() => onSnapshot(col, (s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() } as Item))), (e) => setErr(e.message)), [wsId, cid]);
+  const [sync, setSync] = useState<"" | "wait" | "sent" | "fail">("");
+  const dirty = useRef(false);
+  useEffect(() => onSnapshot(col, (s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() } as Item))), (e) => setErr(e.message)), [wsId, p.id]);
   const [mk, setMk] = useState(today().slice(0, 7));
 
+  const products = items.filter((x): x is CProduct => x.kind === "product").sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const clients = items.filter((x): x is CClient => x.kind === "client").sort((a, b) => a.name.localeCompare(b.name, "ru"));
-  const projects = items.filter((x): x is CProject => x.kind === "project").map((p) => ({ ...p, status: (p.status as string) === "work" || p.status === "new" || p.status === "done" ? p.status : "work" as Status }))
+  const projects = items.filter((x): x is CProject => x.kind === "project").map((x) => ({ ...x, status: (["new", "work", "done"].includes(x.status) ? x.status : "work") as Status }))
     .sort((a, b) => b.start.localeCompare(a.start));
   const moves = items.filter((x): x is CMove => x.kind === "move").sort((a, b) => b.date.localeCompare(a.date));
   const paidOf = (pid: string) => moves.filter((m) => m.type === "in" && m.projectId === pid).reduce((a, m) => a + m.amount, 0);
   const debt = (pr: CProject) => Math.max(0, pr.price - paidOf(pr.id));
   const cname = (id: string) => clients.find((c) => c.id === id)?.name || "—";
+  const pname = (id?: string) => { const x = projects.find((y) => y.id === id); return x ? cname(x.clientId) + " · " + x.name : ""; };
   const sumM = (k: string, t: "in" | "out") => moves.filter((m) => mkOf(m.date) === k && m.type === t).reduce((a, m) => a + m.amount, 0);
-  const add = (data: object) => addDoc(col, data).catch((e) => alert("Не сохранилось: " + e.message));
-  const del = (id: string) => confirm("Удалить?") && deleteDoc(doc(col, id));
-  const upd = (id: string, data: object) => updateDoc(doc(col, id), data).catch((e) => alert("Не сохранилось: " + e.message));
+  const touch = () => { dirty.current = true; };
+  const add = (data: object) => { touch(); return addDoc(col, data).catch((e) => alert("Не сохранилось: " + e.message)); };
+  const del = (id: string) => { if (confirm("Удалить?")) { touch(); deleteDoc(doc(col, id)); } };
+  const upd = (id: string, data: object) => { touch(); return updateDoc(doc(col, id), data).catch((e) => alert("Не сохранилось: " + e.message)); };
+
+  // ── выгрузка в Google-таблицу клиента (скрипт pnl.gs, doPost) ──
+  const push = () => {
+    const s = p.crmSheet; if (!s?.exec) return;
+    setSync("wait");
+    const body = JSON.stringify({ key: s.key,
+      moves: [...moves].reverse().map((m) => { const pr = projects.find((x) => x.id === m.projectId);
+        return [dmy(m.date), MONTHS[Number(m.date.slice(5, 7)) - 1] + " " + m.date.slice(0, 4), m.type === "in" ? "Приход" : "Расход", m.amount, m.account || "", m.type === "in" ? "Оплата проекта" : m.category || "Прочее", pr?.name || "", pr ? cname(pr.clientId) : "", m.note]; }),
+      projects: projects.map((x) => [dmy(x.start), x.name, products.find((y) => y.id === x.productId)?.name || "", cname(x.clientId), x.price, paidOf(x.id), debt(x), ST[x.status], dmy(x.deadline), dmy(x.payDate)]),
+      clients: clients.map((x) => [x.name, x.company || "", x.phone || "", x.source || "", x.note || "", dmy(x.created)]) });
+    // no-cors: Apps Script не отдаёт CORS-заголовки, ответ не читаем — запись в таблицу всё равно происходит
+    fetch(s.exec, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body })
+      .then(() => setSync("sent")).catch(() => setSync("fail"));
+  };
+  useEffect(() => { if (!dirty.current || !p.crmSheet?.exec) return; const t = setTimeout(() => { dirty.current = false; push(); }, 1500); return () => clearTimeout(t); }, [items]);
 
   const [y, m] = mk.split("-").map(Number);
   const MonthPick = <div className="row small" style={{ justifyContent: "flex-start", gap: 6, marginBottom: 10 }}>
@@ -49,8 +73,9 @@ export default function ServiceCrm({ wsId, cid, view }: { wsId: string; cid: str
     <button className="ghost" onClick={() => setMk(shift(mk, 1))}>›</button></div>;
 
   if (err) return <div className="card error">Нет доступа к данным: {err}</div>;
-  if (view === "fin") return <FinTab {...{ MonthPick, mk, moves, projects, cname, add, del, sumM }} />;
-  if (view === "clients") return <ClientsTab {...{ clients, projects, moves, paidOf, debt, cname, add, del, upd }} />;
+  if (view === "fin") return <FinTab {...{ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push, sync }} />;
+  if (view === "clients") return <ClientsTab {...{ clients, projects, products, moves, paidOf, debt, cname, add, del, upd }} />;
+  if (view === "products") return <ProductsTab {...{ products, projects, add, del, upd }} />;
 
   // ── Мой кабинет ──
   const income = sumM(mk, "in"), expense = sumM(mk, "out"), profit = income - expense;
@@ -64,14 +89,16 @@ export default function ServiceCrm({ wsId, cid, view }: { wsId: string; cid: str
   const newClients = clients.filter((c) => c.created && mkOf(c.created) === mk).length;
   const series = Array.from({ length: 6 }, (_, k) => shift(mk, k - 5)).map((k) => ({ k, inc: sumM(k, "in"), prof: sumM(k, "in") - sumM(k, "out") }));
   const max = Math.max(1, ...series.map((s) => Math.max(s.inc, Math.abs(s.prof))));
-  const Delta = ({ v }: { v: number | null }) => v == null ? null : <div className="small">{v >= 0 ? "▲" : "▼"} {Math.abs(v)}% к прошлому месяцу</div>;
+  const Delta = ({ v }: { v: number | null }) => v == null ? null : <span className="small"> {v >= 0 ? "▲" : "▼"} {Math.abs(v)}%</span>;
+  const soon = projects.filter((x) => x.payDate && debt(x) > 0).sort((a, b) => a.payDate!.localeCompare(b.payDate!)).slice(0, 6);
   return <>
     {MonthPick}
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
-      <div className="card stat g-blue tile"><span className="tile-ico">💰</span><div className="muted">Выручка</div><b>{rub(income)}</b><Delta v={pct(income, pIncome)} /></div>
-      <div className="card stat g-orange tile"><span className="tile-ico">🛠</span><div className="muted">Проектов в работе</div><b>{work.length}</b>{late.length > 0 && <div className="small">⚠️ просрочено: {late.length}</div>}</div>
-      <div className={`card stat ${unpaidClients.length ? "g-red" : "g-green"} tile`}><span className="tile-ico">⏳</span><div className="muted">Не оплатили</div><b>{unpaidClients.length} клиент.</b><div className="small">{rub(unpaid.reduce((a, x) => a + debt(x), 0))}</div></div>
-      <div className={`card stat ${profit < 0 ? "g-red" : "g-green"} tile`}><span className="tile-ico">{profit < 0 ? "🔻" : "💎"}</span><div className="muted">{profit < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{rub(profit)}</b>{profit > 0 && pProfit > 0 && <Delta v={pct(profit, pProfit)} />}</div>
+    {/* 4 плитки — того же формата, что во всех кабинетах */}
+    <div className="dash-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "stretch" }}>
+      <div className="card stat g-blue tile tile-link" onClick={() => onNav("fin")}><span className="tile-ico">💰</span><div className="muted">Выручка</div><b>{rub(income)}</b><Delta v={pct(income, pIncome)} /></div>
+      <div className="card stat g-orange tile tile-link" onClick={() => onNav("clients")}><span className="tile-ico">🛠</span><div className="muted">Проектов в работе</div><b>{work.length}</b>{late.length > 0 && <span className="small">⚠️ просрочено: {late.length}</span>}</div>
+      <div className={`card stat ${unpaidClients.length ? "g-red" : "g-green"} tile tile-link`} onClick={() => onNav("clients")}><span className="tile-ico">⏳</span><div className="muted">Не оплатили</div><b>{unpaidClients.length}</b><span className="small">{rub(unpaid.reduce((a, x) => a + debt(x), 0))}</span></div>
+      <div className={`card stat ${profit < 0 ? "g-red" : "g-green"} tile tile-link`} onClick={() => onNav("fin")}><span className="tile-ico">{profit < 0 ? "🔻" : "💎"}</span><div className="muted">{profit < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{rub(profit)}</b>{profit > 0 && pProfit > 0 && <Delta v={pct(profit, pProfit)} />}</div>
     </div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginTop: 12 }}>
       <div className="card">
@@ -94,23 +121,18 @@ export default function ServiceCrm({ wsId, cid, view }: { wsId: string; cid: str
         <div className="small muted">■ <span style={{ color: "#25476f" }}>выручка</span> · ■ <span style={{ color: "#16a34a" }}>прибыль</span></div>
       </div>
     </div>
-    {(unpaid.length > 0 || late.length > 0) && <div className="card" style={{ marginTop: 12 }}>
-      {unpaid.length > 0 && <><h3 style={{ marginTop: 0 }}>⏳ Ждём оплату</h3>
-        {unpaid.map((x) => <div key={x.id} className="row small"><span>{cname(x.clientId)} · {x.name}</span><b className="neg">{rub(debt(x))}</b></div>)}</>}
-      {late.length > 0 && <><h3>⚠️ Просрочены</h3>
-        {late.map((x) => <div key={x.id} className="row small"><span>{cname(x.clientId)} · {x.name}</span><b className="error">срок {dmy(x.deadline!)}</b></div>)}</>}
+    {(soon.length > 0 || late.length > 0) && <div className="card" style={{ marginTop: 12 }}>
+      {soon.length > 0 && <><h3 style={{ marginTop: 0 }}>📅 Ближайшие оплаты</h3>
+        {soon.map((x) => <div key={x.id} className="row small"><span>{dmy(x.payDate)} · {cname(x.clientId)} · {x.name}</span><b className={x.payDate! < today() ? "error" : ""}>{rub(debt(x))}</b></div>)}</>}
+      {late.length > 0 && <><h3>⚠️ Просрочены по сроку</h3>
+        {late.map((x) => <div key={x.id} className="row small"><span>{cname(x.clientId)} · {x.name}</span><b className="error">срок {dmy(x.deadline)}</b></div>)}</>}
     </div>}
   </>;
 }
 
-function csv(name: string, rows: (string | number)[][]) {
-  const text = "﻿" + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
-  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" })); a.download = name; a.click();
-}
-
-function FinTab({ MonthPick, mk, moves, projects, cname, add, del, sumM }: {
-  MonthPick: JSX.Element; mk: string; moves: CMove[]; projects: CProject[]; cname: (id: string) => string;
-  add: (d: object) => void; del: (id: string) => void; sumM: (k: string, t: "in" | "out") => number;
+function FinTab({ MonthPick, mk, moves, projects, pname, add, del, sumM, p, push, sync }: {
+  MonthPick: JSX.Element; mk: string; moves: CMove[]; projects: CProject[]; pname: (id?: string) => string;
+  add: (d: object) => void; del: (id: string) => void; sumM: (k: string, t: "in" | "out") => number; p: ClientProject; push: () => void; sync: string;
 }) {
   const [f, setF] = useState({ type: "in" as "in" | "out", amount: "", date: today(), note: "", projectId: "", category: "", account: ACCOUNTS[0] });
   const inM = moves.filter((m) => mkOf(m.date) === mk);
@@ -121,16 +143,22 @@ function FinTab({ MonthPick, mk, moves, projects, cname, add, del, sumM }: {
     setF({ ...f, amount: "", note: "" }); };
   const byCat: Record<string, number> = {};
   inM.filter((m) => m.type === "out").forEach((m) => { const k = m.category || "Прочее"; byCat[k] = (byCat[k] || 0) + m.amount; });
-  // остатки по счетам: все движения до конца выбранного месяца
   const accs = [...new Set([...ACCOUNTS, ...moves.map((m) => m.account || "").filter(Boolean)])];
   const bal = (a: string) => moves.filter((m) => (m.account || ACCOUNTS[0]) === a && mkOf(m.date) <= mk).reduce((x, m) => x + (m.type === "in" ? m.amount : -m.amount), 0);
   const prevOut = moves.filter((m) => m.type === "out" && mkOf(m.date) === shift(mk, -1));
+  const lastDay = new Date(Number(mk.slice(0, 4)), Number(mk.slice(5)), 0).getDate();
   const copyPrev = () => { if (!prevOut.length) return alert("В прошлом месяце расходов нет");
     if (!confirm(`Скопировать ${prevOut.length} расход(ов) прошлого месяца в этот?`)) return;
-    prevOut.forEach((m) => add({ kind: "move", type: "out", amount: m.amount, date: `${mk}-${String(Math.min(Number(m.date.slice(8)), new Date(Number(mk.slice(0, 4)), Number(mk.slice(5)), 0).getDate())).padStart(2, "0")}`, note: m.note, category: m.category || "Прочее", account: m.account || ACCOUNTS[0] })); };
-  const pname = (id?: string) => { const p = projects.find((x) => x.id === id); return p ? cname(p.clientId) + " · " + p.name : ""; };
+    prevOut.forEach((m) => add({ kind: "move", type: "out", amount: m.amount, date: `${mk}-${String(Math.min(Number(m.date.slice(8)), lastDay)).padStart(2, "0")}`, note: m.note, category: m.category || "Прочее", account: m.account || ACCOUNTS[0] })); };
   return <>
     {MonthPick}
+    <div className="card small" style={{ marginBottom: 12, background: "var(--bg)" }}>
+      {p.crmSheet?.exec
+        ? <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span>📗 Все доходы и расходы сами попадают в Google-таблицу (лист «ПРИЛОЖЕНИЕ ФИНАНСЫ»)
+          {sync === "wait" ? " · отправляю…" : sync === "sent" ? " · ✓ отправлено" : sync === "fail" ? " · ⚠️ не отправилось" : ""}</span>
+          <span>{p.crmSheet.url && <a className="linkbtn" href={p.crmSheet.url} target="_blank" rel="noopener noreferrer">Открыть таблицу</a>} <button className="ghost" onClick={push}>🔄 Отправить сейчас</button></span></div>
+        : <span className="muted">📗 Таблица пока не привязана — бухгалтер подключит её в настройках, и операции будут попадать туда сами.</span>}
+    </div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
       <div className="card">
         <div className="row"><span>Доходы</span><b className="ok">+{rub(income)}</b></div>
@@ -151,7 +179,7 @@ function FinTab({ MonthPick, mk, moves, projects, cname, add, del, sumM }: {
       <input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} />
       <select value={f.account} onChange={(e) => setF({ ...f, account: e.target.value })}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
       {f.type === "in" ? <select value={f.projectId} onChange={(e) => setF({ ...f, projectId: e.target.value })}><option value="">— оплата по проекту —</option>
-        {projects.map((p) => <option key={p.id} value={p.id}>{cname(p.clientId)} · {p.name}</option>)}</select>
+        {projects.map((x) => <option key={x.id} value={x.id}>{pname(x.id)}</option>)}</select>
         : <><input list="crm-cats" placeholder="Статья" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} style={{ width: 150 }} />
           <datalist id="crm-cats">{CATS.map((c) => <option key={c} value={c} />)}</datalist></>}
       <input placeholder="Комментарий" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} style={{ flex: "1 1 140px" }} />
@@ -159,8 +187,6 @@ function FinTab({ MonthPick, mk, moves, projects, cname, add, del, sumM }: {
     </form>
     <div className="row small" style={{ justifyContent: "flex-start", gap: 6, marginTop: 8 }}>
       <button className="ghost" onClick={copyPrev}>⧉ Расходы как в прошлом месяце</button>
-      <button className="ghost" onClick={() => csv(`финансы-${mk}.csv`, [["Дата", "Тип", "Сумма", "Счёт", "Статья / проект", "Комментарий"],
-        ...inM.map((x) => [dmy(x.date), x.type === "in" ? "Доход" : "Расход", x.amount, x.account || "", x.type === "in" ? pname(x.projectId) : x.category || "", x.note])])}>⬇ Выгрузить месяц (открывается в Google-таблице)</button>
     </div>
     <table className="pnl-table" style={{ marginTop: 12 }}><tbody>
       {inM.map((x) => <tr key={x.id}><td className="small">{dmy(x.date)}</td>
@@ -172,79 +198,130 @@ function FinTab({ MonthPick, mk, moves, projects, cname, add, del, sumM }: {
   </>;
 }
 
-function ClientsTab({ clients, projects, moves, paidOf, debt, cname, add, del, upd }: {
-  clients: CClient[]; projects: CProject[]; moves: CMove[]; paidOf: (id: string) => number; debt: (p: CProject) => number; cname: (id: string) => string;
-  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void;
+function ClientsTab({ clients, projects, products, moves, paidOf, debt, cname, add, del, upd }: {
+  clients: CClient[]; projects: CProject[]; products: CProduct[]; moves: CMove[]; paidOf: (id: string) => number; debt: (p: CProject) => number; cname: (id: string) => string;
+  add: (d: object) => Promise<unknown>; del: (id: string) => void; upd: (id: string, d: object) => void;
 }) {
-  const [c, setC] = useState({ name: "", phone: "", note: "", source: "" });
-  const [pr, setPr] = useState({ name: "", clientId: "", price: "", deadline: "" });
+  const [sub, setSub] = useState<"projects" | "base">("projects");
+  const [c, setC] = useState({ name: "", company: "", phone: "", note: "", source: "" });
+  const blankP = { name: "", clientId: "", productId: "", price: "", deadline: "", payDate: "" };
+  const [pr, setPr] = useState(blankP);
+  const [pay, setPay] = useState<{ id: string; amount: string; date: string; account: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | Status | "debt">("all");
   const ql = q.trim().toLowerCase();
-  const shownC = clients.filter((x) => !ql || (x.name + " " + (x.phone || "") + " " + (x.note || "")).toLowerCase().includes(ql));
+  const shownC = clients.filter((x) => !ql || [x.name, x.company, x.phone, x.note].join(" ").toLowerCase().includes(ql));
   const shownP = projects.filter((x) => (filter === "all" || (filter === "debt" ? debt(x) > 0 : x.status === filter)) && (!ql || (x.name + " " + cname(x.clientId)).toLowerCase().includes(ql)));
   const bySrc: Record<string, { n: number; sum: number }> = {};
   clients.forEach((x) => { const k = x.source || "Не указан"; const s = bySrc[k] = bySrc[k] || { n: 0, sum: 0 }; s.n++;
     s.sum += moves.filter((m) => m.type === "in" && projects.some((p) => p.id === m.projectId && p.clientId === x.id)).reduce((a, m) => a + m.amount, 0); });
+  const toProject = (x: CClient) => { setPr({ ...blankP, clientId: x.id }); setSub("projects"); };
+  const pickProduct = (id: string) => { const pd = products.find((x) => x.id === id); setPr({ ...pr, productId: id, name: pr.name || pd?.name || "", price: pd ? String(pd.price) : pr.price }); };
+
   return <>
-    <input placeholder="🔍 Поиск по клиентам и проектам" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 10 }} />
-    <div className="card">
-      <h3 style={{ marginTop: 0 }}>🛠 Проекты</h3>
+    <div className="chips" style={{ marginBottom: 10 }}>
+      <button className={`chipbtn ${sub === "projects" ? "on" : ""}`} onClick={() => setSub("projects")}>🛠 Проекты</button>
+      <button className={`chipbtn ${sub === "base" ? "on" : ""}`} onClick={() => setSub("base")}>👥 База клиентов</button>
+    </div>
+    <input placeholder="🔍 Поиск" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 10 }} />
+
+    {sub === "projects" && <div className="card">
       <form className="row small" style={{ flexWrap: "wrap", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!pr.name.trim() || !pr.clientId) return;
-        add({ kind: "project", name: pr.name.trim(), clientId: pr.clientId, price: Number(pr.price) || 0, status: "new", start: today(), ...(pr.deadline ? { deadline: pr.deadline } : {}) });
-        setPr({ name: "", clientId: pr.clientId, price: "", deadline: "" }); }}>
-        <select value={pr.clientId} onChange={(e) => setPr({ ...pr, clientId: e.target.value })}><option value="">— клиент —</option>{clients.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
-        <input placeholder="Проект / услуга" value={pr.name} onChange={(e) => setPr({ ...pr, name: e.target.value })} style={{ flex: "1 1 150px" }} />
-        <input type="number" placeholder="Стоимость" value={pr.price} onChange={(e) => setPr({ ...pr, price: e.target.value })} style={{ width: 110 }} />
-        <span className="muted">срок</span><input type="date" value={pr.deadline} onChange={(e) => setPr({ ...pr, deadline: e.target.value })} />
+        add({ kind: "project", name: pr.name.trim(), clientId: pr.clientId, price: Number(pr.price) || 0, status: "new", start: today(),
+          ...(pr.productId ? { productId: pr.productId } : {}), ...(pr.deadline ? { deadline: pr.deadline } : {}), ...(pr.payDate ? { payDate: pr.payDate } : {}) });
+        setPr(blankP); }}>
+        <select value={pr.clientId} onChange={(e) => setPr({ ...pr, clientId: e.target.value })}><option value="">— клиент —</option>{clients.map((x) => <option key={x.id} value={x.id}>{x.name}{x.company ? ` (${x.company})` : ""}</option>)}</select>
+        <select value={pr.productId} onChange={(e) => pickProduct(e.target.value)}><option value="">— продукт —</option>{products.map((x) => <option key={x.id} value={x.id}>{x.name} · {rub(x.price)}</option>)}</select>
+        <input placeholder="Услуга / название проекта" value={pr.name} onChange={(e) => setPr({ ...pr, name: e.target.value })} style={{ flex: "1 1 150px" }} />
+        <input type="number" placeholder="Сумма оплаты" value={pr.price} onChange={(e) => setPr({ ...pr, price: e.target.value })} style={{ width: 120 }} />
+        <span className="muted">оплата до</span><input type="date" value={pr.payDate} onChange={(e) => setPr({ ...pr, payDate: e.target.value })} />
+        <span className="muted">срок сдачи</span><input type="date" value={pr.deadline} onChange={(e) => setPr({ ...pr, deadline: e.target.value })} />
         <button disabled={!pr.name.trim() || !pr.clientId}>+ Проект</button>
       </form>
-      {!clients.length && <div className="muted small">Сначала добавь клиента ниже.</div>}
+      {!clients.length && <div className="muted small">Сначала добавь клиента во вкладке «База клиентов».</div>}
+      {!products.length && <div className="muted small">Продукты с ценами можно завести во вкладке «Продукты» — тогда сумма подставится сама.</div>}
       <div className="row small" style={{ justifyContent: "flex-start", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
         {([["all", "Все"], ["new", "Новые"], ["work", "В работе"], ["done", "Сданы"], ["debt", "С долгом"]] as const).map(([k, l]) =>
           <button key={k} className={filter === k ? "" : "ghost"} style={{ padding: "2px 10px" }} onClick={() => setFilter(k)}>{l}</button>)}</div>
       <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
-        {shownP.map((x) => { const late = x.status !== "done" && x.deadline && x.deadline < today();
-          return <tr key={x.id} style={{ opacity: x.status === "done" && !debt(x) ? .6 : 1 }}>
-          <td>{x.name}<div className="small muted">{cname(x.clientId)} · с {dmy(x.start)}{x.deadline && <span className={late ? "error" : ""}> · срок {dmy(x.deadline)}{late ? " ⚠️" : ""}</span>}</div></td>
-          <td className="small">{rub(x.price)}<div className={debt(x) ? "neg" : "ok"}>{debt(x) ? `долг ${rub(debt(x))}` : "✓ оплачен"}</div><div className="muted">оплачено {rub(paidOf(x.id))}</div></td>
-          <td style={{ whiteSpace: "nowrap" }}><button className={x.status === "done" ? "ghost" : ""} title="Нажми, чтобы сменить статус" onClick={() => upd(x.id, { status: NEXT[x.status] })}>{ST[x.status]}</button>
-            <button className="ghost" onClick={() => del(x.id)}>🗑</button></td></tr>; })}
+        {shownP.map((x) => { const late = x.status !== "done" && x.deadline && x.deadline < today(), payLate = debt(x) > 0 && x.payDate && x.payDate < today();
+          const pd = products.find((y) => y.id === x.productId);
+          return <Fragment key={x.id}><tr style={{ opacity: x.status === "done" && !debt(x) ? .6 : 1 }}>
+            <td>{x.name}<div className="small muted">{cname(x.clientId)}{pd ? " · " + pd.name : ""} · с {dmy(x.start)}
+              {x.deadline && <span className={late ? "error" : ""}> · сдать {dmy(x.deadline)}{late ? " ⚠️" : ""}</span>}
+              {x.payDate && debt(x) > 0 && <span className={payLate ? "error" : ""}> · оплата до {dmy(x.payDate)}{payLate ? " ⚠️" : ""}</span>}</div></td>
+            <td className="small">{rub(x.price)}<div className={debt(x) ? "neg" : "ok"}>{debt(x) ? `долг ${rub(debt(x))}` : "✓ оплачен"}</div><div className="muted">оплачено {rub(paidOf(x.id))}</div></td>
+            <td style={{ whiteSpace: "nowrap" }}>
+              {debt(x) > 0 && <button title="Внести оплату" onClick={() => setPay(pay?.id === x.id ? null : { id: x.id, amount: String(debt(x)), date: today(), account: ACCOUNTS[0] })}>💰</button>}
+              <button className={x.status === "done" ? "ghost" : ""} title="Нажми, чтобы сменить статус" onClick={() => upd(x.id, { status: NEXT[x.status] })}>{ST[x.status]}</button>
+              <button className="ghost" onClick={() => del(x.id)}>🗑</button></td></tr>
+            {pay?.id === x.id && <tr><td colSpan={3}><div className="row small" style={{ flexWrap: "wrap", gap: 6 }}>
+              <span>Оплата:</span><input type="number" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} style={{ width: 110 }} />
+              <input type="date" value={pay.date} onChange={(e) => setPay({ ...pay, date: e.target.value })} />
+              <select value={pay.account} onChange={(e) => setPay({ ...pay, account: e.target.value })}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
+              <button disabled={!Number(pay.amount)} onClick={() => { add({ kind: "move", type: "in", amount: Number(pay.amount), date: pay.date, note: "", projectId: x.id, account: pay.account }); setPay(null); }}>✓ Внести</button>
+              <span className="muted">— попадёт в «Финансы» как доход</span></div></td></tr>}
+          </Fragment>; })}
         {!shownP.length && <tr><td className="muted">Проектов нет</td></tr>}
       </tbody></table>
-      <div className="small muted">Оплату проекта вносишь во вкладке «Финансы» → Доход → выбрать проект. Статус меняется нажатием: новый → в работе → сдан.</div>
-    </div>
-
-    <div className="card" style={{ marginTop: 12 }}>
-      <h3 style={{ marginTop: 0 }}>👥 База клиентов</h3>
-      <form className="row small" style={{ flexWrap: "wrap", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!c.name.trim()) return;
-        add({ kind: "client", name: c.name.trim(), phone: c.phone.trim(), note: c.note.trim(), source: c.source.trim(), created: today() }); setC({ name: "", phone: "", note: "", source: c.source }); }}>
-        <input placeholder="Имя / компания" value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} style={{ flex: "1 1 150px" }} />
-        <input placeholder="Телефон" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} style={{ width: 140 }} />
-        <input list="crm-src" placeholder="Откуда пришёл" value={c.source} onChange={(e) => setC({ ...c, source: e.target.value })} style={{ width: 160 }} />
-        <datalist id="crm-src">{SOURCES.map((s) => <option key={s} value={s} />)}</datalist>
-        <input placeholder="Заметка" value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} style={{ flex: "1 1 140px" }} />
-        <button disabled={!c.name.trim()}>+ Клиент</button>
-      </form>
-      <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
-        {shownC.map((x) => { const ps = projects.filter((p) => p.clientId === x.id), d = ps.reduce((a, p) => a + debt(p), 0);
-          return <tr key={x.id} style={{ cursor: "pointer" }} onClick={() => setOpen(open === x.id ? null : x.id)}>
-            <td>{open === x.id ? "▾" : "▸"} {x.name}<div className="small muted">{[x.phone, x.source].filter(Boolean).join(" · ")}</div>{open === x.id && <div className="small" style={{ marginTop: 4 }}>
-              {x.note && <div className="muted">{x.note}</div>}{x.created && <div className="muted">в базе с {dmy(x.created)}</div>}
-              {ps.map((p) => <div key={p.id}>• {p.name} — {rub(p.price)}{debt(p) ? `, долг ${rub(debt(p))}` : ", оплачен"} · {ST[p.status]}</div>)}
-              {!ps.length && <div className="muted">Проектов пока нет</div>}</div>}</td>
-            <td className="small">{ps.length} проект.{d > 0 && <div className="neg">долг {rub(d)}</div>}</td>
-            <td><button className="ghost" onClick={(e) => { e.stopPropagation(); del(x.id); }}>🗑</button></td></tr>; })}
-        {!shownC.length && <tr><td className="muted">Клиентов нет</td></tr>}
-      </tbody></table>
-      <button className="ghost small" style={{ marginTop: 6 }} onClick={() => csv("клиенты.csv", [["Клиент", "Телефон", "Откуда", "Заметка", "Проектов", "Долг"],
-        ...clients.map((x) => { const ps = projects.filter((p) => p.clientId === x.id); return [x.name, x.phone || "", x.source || "", x.note || "", ps.length, ps.reduce((a, p) => a + debt(p), 0)]; })])}>⬇ Выгрузить базу</button>
-    </div>
-
-    {clients.length > 0 && <div className="card" style={{ marginTop: 12 }}>
-      <h3 style={{ marginTop: 0 }}>📣 Откуда приходят клиенты</h3>
-      {Object.entries(bySrc).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => <div key={k} className="row small"><span>{k}</span><span><b>{v.n}</b> клиент. · оплатили {rub(v.sum)}</span></div>)}
+      <div className="small muted">💰 — внести оплату по проекту. Статус меняется нажатием: новый → в работе → сдан.</div>
     </div>}
+
+    {sub === "base" && <>
+      <div className="card">
+        <form className="row small" style={{ flexWrap: "wrap", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!c.name.trim()) return;
+          add({ kind: "client", name: c.name.trim(), company: c.company.trim(), phone: c.phone.trim(), note: c.note.trim(), source: c.source.trim(), created: today() }); setC({ name: "", company: "", phone: "", note: "", source: c.source }); }}>
+          <input placeholder="Имя" value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} style={{ flex: "1 1 130px" }} />
+          <input placeholder="Компания" value={c.company} onChange={(e) => setC({ ...c, company: e.target.value })} style={{ flex: "1 1 130px" }} />
+          <input placeholder="Телефон" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} style={{ width: 140 }} />
+          <input list="crm-src" placeholder="Откуда пришёл" value={c.source} onChange={(e) => setC({ ...c, source: e.target.value })} style={{ width: 160 }} />
+          <datalist id="crm-src">{SOURCES.map((s) => <option key={s} value={s} />)}</datalist>
+          <input placeholder="Заметка" value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} style={{ flex: "1 1 140px" }} />
+          <button disabled={!c.name.trim()}>+ Клиент</button>
+        </form>
+        <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
+          {shownC.map((x) => { const ps = projects.filter((p) => p.clientId === x.id), d = ps.reduce((a, p) => a + debt(p), 0);
+            return <tr key={x.id} style={{ cursor: "pointer" }} onClick={() => setOpen(open === x.id ? null : x.id)}>
+              <td>{open === x.id ? "▾" : "▸"} {x.name}{x.company && <span className="muted"> · {x.company}</span>}<div className="small muted">{[x.phone, x.source].filter(Boolean).join(" · ")}</div>
+                {open === x.id && <div className="small" style={{ marginTop: 4 }}>
+                {x.note && <div className="muted">📝 {x.note}</div>}{x.created && <div className="muted">в базе с {dmy(x.created)}</div>}
+                {ps.map((p) => <div key={p.id}>• {p.name} — {rub(p.price)}{debt(p) ? `, долг ${rub(debt(p))}` : ", оплачен"} · {ST[p.status]}</div>)}</div>}</td>
+              <td className="small">{ps.length ? `${ps.length} проект.` : <span className="muted">без проекта</span>}{d > 0 && <div className="neg">долг {rub(d)}</div>}</td>
+              <td style={{ whiteSpace: "nowrap" }}><button onClick={(e) => { e.stopPropagation(); toProject(x); }}>→ В проект</button>
+                <button className="ghost" onClick={(e) => { e.stopPropagation(); del(x.id); }}>🗑</button></td></tr>; })}
+          {!shownC.length && <tr><td className="muted">Клиентов нет</td></tr>}
+        </tbody></table>
+        <div className="small muted">«→ В проект» — открывает форму проекта с этим клиентом: выбери продукт, сумму и дату оплаты.</div>
+      </div>
+      {clients.length > 0 && <div className="card" style={{ marginTop: 12 }}>
+        <h3 style={{ marginTop: 0 }}>📣 Откуда приходят клиенты</h3>
+        {Object.entries(bySrc).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => <div key={k} className="row small"><span>{k}</span><span><b>{v.n}</b> клиент. · оплатили {rub(v.sum)}</span></div>)}
+      </div>}
+    </>}
   </>;
+}
+
+function ProductsTab({ products, projects, add, del, upd }: {
+  products: CProduct[]; projects: CProject[]; add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void;
+}) {
+  const [f, setF] = useState({ name: "", price: "", descr: "" });
+  return <div className="card">
+    <h3 style={{ marginTop: 0 }}>📦 Мои продукты и услуги</h3>
+    <div className="small muted" style={{ marginBottom: 8 }}>Заведи услуги с ценой — при создании проекта выбираешь продукт, и сумма подставится сама.</div>
+    <form className="row small" style={{ flexWrap: "wrap", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!f.name.trim()) return;
+      add({ kind: "product", name: f.name.trim(), price: Number(f.price) || 0, descr: f.descr.trim() }); setF({ name: "", price: "", descr: "" }); }}>
+      <input placeholder="Название (например: Дизайн логотипа)" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} style={{ flex: "1 1 180px" }} />
+      <input type="number" placeholder="Цена" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} style={{ width: 110 }} />
+      <input placeholder="Что входит" value={f.descr} onChange={(e) => setF({ ...f, descr: e.target.value })} style={{ flex: "1 1 180px" }} />
+      <button disabled={!f.name.trim()}>+ Продукт</button>
+    </form>
+    <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
+      {products.map((x) => { const used = projects.filter((p) => p.productId === x.id);
+        return <tr key={x.id}><td>{x.name}{x.descr && <div className="small muted">{x.descr}</div>}<div className="small muted">продано: {used.length} · на {rub(used.reduce((a, p) => a + p.price, 0))}</div></td>
+          <td><input type="number" style={{ width: 110 }} key={x.id + x.price} defaultValue={x.price} onBlur={(e) => Number(e.target.value) !== x.price && upd(x.id, { price: Number(e.target.value) || 0 })} /></td>
+          <td><button className="ghost" onClick={() => del(x.id)}>🗑</button></td></tr>; })}
+      {!products.length && <tr><td className="muted">Продуктов пока нет</td></tr>}
+    </tbody></table>
+  </div>;
 }

@@ -48,7 +48,7 @@ export default function ClientPortal() {
   const cid = preview ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
   const [p, setP] = useState<ClientProject | null>(null);
   const [err, setErr] = useState("");
-  const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op" | "chome" | "cfin" | "ccli">("dash");
+  const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op" | "chome" | "cfin" | "ccli" | "cprod">("dash");
   const [anN, setAnN] = useState(3);
   const [beOpen, setBeOpen] = useState(false);
   const [salOpen, setSalOpen] = useState(false);
@@ -105,7 +105,7 @@ export default function ClientPortal() {
   if (!p) return <NeylaLoading text="Открываю кабинет клиента" />;
 
   const svc = p.bizType === "services";   // вид кабинета: товарный бизнес (по умолчанию) или услуги
-  if (svc && !["chome", "cfin", "ccli"].includes(tab)) setTimeout(() => setTab("chome"));
+  if (svc && !["chome", "cfin", "ccli", "cprod"].includes(tab)) setTimeout(() => setTab("chome"));
   const canEditClient = isOwner || (!staffView && !!p.opEdit);   // правка ОП и планирования — по доступу от владельца
   const v = (arr: (number | null)[], i?: number) => (i == null ? null : arr[i]);
   const rev = v(pnl?.revenue || [], cur ?? undefined), prof = v(pnl?.profit || [], cur ?? undefined);
@@ -147,7 +147,7 @@ export default function ClientPortal() {
       })()}
       {preview && <h1>{p.name}</h1>}
       {preview && <div className="chips" style={{ marginTop: 12 }}>
-        {([...(svc ? [["chome", "◎ Мой кабинет"], ["cfin", "₽ Финансы"], ["ccli", "👥 Клиенты"]] as const : []), ["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => !svc || ["chome", "cfin", "ccli"].includes(k)).map(([k, l]) =>
+        {([...(svc ? [["chome", "◎ Мой кабинет"], ["cfin", "₽ Финансы"], ["ccli", "👥 Клиенты"], ["cprod", "📦 Продукты"]] as const : []), ["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => !svc || ["chome", "cfin", "ccli", "cprod"].includes(k)).map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
@@ -413,7 +413,9 @@ export default function ClientPortal() {
         </div>;
       })() : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
 
-      {svc && (tab === "chome" || tab === "cfin" || tab === "ccli") && <div style={{ marginTop: 10 }}><ServiceCrm wsId={wsId!} cid={p.id} view={tab === "chome" ? "home" : tab === "cfin" ? "fin" : "clients"} /></div>}
+      {svc && (tab === "chome" || tab === "cfin" || tab === "ccli" || tab === "cprod") && <div style={{ marginTop: 10 }}><ServiceCrm wsId={wsId!} p={p}
+        view={tab === "chome" ? "home" : tab === "cfin" ? "fin" : tab === "ccli" ? "clients" : "products"}
+        onNav={(v) => setTab(v === "home" ? "chome" : v === "fin" ? "cfin" : v === "clients" ? "ccli" : "cprod")} /></div>}
       {view === "goods" && !svc && pnl?.goods && cur != null && <GoodsReport g={pnl.goods} mk={pnl.months[cur].mk || ""} label={`${pnl.months[cur].label} ${pnl.months[cur].year}`} p={p} wsId={wsId!} isOwner={isOwner} />}
       {view === "an" && pnl && cur != null && (() => {
         // Аналитика: ключевые строки ОПиУ за 3 или 6 месяцев (до выбранного включительно)
