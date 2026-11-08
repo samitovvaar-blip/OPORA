@@ -283,6 +283,6 @@ function doPost(e) {
   put('ПРИЛОЖЕНИЕ ПРОЕКТЫ', ['Начало', 'Проект', 'Продукт', 'Клиент', 'Стоимость', 'Оплачено', 'Долг', 'Статус', 'Срок', 'Дата оплаты', 'Расходы по проекту', 'Прибыль', 'Маржа'], b.projects);
   put('ПРИЛОЖЕНИЕ КЛИЕНТЫ', ['Клиент', 'Компания', 'Телефон', 'Откуда', 'Заметка', 'В базе с', 'Статус'], b.clients);
   // Кабинет «Товары»: данные, которые вносятся в кабинете (ОП, планирование, ход работы) — свои листы «КАБИНЕТ · …»
-  if (b.sheets) Object.keys(b.sheets).forEach(function (n) { if (/^КАБИНЕТ/.test(n)) put(n, b.sheets[n].head, b.sheets[n].rows); });
+  if (b.sheets) Object.keys(b.sheets).forEach(function (n) { if (/^(КАБИНЕТ|ДДС ИЗ КАБИНЕТА)/.test(n)) put(n, b.sheets[n].head, b.sheets[n].rows); });
   return out({ ok: true, at: new Date().toISOString() });
 }

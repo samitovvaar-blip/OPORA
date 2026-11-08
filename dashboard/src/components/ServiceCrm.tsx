@@ -163,7 +163,14 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
   const push = () => {
     const s = p.crmSheet; if (!s?.exec) return;
     setSync("wait");
+    // те же операции — в формате базы ДДС (как «ДДС БОТ ОСНОВНЫЕ»), отдельным листом «ДДС ИЗ КАБИНЕТА»
+    const ddsRows = [...moves].sort((x, y) => x.date.localeCompare(y.date)).map((m) => { const pr = projects.find((x) => x.id === m.projectId);
+      const proc = m.type === "in" ? "Доходы" : pr ? "Расходы по проектам" : "Общие расходы";
+      const art = m.type === "in" ? (pr ? "Оплата проекта" : m.category || "Прочий доход") : m.category || "Прочее";
+      return [p.name, proc, art, pr ? cname(pr.clientId) : "", [pr?.name, m.note].filter(Boolean).join(" · "), MONTHS[Number(m.date.slice(5, 7)) - 1], dmy(m.date), m.account || "",
+        m.type === "in" ? m.amount : -m.amount, m.type === "in" ? "Приход" : "Расход", dmy(m.date), Number(m.date.slice(5, 7)), "Из кабинета ОПОРЫ"]; });
     const body = JSON.stringify({ key: s.key,
+      sheets: { "ДДС ИЗ КАБИНЕТА": { head: ["Направление", "Процессы", "Статьи для отчета", "Контрагент", "Назначение платежа", "Месяц", "Дата операции ДДС", "Счет операции", "Сумма", "ПриходРасход", "Дата для отчета", "Месяц для отчета", "Комментарий"], rows: ddsRows } },
       moves: [...moves].reverse().map((m) => { const pr = projects.find((x) => x.id === m.projectId);
         return [dmy(m.date), MONTHS[Number(m.date.slice(5, 7)) - 1] + " " + m.date.slice(0, 4), m.type === "in" ? "Приход" : "Расход", m.amount, m.account || "", m.type === "in" ? (pr ? "Оплата проекта" : "Доход") : m.category || "Прочее", pr?.name || "", pr ? cname(pr.clientId) : "", m.note]; }),
       projects: projects.map((x) => [dmy(x.start), x.name, pids(x).map((id) => products.find((y) => y.id === id)?.name).filter(Boolean).join(", "), cname(x.clientId), x.price, paidOf(x.id), debt(x), ST[x.status], dmy(x.deadline), dmy(x.payDate), costOf(x.id), x.price - costOf(x.id), x.price ? Math.round((x.price - costOf(x.id)) / x.price * 100) + "%" : ""]),
