@@ -538,3 +538,7 @@ input,select,textarea{border-radius:12px}
 /* кнопки-плитки: текст не обрезается — переносится, отдельная кнопка в строке не сжимается */
 .work-btn{height:auto;min-height:48px;padding:6px 14px;white-space:normal;text-align:center;line-height:1.2}
 .row>.work-btn,.card>.work-btn,span>.work-btn{flex-shrink:0;width:auto;max-width:100%}
+/* раскрытый расчёт плитки — продолжение той же плитки */
+.crm-tiles .tile[data-open]{border-bottom-left-radius:0!important;border-bottom-right-radius:0!important;overflow:visible!important;box-shadow:none}
+.crm-tiles .tile>.tile-calc{position:absolute!important;max-width:none!important;z-index:30!important;left:0;right:0;border-radius:0 0 22px 22px!important}
+@media (max-width:720px){.crm-tiles .tile>.tile-calc{border-radius:0 0 18px 18px!important}}
