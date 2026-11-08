@@ -301,7 +301,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
       </div>;
     })()
   );
-  if (view === "tips") {
+  const renderTips = () => {
     // ориентиры для бизнеса в сфере услуг (за текущий месяц)
     const K = today().slice(0, 7), T = stat(K);
     const salary = moves.filter((x) => x.type === "out" && (x.employeeId || /зарплат/i.test(x.category || "")) && mkOf(x.date) === K).reduce((a, x) => a + x.amount, 0);
@@ -315,7 +315,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
       { t: "Конверсия лидов в проекты", v: conv, goal: "20–30%", ok: (v) => v >= 20, why: "Из 10 лидов 2–3 должны становиться клиентами. Если меньше — давайте посмотрим, как вы обрабатываете заявки и что в КП." },
       { t: "Долги клиентов", v: debtAll, unit: "₽", goal: "0 ₽ — все оплаты вовремя", ok: (v) => v === 0, why: "Неоплаченный проект — это ваша работа без денег. Я бы напоминала клиенту об оплате прямо в день платежа." },
     ];
-    return <>{fab}
+    return <>
       <div className="card">
         <div className="row" style={{ justifyContent: "flex-start", gap: 12, alignItems: "center", marginBottom: 10 }}>
           <img src="neyla.jpg" alt="" style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
@@ -335,10 +335,6 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
         <div className="small muted" style={{ marginBottom: 10 }}>Расскажите про ОПОРУ знакомым предпринимателям — я и им помогу разобраться с цифрами 💛 — Нейла</div>
         <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700, padding: "8px 18px" }} onClick={() => { const url = location.origin + location.pathname, text = "Веду финансы бизнеса с ОПОРОЙ — понятные цифры каждый месяц. Рекомендую!";
           if (navigator.share) navigator.share({ title: "ОПОРА", text, url }).catch(() => {}); else { navigator.clipboard?.writeText(text + " " + url); alert("Ссылка скопирована — отправьте её другу 💛"); } }}><Ic n="heart" c="#fff" />Порекомендовать ОПОРУ</button>
-      </div>
-      <div className="card" style={{ marginTop: 12 }}>
-        <div className="row" style={{ flexWrap: "wrap", gap: 8 }}><span><b><Ic n="book" />Как пользоваться кабинетом</b><div className="small muted">Нейла заново покажет все вкладки по шагам</div></span>
-          <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => goTour(0)}>▶ Пройти обучение</button></div>
       </div>
       {(p.crmSheet?.exec || isOwner) && <div className="card" style={{ marginTop: 12 }}>
         <h3 style={{ marginTop: 0 }}><Ic n="sheet" />Google-таблица</h3>
@@ -361,7 +357,8 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     </div>}
       </div>}
     </>;
-  }
+  };
+  if (view === "tips") return <>{fab}{renderTips()}</>;
   if (view === "fin") return <>
     {fab}
     {MonthPick}
@@ -447,6 +444,16 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
         <tr className="pnl-key"><td>Итого за {anN === 12 ? "год" : anN + " мес."}</td><td>{rub(tot.inc)}</td><td className={tot.inc - tot.out < 0 ? "error" : "ok"}>{rub(tot.inc - tot.out)}</td>
           <td>{pctS(tot.pi ? Math.round((tot.pi - tot.pc) / tot.pi * 100) : null)}</td><td>{pctS(tot.inc ? Math.round((tot.inc - tot.out) / tot.inc * 100) : null)}</td></tr>
       </tbody></table></div>
+    </div>
+    {/* помощь: обучение, установка на телефон, советы Нейлы */}
+    <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
+      <Fold icon="spark" title="Нейла советует" extra="ваши цифры и ориентиры">{renderTips()}</Fold>
+      <Fold icon="book" title="Помощь" extra="обучение · установка на телефон">
+        <div className="row" style={{ justifyContent: "flex-start", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => goTour(0)}>▶ Пройти обучение</button>
+        </div>
+        <InstallHow />
+      </Fold>
     </div>
     {/* кнопки внизу: Google-таблица, таблица, Нейла, чат, поддержка */}
     <div className="work-btns" style={{ marginTop: 16 }}>
@@ -1038,7 +1045,8 @@ const TOUR: { view: CrmView; title: string; text: string[] }[] = [
   { view: "clients", title: "Клиенты: лиды и проекты", text: ["В «Базе лидов» — все, кто к вам обращался. Статус меняется цветной плашкой рядом с именем, «⚙ Настройки» — заметки и комментарии.", "Статус «▶ Начали работу» сразу создаёт проект.", "Во вкладке «Проекты» — сумма в месяц, кнопка «✓ Оплатили», доходы и расходы по проекту, прибыль и маржа."] },
   { view: "fin", title: "Финансы", text: ["Сверху — план / факт месяца и структура расходов: куда уходят деньги.", "Ниже — общие расходы (аренда, сервисы), то, что ждёт проведения, все операции месяца и остатки на счетах.", "Оранжевая строка «Ждут проведения» — напоминание, что что-то ещё не внесено."] },
   { view: "home", title: "Мой кабинет", text: ["Главные цифры месяца: выручка, расходы, чистая прибыль и рентабельность.", "Нажмите на любую плитку — внутри откроется расчёт, откуда взялась цифра.", "Ниже — проекты в работе (кто оплатил, прибыль и маржа), показатели и аналитика за 3–12 месяцев."] },
-  { view: "tips", title: "Рекомендации", text: ["Здесь я сравниваю ваши цифры с тем, к чему стремятся бизнесы в сфере услуг, и подсказываю, на что обратить внимание.", "Тут же можно снова пройти это обучение. А если нужен совет — нажмите на меня в правом нижнем углу 💛"] },
+  { view: "home", title: "Мои советы", text: ["Внизу «Моего кабинета» — блок «Нейла советует»: я сравниваю ваши цифры с ориентирами для сферы услуг.", "Там же «Помощь»: можно снова пройти это обучение."] },
+  { view: "home", title: "Установите кабинет на телефон 📱", text: ["iPhone: откройте кабинет в Safari → «Поделиться» ⬆ → «На экран „Домой“».", "Android: в Chrome нажмите ⋮ → «Установить приложение» (или «Добавить на главный экран»).", "Иконка появится рядом с другими приложениями. А если нужен совет — нажмите на меня справа внизу 💛"] },
 ];
 function TourCard({ n, go }: { n: number; go: (n: number | null) => void }) {
   const st = TOUR[n], last = n === TOUR.length - 1;
@@ -1054,4 +1062,15 @@ function TourCard({ n, go }: { n: number; go: (n: number | null) => void }) {
         <span>{n > 0 && <button className="ghost" onClick={() => go(n - 1)}>← Назад</button>}{" "}
           <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => go(last ? null : n + 1)}>{last ? "Готово ✓" : "Далее →"}</button></span></div>
     </div></div>;
+}
+
+// как поставить кабинет на телефон
+function InstallHow() {
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  return <div className="small" style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+    <div style={{ padding: 10, borderRadius: 10, border: `1px solid ${ios ? "#e8873a" : "var(--border, #e5e5e5)"}` }}><b>📱 iPhone</b>
+      <ol style={{ margin: "4px 0 0", paddingLeft: 18 }}><li>Откройте кабинет в <b>Safari</b></li><li>Нажмите «Поделиться» ⬆ внизу экрана</li><li>Выберите <b>«На экран „Домой“»</b> → «Добавить»</li></ol></div>
+    <div style={{ padding: 10, borderRadius: 10, border: `1px solid ${!ios ? "#e8873a" : "var(--border, #e5e5e5)"}` }}><b>🤖 Android</b>
+      <ol style={{ margin: "4px 0 0", paddingLeft: 18 }}><li>Откройте кабинет в <b>Chrome</b></li><li>Нажмите ⋮ в правом верхнем углу</li><li>Выберите <b>«Установить приложение»</b> или «Добавить на главный экран»</li></ol></div>
+  </div>;
 }

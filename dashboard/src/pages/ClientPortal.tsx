@@ -149,7 +149,7 @@ export default function ClientPortal() {
       })()}
       {preview && <h1>{p.name}</h1>}
       {preview && <div className="chips" style={{ marginTop: 12 }}>
-        {([...(svc ? [["chome", "spiral|Мой кабинет"], ["cfin", "money|Финансы"], ["ccli", "users|Клиенты"], ["cstaff", "case|Сотрудники"], ["cprod", "box|Продукты"], ["ctips", "spark|Рекомендации"]] as const : []), ["dash", "spiral|Мой кабинет"], ["rep", "book|Отчётность"], ["work", "case|Ход работы"], ["plan", "plan|Планирование"], ["op", "in|Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => !svc || ["chome", "cfin", "ccli", "cstaff", "cprod", "ctips"].includes(k)).map(([k, l]) =>
+        {([...(svc ? [["chome", "spiral|Мой кабинет"], ["cfin", "money|Финансы"], ["ccli", "users|Клиенты"], ["cstaff", "case|Сотрудники"], ["cprod", "box|Продукты"]] as const : []), ["dash", "spiral|Мой кабинет"], ["rep", "book|Отчётность"], ["work", "case|Ход работы"], ["plan", "plan|Планирование"], ["op", "in|Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => !svc || ["chome", "cfin", "ccli", "cstaff", "cprod", "ctips"].includes(k)).map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{(() => { const [ic, t] = l.split("|"); return <>{ic === "spiral" ? <img src="spiral-orange.png" alt="" style={{ width: 16, height: 16, verticalAlign: "-3px", marginRight: 6 }} /> : <Ic n={ic} c="currentColor" s={16} />}{t}</>; })()}</button>)}
       </div>}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
