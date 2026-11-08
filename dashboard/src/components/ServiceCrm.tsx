@@ -27,6 +27,19 @@ const ACCOUNTS = ["Расчётный счёт", "Карта", "Наличные
 const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Не дозвонились", "#f0a868"], ["Созвон / в диалоге", "#25476f"], ["Вернуться", "#3b6db3"], ["Отказ", "#c0392b"], ["Закончили работу", "#16304f"]];
 const cstColor = (s?: string) => CST.find(([k]) => k === s)?.[1] || "#888";
 const Badge = ({ s }: { s?: string }) => <span style={{ background: cstColor(s), color: "#fff", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{s || "без статуса"}</span>;
+// вставка списком из таблицы: маленькая кнопка-значок; строки → колонки через Tab
+function BulkPaste({ cols, onRows }: { cols: string; onRows: (rows: string[][]) => void }) {
+  const [t, setT] = useState<string | null>(null);
+  const rows = (t || "").split(/\r?\n/).map((l) => l.split("\t").map((x) => x.trim())).filter((x) => x[0] && !/^(имя|название|наименование)$/i.test(x[0]));
+  return <>
+    <button type="button" className="ghost" title={"Вставить списком из таблицы: " + cols} style={{ padding: "2px 8px", opacity: .6 }} onClick={() => setT(t == null ? "" : null)}>📋</button>
+    {t != null && <div className="card soft-card small" style={{ gridColumn: "1 / -1", width: "100%", marginTop: 8, display: "grid", gap: 6 }}>
+      <span className="muted">{cols}</span>
+      <textarea rows={5} value={t} onChange={(e) => setT(e.target.value)} />
+      <span><button disabled={!rows.length} onClick={() => { onRows(rows); setT(null); }}>✓ Добавить {rows.length}</button> <button className="ghost" onClick={() => setT(null)}>✕</button></span>
+    </div>}
+  </>;
+}
 // подсказка «как считается» — открывается по нажатию
 function Info({ title, children }: { title: string; children: React.ReactNode }) {
   return <details className="small" style={{ marginTop: 8 }}><summary className="muted" style={{ cursor: "pointer" }}>ⓘ {title}</summary>
@@ -350,6 +363,7 @@ function FinTab({ pending, MonthPick, mk, moves, projects, pname, add, del, upd,
       <div className="row small" style={{ justifyContent: "flex-start", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
         <button onClick={() => setAddF(!addF)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addF ? "✕ Закрыть" : "+ Добавить"}</button>
         <button className="ghost" onClick={copyPrev}>⧉ Скопировать расходы прошлого месяца</button>
+        <BulkPaste cols="Название · Сумма · Число месяца · Статья (каждая строка — ежемесячный общий расход)" onRows={(rows) => rows.forEach(([n, a, d, c]) => add({ kind: "regular", name: n, amount: Number(String(a || "").replace(/[^\d.,]/g, "").replace(",", ".")) || 0, day: Math.min(31, Math.max(1, Number(d) || 1)), category: c || "Прочее", account: ACCOUNTS[0] }))} />
       </div>
       {addF &&     <form className="row small" onSubmit={submit} style={{ flexWrap: "wrap", gap: 6, marginTop: 10 }}>
       <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value as "in" | "out" })}><option value="in">➕ Доход</option><option value="out">➖ Расход</option></select>
@@ -395,6 +409,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
   const [addOpen, setAddOpen] = useState(false);
   const [pick, setPick] = useState<string | null>(null);
   const [sel, setSel] = useState<string[]>([]);
+  const [bulkSrc, setBulkSrc] = useState("");
   // убранный статус «Ждёт предложение» → «Ждёт обработку»
   useEffect(() => { clients.filter((x) => x.status === "Ждёт предложение").forEach((x) => upd(x.id, { status: "Ждёт обработку" })); }, [clients.length]);
   const [pAdd, setPAdd] = useState(false);
@@ -432,7 +447,14 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
       <div className="card">
         <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>🛠 {filter === "done" ? "Отключённые проекты" : "Проекты"} · {shownP.length}</b><span>
           {projects.some((x) => x.status === "done") && <button className="ghost" style={{ marginRight: 6 }} onClick={() => setFilter(filter === "done" ? "all" : "done")}>{filter === "done" ? "← Активные" : `⏸ Отключённые · ${projects.filter((x) => x.status === "done").length}`}</button>}
-          <button onClick={() => setPAdd(!pAdd)}>{pAdd ? "✕ Закрыть" : "+ Новый проект"}</button></span></div>
+          <button onClick={() => setPAdd(!pAdd)}>{pAdd ? "✕ Закрыть" : "+ Новый проект"}</button>
+          <BulkPaste cols="Название · Клиент · Сумма в месяц · Число оплаты" onRows={async (rows) => {
+            for (const [name, cl, price, day] of rows) {
+              let cid = clients.find((c) => c.name.trim().toLowerCase() === (cl || "").trim().toLowerCase())?.id;
+              if (!cid && cl) { const ref = await add({ kind: "client", name: cl.trim(), status: "Ждёт обработку", created: today() }) as { id?: string } | undefined; cid = ref?.id; }
+              if (!cid) continue;
+              add({ kind: "project", name, clientId: cid, price: Number(String(price || "").replace(/[^\d.,]/g, "").replace(",", ".")) || 0, status: "work", start: today(), monthly: true, payDay: Math.min(31, Math.max(1, Number(day) || 1)) });
+            } }} /></span></div>
         {pAdd && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!pr.name.trim() || !pr.clientId) return;
           add({ kind: "project", name: pr.name.trim(), clientId: pr.clientId, price: Number(pr.price) || 0, status: "new", start: today(),
             ...(pr.productId ? { productId: pr.productId } : {}), ...(pr.deadline ? { deadline: pr.deadline } : {}), ...(!pr.monthly && pr.payDate ? { payDate: pr.payDate } : {}), monthly: pr.monthly, ...(pr.monthly ? { payDay: Math.min(31, Math.max(1, Number(pr.payDay) || Number(today().slice(8)))) } : {}) });
@@ -554,7 +576,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
       <div className="card">
         <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>📊 Свод по лидам · {leads.length}</b>
           <span><button onClick={() => { setAddOpen(!addOpen); setBulk(null); }}>{addOpen ? "✕ Закрыть" : "+ Добавить лида"}</button>
-            <button className="ghost" style={{ marginLeft: 6 }} onClick={() => { setBulk(bulk == null ? "" : null); setAddOpen(false); }}>{bulk == null ? "📋 Списком из таблицы" : "✕ Закрыть"}</button></span></div>
+            <button className="ghost" title="Вставить списком из таблицы" style={{ marginLeft: 6, padding: "2px 8px", opacity: .6 }} onClick={() => { setBulk(bulk == null ? "" : null); setAddOpen(false); }}>{bulk == null ? "📋" : "✕"}</button></span></div>
         {/* Свод: статусы и источники — списком */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, margin: "10px 0" }}>
           <div className="small"><div className="muted" style={{ marginBottom: 4 }}>По статусам</div>
@@ -600,6 +622,10 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
         {sel.length > 0 && <div className="small" style={{ padding: "8px 14px", background: "var(--bg)", borderBottom: "1px solid var(--border, #e5e5e5)", display: "grid", gap: 6 }}>
           <div className="row"><b>Выбрано: {sel.length}</b><span><button className="ghost" onClick={() => setSel([])}>✕ Снять</button>
             <button className="ghost" style={{ color: "#b02a2a" }} onClick={() => { if (confirm(`Удалить ${sel.length} лид(ов)?`)) { sel.forEach((id) => del0(id)); setSel([]); } }}>🗑 Удалить</button></span></div>
+          <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap" }}><span className="muted">Откуда пришёл:</span>
+            <input list="crm-src" placeholder="Telegram, Instagram…" value={bulkSrc} onChange={(e) => setBulkSrc(e.target.value)} style={{ width: 180 }} />
+            <datalist id="crm-src">{SOURCES.map((x) => <option key={x} value={x} />)}</datalist>
+            <button disabled={!bulkSrc.trim()} onClick={() => { sel.forEach((id) => upd(id, { source: bulkSrc.trim() })); setSel([]); setBulkSrc(""); }}>✓ Применить</button></div>
           <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap" }}><span className="muted">Перенести в статус:</span>
             {CST.map(([k, c]) => <button key={k} onClick={() => { sel.forEach((id) => upd(id, { status: k })); setSel([]); }}
               style={{ background: "transparent", color: c, border: `1.5px solid ${c}`, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>{k}</button>)}</div>
@@ -647,7 +673,8 @@ function ProductsTab({ products, projects, add, del, upd }: {
 }) {
   const [f, setF] = useState({ name: "", price: "", descr: "" });
   return <div className="card">
-    <h3 style={{ marginTop: 0 }}>📦 Мои продукты и услуги</h3>
+    <div className="row"><h3 style={{ margin: 0 }}>📦 Мои продукты и услуги</h3>
+      <BulkPaste cols="Название · Цена · Что входит" onRows={(rows) => rows.forEach(([n, pr, d]) => add({ kind: "product", name: n, price: Number(String(pr || "").replace(/[^\d.,]/g, "").replace(",", ".")) || 0, descr: d || "" }))} /></div>
     <form className="row small" style={{ flexWrap: "wrap", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!f.name.trim()) return;
       add({ kind: "product", name: f.name.trim(), price: Number(f.price) || 0, descr: f.descr.trim() }); setF({ name: "", price: "", descr: "" }); }}>
       <input placeholder="Название (например: Дизайн логотипа)" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} style={{ flex: "1 1 180px" }} />
@@ -742,7 +769,8 @@ function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd,
     {MonthPick}
     <div className="card">
       <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>👷 Сотрудники · {staff.length}</b>
-        <button onClick={() => setAddOpen(!addOpen)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addOpen ? "✕ Закрыть" : "+ Добавить сотрудника"}</button></div>
+        <button onClick={() => setAddOpen(!addOpen)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addOpen ? "✕ Закрыть" : "+ Добавить сотрудника"}</button>
+        <BulkPaste cols="Имя · Контакт · Сумма в месяц (фикса, общий расход)" onRows={(rows) => rows.forEach(([n, c, a]) => add({ kind: "employee", name: n, contact: c || "", projectIds: [], payType: "fixed", amount: Number(String(a || "").replace(/[^\d.,]/g, "").replace(",", ".")) || 0, day: 10 }))} /></div>
       <div className="small" style={{ marginTop: 6 }}>Зарплаты за месяц: <b>{rub(total)}</b></div>
       {addOpen && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!f.name.trim()) return;
         add({ kind: "employee", name: f.name.trim(), contact: f.contact.trim(), projectIds: f.projectIds, payType: f.payType, amount: Number(f.amount) || 0, day: Math.min(31, Math.max(1, Number(f.day) || 10)) });
