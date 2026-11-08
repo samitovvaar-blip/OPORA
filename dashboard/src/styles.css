@@ -531,3 +531,4 @@ input,select,textarea{border-radius:12px}
 .pnl-table.crm-t td,.pnl-table.crm-t th{white-space:normal;word-break:break-word}
 .pnl-table.crm-t td:first-child,.pnl-table.crm-t th:first-child{min-width:0}
 .pnl-table.crm-t td.ok,.pnl-table.crm-t td.neg,.pnl-table.crm-t td.error{white-space:nowrap}
+.fold>summary::-webkit-details-marker{display:none}.fold[open]>summary{border-bottom:1px solid var(--border,#e5e5e5);padding-bottom:8px}

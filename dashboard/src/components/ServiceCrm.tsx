@@ -72,6 +72,13 @@ export const ICONS: Record<string, string> = {
 export function Ic({ n, c = "#e8873a", s = 18 }: { n: string; c?: string; s?: number }) {
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "-3px", marginRight: 6, flexShrink: 0 }}><path d={ICONS[n]} /></svg>;
 }
+// свёрнутый раздел: строка с иконкой и жирным заголовком, по нажатию раскрывается
+function Fold({ icon, title, extra, children }: { icon: string; title: React.ReactNode; extra?: React.ReactNode; children: React.ReactNode }) {
+  return <details className="card fold" style={{ marginTop: 10, padding: "10px 14px" }}>
+    <summary style={{ cursor: "pointer", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+      <b><Ic n={icon} />{title}</b><span className="small muted">{extra}</span></summary>
+    <div style={{ marginTop: 10 }}>{children}</div></details>;
+}
 // подсказка «как считается» — открывается по нажатию
 function Info({ title, children }: { title: string; children: React.ReactNode }) {
   return <details className="small" style={{ marginTop: 8 }}><summary className="muted" style={{ cursor: "pointer" }}>ⓘ {title}</summary>
@@ -399,14 +406,13 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
     prevOut.forEach((m) => add({ kind: "move", type: "out", amount: m.amount, date: `${mk}-${String(Math.min(Number(m.date.slice(8)), lastDay)).padStart(2, "0")}`, note: m.note, category: m.category || "Прочее", account: m.account || ACCOUNTS[0] })); };
   return <>
     {MonthPick}
-    <div className="card" style={{ marginTop: 12 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+    <Fold icon="wallet" title="Остатки на конец месяца" extra={rub(accs.reduce((x, a) => x + bal(a), 0))}>
         <div>
-        <b><Ic n="wallet" />Остатки на конец месяца</b>
         {accs.map((a) => <div key={a} className="row small"><span>{a}</span><b className={bal(a) < 0 ? "error" : ""}>{rub(bal(a))}</b></div>)}
         <div className="row small" style={{ borderTop: "1px solid var(--border, #ddd)", paddingTop: 4 }}><b>Всего</b><b>{rub(accs.reduce((x, a) => x + bal(a), 0))}</b></div>
         </div>
-        <div>
+    </Fold>
+    <Fold icon="layers" title="Общие расходы" extra={rub(moves.filter((m) => m.type === "out" && !m.projectId && mkOf(m.date) === mk).reduce((a, m) => a + m.amount, 0)) + " за месяц"}>
     <Regulars {...{ mk, regulars: regulars.filter((x) => !x.projectId), moves, projects, pname, add, del, upd, nActive, projectId: undefined, flat: true }} extra={<>
       <div className="row small" style={{ justifyContent: "flex-start", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
         <button onClick={() => setAddF(!addF)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addF ? "✕ Закрыть" : "+ Добавить"}</button>
@@ -425,11 +431,9 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
       <button disabled={!Number(f.amount)}>✓ Сохранить</button>
     </form>}
     </>} />
-        </div>
-      </div>
-    </div>
-    <div className="card" style={{ marginTop: 12 }}>
-      <div className="row small" style={{ flexWrap: "wrap", gap: 6 }}><b style={{ fontSize: 15 }}><Ic n="book" />Операции за месяц</b>
+    </Fold>
+    <Fold icon="book" title="Операции за месяц" extra={`${inM.length} операц.`}>
+      <div className="row small" style={{ flexWrap: "wrap", gap: 6 }}><span />
         <span><label style={{ cursor: "pointer" }}><input type="checkbox" checked={inM.length > 0 && inM.every((x) => selO.includes(x.id))} onChange={(e) => setSelO(e.target.checked ? inM.map((x) => x.id) : [])} /> выбрать все</label>
           <button className="ghost" style={{ marginLeft: 6, padding: "2px 8px" }} onClick={() => setSelO(inM.filter((x) => x.employeeId || /зарплат/i.test(x.category || "")).map((x) => x.id))}>выбрать зарплаты</button></span></div>
       {selO.length > 0 && <div className="row small" style={{ marginTop: 6, padding: "6px 10px", background: "var(--bg)", borderRadius: 8 }}><b>Выбрано: {selO.length} · {rub(inM.filter((x) => selO.includes(x.id)).reduce((a, x) => a + x.amount, 0))}</b>
@@ -440,14 +444,17 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
         <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
         <td style={{ whiteSpace: "nowrap" }}><span className="small muted">{x.projectId ? "проект" : "общий"}</span> <button className="ghost" style={{ padding: "0 6px" }} onClick={() => del(x.id)}>🗑</button></td></tr>)}
       {!inM.length && <tr><td className="muted">В этом месяце операций нет</td></tr>}
-      {(pending || []).length > 0 && <tr><td colSpan={5} style={{ paddingTop: 12 }}><b>⏳ Не проведено · {(pending || []).length}</b>
-        <button className="ghost small" style={{ marginLeft: 8 }} onClick={() => (pending || []).forEach((x) => x.run())}>✓ Провести всё</button></td></tr>}
-      {(pending || []).map((x) => <tr key={x.key} style={{ opacity: .75 }}><td /><td className="small">{dmy(x.date)}</td>
+    </tbody></table>
+    </Fold>
+    {(pending || []).length > 0 && <Fold icon="repeat" title={`Не проведено · ${(pending || []).length}`} extra={rub((pending || []).reduce((a, x) => a + (x.type === "out" ? -x.amount : x.amount), 0))}>
+      <button className="ghost small" onClick={() => (pending || []).forEach((x) => x.run())}>✓ Провести всё</button>
+      <table className="pnl-table crm-t" style={{ marginTop: 8 }}><tbody>
+      {(pending || []).map((x) => <tr key={x.key}><td className="small">{dmy(x.date)}</td>
         <td>{x.label}<div className="small muted">не проведено</div></td>
         <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
         <td><button style={{ padding: "2px 10px" }} onClick={x.run}>Провести</button></td></tr>)}
-    </tbody></table>
-    </div>
+      </tbody></table>
+    </Fold>}
   </>;
 }
 
