@@ -242,13 +242,15 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     const fIn = stat(K).inc, fOut = stat(K).out;
     const projPlanCost = regs.filter((r) => r.projectId).reduce((a, r) => a + r.amount, 0);
     const pMarg = pIn ? Math.round((pIn - projPlanCost) / pIn * 100) : null, fMarg = stat(K).marg;
-    const pc = (pl: number, fa: number, inv?: boolean) => { const v = pl ? Math.round(fa / pl * 100) : null; return <td className={v == null ? "muted" : (inv ? fa <= pl : fa >= pl) ? "ok" : "error"}>{v == null ? "—" : v + "%"}</td>; };
+    // отклонение факта от плана: без оценки «хорошо/плохо», только направление и процент
+    const pc = (pl: number, fa: number, _inv?: boolean) => { const v = pl ? Math.round((fa - pl) / Math.abs(pl) * 100) : null;
+      return <td>{v == null ? "—" : v === 0 ? "0%" : `${v > 0 ? "▲" : "▼"} ${Math.abs(v)}%`}</td>; };
     const Sub = ({ l, pl, fa, warn }: { l: string; pl: number | null; fa: number; warn?: boolean }) => <tr className="small"><td style={{ paddingLeft: 22 }}>{l}</td><td>{pl != null ? rub(pl) : "—"}</td><td className={warn ? "error" : ""}>{fa ? rub(fa) : "—"}</td><td /></tr>;
     const tog = (k: string) => setPfOpen({ ...pfOpen, [k]: !pfOpen[k] });
     return <div className="card" style={{ margin: 0 }}>
       <h3 style={{ marginTop: 0 }}><Ic n="plan" />План / факт · {MONTHS[Number(K.slice(5)) - 1]} {K.slice(0, 4)}</h3>
       <div style={{ overflowX: "auto" }}><table className="pnl-table crm-t">
-        <thead><tr><th /><th className="small">План</th><th className="small">Факт</th><th className="small">%</th></tr></thead>
+        <thead><tr><th /><th className="small">План</th><th className="small">Факт</th><th className="small">Отклонение</th></tr></thead>
         <tbody>
           <tr className="pnl-key" style={{ cursor: "pointer" }} onClick={() => tog("in")}><td>{pfOpen.in ? "▾" : "▸"} Доходы</td><td>{rub(pIn)}</td><td>{rub(fIn)}</td>{pc(pIn, fIn)}</tr>
           {pfOpen.in && <>{planP.map(({ x, plan, fact, day }) => <Sub key={x.id} l={`${day}-го · ${cname(x.clientId)} · ${x.name}`} pl={plan} fa={fact}
