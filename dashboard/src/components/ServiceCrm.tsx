@@ -87,6 +87,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   const touch = () => { dirty.current = true; };
   const add = (data: object) => { touch(); return addDoc(col, data).catch((e) => alert("Не сохранилось: " + e.message)); };
   const del = (id: string) => { if (confirm("Удалить?")) { touch(); deleteDoc(doc(col, id)); } };
+  const del0 = (id: string) => { touch(); deleteDoc(doc(col, id)); };
   const upd = (id: string, data: object) => { touch(); return updateDoc(doc(col, id), data).catch((e) => alert("Не сохранилось: " + e.message)); };
 
   // ── выгрузка в Google-таблицу клиента (скрипт pnl.gs, doPost) ──
@@ -132,7 +133,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
       label: `Зарплата · ${e.name}${l.projectId ? " · " + pname(l.projectId) : " · общий"}`, amount: l.amount, type: "out", run: () => postSal(e, K, l.projectId || "") })));
     return out.sort((a, b) => a.date.localeCompare(b.date));
   };
-  if (view === "clients") return <ClientsTab {...{ staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} />;
+  if (view === "clients") return <ClientsTab {...{ del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} />;
   if (view === "products") return <ProductsTab {...{ products, projects, add, del, upd }} />;
   if (view === "staff") return <StaffTab {...{ MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }} />;
 
@@ -385,15 +386,16 @@ function FinTab({ pending, MonthPick, mk, moves, projects, pname, add, del, upd,
   </>;
 }
 
-function ClientsTab({ staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }: {
+function ClientsTab({ del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }: {
   staff: CEmployee[]; salPending: (e: CEmployee, K: string) => { amount: number; projectId?: string }[]; postSal: (e: CEmployee, K: string, pid?: string) => void;
   clients: CClient[]; projects: CProject[]; products: CProduct[]; moves: CMove[]; regulars: CRegular[]; paidOf: (id: string) => number; costOf: (id: string) => number; monthsOf: (p: CProject) => string[]; expectedOf: (p: CProject) => number; debt: (p: CProject) => number; cname: (id: string) => string;
-  add: (d: object) => Promise<unknown>; del: (id: string) => void; upd: (id: string, d: object) => void;
+  add: (d: object) => Promise<unknown>; del: (id: string) => void; del0: (id: string) => void; upd: (id: string, d: object) => void;
 }) {
   const [sub, setSub] = useState<"projects" | "base">("projects");
   const [c, setC] = useState({ name: "", company: "", phone: "", note: "", source: "", status: "" });
   const [addOpen, setAddOpen] = useState(false);
   const [pick, setPick] = useState<string | null>(null);
+  const [sel, setSel] = useState<string[]>([]);
   const [pAdd, setPAdd] = useState(false);
   const [costF, setCostF] = useState<{ id: string; amount: string; category: string; note: string; date: string; account: string } | null>(null);
   const [cmt, setCmt] = useState<Record<string, string>>({});
@@ -593,10 +595,20 @@ function ClientsTab({ staff, salPending, postSal, clients, projects, products, m
       {/* База лидов: имя слева, статус справа; нажал — карточка с правкой и комментариями */}
       <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
         <div className="row" style={{ padding: "10px 14px", borderBottom: "1px solid var(--border, #e5e5e5)" }}><b>📋 База лидов{cst !== "all" ? ` · ${cst}` : ""} · {shownC.length}</b>
-          {cst !== "all" && <button className="ghost small" onClick={() => setCst("all")}>показать всех</button>}</div>
+          <span>{cst !== "all" && <button className="ghost small" onClick={() => setCst("all")}>показать всех</button>}
+            <label className="small" style={{ marginLeft: 8, cursor: "pointer" }}><input type="checkbox" checked={shownC.length > 0 && shownC.every((x) => sel.includes(x.id))}
+              onChange={(e) => setSel(e.target.checked ? shownC.map((x) => x.id) : [])} /> выбрать всех</label></span></div>
+        {sel.length > 0 && <div className="small" style={{ padding: "8px 14px", background: "var(--bg)", borderBottom: "1px solid var(--border, #e5e5e5)", display: "grid", gap: 6 }}>
+          <div className="row"><b>Выбрано: {sel.length}</b><span><button className="ghost" onClick={() => setSel([])}>✕ Снять</button>
+            <button className="ghost" style={{ color: "#b02a2a" }} onClick={() => { if (confirm(`Удалить ${sel.length} лид(ов)?`)) { sel.forEach((id) => del0(id)); setSel([]); } }}>🗑 Удалить</button></span></div>
+          <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap" }}><span className="muted">Перенести в статус:</span>
+            {CST.map(([k, c]) => <button key={k} onClick={() => { sel.forEach((id) => upd(id, { status: k })); setSel([]); }}
+              style={{ background: "transparent", color: c, border: `1.5px solid ${c}`, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>{k}</button>)}</div>
+        </div>}
         {shownC.map((x) => { const ps = projects.filter((p) => p.clientId === x.id), d = ps.reduce((a, p) => a + debt(p), 0), on = open === x.id;
           return <div key={x.id} style={{ borderBottom: "1px solid var(--border, #e5e5e5)" }}>
             <div className="row" style={{ padding: "10px 14px", gap: 8 }}>
+              <input type="checkbox" checked={sel.includes(x.id)} onChange={(e) => setSel(e.target.checked ? [...sel, x.id] : sel.filter((i) => i !== x.id))} style={{ flexShrink: 0 }} />
               <div style={{ minWidth: 0, flex: 1 }}><b>{x.name}</b>{x.company && <span className="muted"> · {x.company}</span>}{" "}
                 <button onClick={() => setPick(pick === x.id ? null : x.id)} title="Сменить статус"
                   style={{ background: cstColor(x.status), color: "#fff", border: 0, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 700, marginLeft: 4 }}>{x.status || "Статус"} ▾</button>
