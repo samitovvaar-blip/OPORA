@@ -534,3 +534,4 @@ input,select,textarea{border-radius:12px}
 .fold>summary::-webkit-details-marker{display:none}.fold[open]>summary{border-bottom:1px solid var(--border,#e5e5e5);padding-bottom:8px}
 .crm-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:stretch}@media (max-width:820px){.crm-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .crm-tiles{align-items:start}
+.crm-tiles{align-items:stretch !important}.crm-tiles .tile{position:relative;overflow:visible !important}
