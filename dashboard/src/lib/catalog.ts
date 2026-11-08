@@ -1,9 +1,11 @@
 // Каталог ежемесячных задач по клиенту (из чек-листа Арины).
 // due — день месяца для календаря (31 = последний день месяца), null — без даты.
-export type Flag = "aysn" | "usn" | "osno" | "pat" | "npd" | "nds" | "sklad" | "mp" | "mgmt";
+export type Flag = "aysn" | "usn" | "osno" | "pat" | "npd" | "nds" | "sklad" | "mp" | "mgmt" | "org_self" | "org_ip" | "org_ooo";
+// организация: выбирается одна
+export const ORGS: [Flag, string][] = [["org_self", "Самозанятый"], ["org_ip", "ИП"], ["org_ooo", "ООО"]];
 export const REGIMES: [Flag, string][] = [["aysn", "АУСН"], ["usn", "УСН"], ["osno", "ОСНО"], ["pat", "Патент"], ["npd", "Самозанятый"]];
 export const EXTRAS: [Flag, string][] = [["nds", "НДС"], ["sklad", "Склад"], ["mp", "Маркетплейсы"], ["mgmt", "Управленческий учёт"]];
-export const FLAG_LABEL: Record<Flag, string> = { aysn: "АУСН", usn: "УСН", osno: "ОСНО", pat: "Патент", npd: "Самозанятый", nds: "НДС", sklad: "Склад", mp: "Маркетплейсы", mgmt: "Управленка" };
+export const FLAG_LABEL: Record<Flag, string> = { aysn: "АУСН", usn: "УСН", osno: "ОСНО", pat: "Патент", npd: "Самозанятый", nds: "НДС", sklad: "Склад", mp: "Маркетплейсы", mgmt: "Управленка", org_self: "Самозанятый", org_ip: "ИП", org_ooo: "ООО" };
 
 export interface Item { id: string; title: string; hint: string; check: boolean; only: Flag[]; due: number | null; }
 export interface Stage { id: string; when: string; title: string; fin?: boolean; items: Item[]; }
