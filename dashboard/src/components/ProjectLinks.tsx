@@ -1,9 +1,10 @@
 // Ссылки проекта: основная таблица, папка с документами, чат клиента
-export interface Links { sheet?: string; folder?: string; chat?: string; }
+export interface Links { sheet?: string; folder?: string; chat?: string; support?: string; }
 export const LINK_FIELDS: [keyof Links, string, string][] = [
   ["sheet", "📊 Таблица", "Ссылка на основную таблицу"],
   ["folder", "📁 Документы", "Ссылка на папку с документами"],
   ["chat", "💬 Чат", "Ссылка на чат или @ник в Telegram"],
+  ["support", "🛟 Поддержка", "Ссылка на поддержку (Telegram бухгалтера)"],
 ];
 
 // Только http(s); @ник → Telegram

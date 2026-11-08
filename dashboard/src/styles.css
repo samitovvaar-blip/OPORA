@@ -523,3 +523,5 @@ input,select,textarea{border-radius:12px}
 .key-line{background:#16304f;color:#fff;padding:6px 10px;border-radius:8px;font-size:13px;user-select:all}
 
 .tile.g-red{background:#c0392b;color:#fff;border:0}.g-red .muted,.g-red b{color:#fff}
+
+.crm-tiles .tile b{white-space:nowrap;font-size:clamp(18px,2.2vw,26px)}.crm-tiles .tile{min-width:0;overflow:hidden}

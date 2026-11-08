@@ -26,6 +26,11 @@ const ACCOUNTS = ["Расчётный счёт", "Карта", "Наличные
 const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Ждёт предложение", "#8a3ab9"], ["Вернуться", "#2a5bd7"], ["Отказ", "#b02a2a"], ["Закончили работу", "#16a34a"]];
 const cstColor = (s?: string) => CST.find(([k]) => k === s)?.[1] || "#888";
 const Badge = ({ s }: { s?: string }) => <span style={{ background: cstColor(s), color: "#fff", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{s || "без статуса"}</span>;
+// подсказка «как считается» — открывается по нажатию
+function Info({ title, children }: { title: string; children: React.ReactNode }) {
+  return <details className="small" style={{ marginTop: 8 }}><summary className="muted" style={{ cursor: "pointer" }}>ⓘ {title}</summary>
+    <div style={{ padding: "6px 10px", background: "var(--bg)", borderRadius: 8, marginTop: 4, lineHeight: 1.5 }}>{children}</div></details>;
+}
 // компактная сводка в одну строку внутри карточки: «● Статус 5 · 22%», нажал — фильтр
 function Summary({ items, cur, onPick }: { items: { k: string; l: string; c: string; n: number; extra?: string }[]; cur: string; onPick: (k: string) => void }) {
   const total = items[0]?.n || 0;
@@ -193,7 +198,13 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
           <tr><td>Рентабельность</td><td>{pIn ? Math.round((pIn - pOut) / pIn * 100) + "%" : "—"}</td><td>{fIn ? Math.round((fIn - fOut) / fIn * 100) + "%" : "—"}</td><td /></tr>
           <tr><td>Маржинальность</td><td>{pMarg != null ? pMarg + "%" : "—"}</td><td>{fMarg != null ? fMarg + "%" : "—"}</td><td /></tr>
         </tbody></table></div>
-      <div className="small muted" style={{ marginTop: 6 }}>Нажми «Доходы» или «Расходы», чтобы увидеть по каждому проекту и расходу. Стрелки ‹ › вверху — другой месяц.</div>
+      <Info title="Как считается план / факт, рентабельность и маржинальность">
+        <div><b>План доходов</b> — ежемесячные проекты (сумма в месяц) и разовые с оплатой в этом месяце. <b>Факт</b> — что реально пришло.</div>
+        <div><b>План расходов</b> — ежемесячные расходы (общие и по проектам) и зарплаты сотрудников. <b>Факт</b> — проведённые расходы.</div>
+        <div><b>Рентабельность</b> = (все доходы − все расходы) ÷ все доходы.</div>
+        <div><b>Маржинальность</b> = (доходы проектов − расходы проектов) ÷ доходы проектов. Общие расходы сюда не входят.</div>
+        <div>Нажми «Доходы» или «Расходы» в таблице — раскроется по каждому проекту и расходу.</div>
+      </Info>
     </div>;
   };
   const donut = (
@@ -229,12 +240,12 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   </>;
   return <>
     {MonthPick}
-    <div className="dash-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "stretch" }}>
+    <div className="crm-tiles" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, alignItems: "stretch" }}>
       <div className="card stat g-blue tile"><span className="tile-ico">💰</span><div className="muted">Выручка</div><b>{rub(S.inc)}</b><Delta v={S.inc} w={P.inc} /></div>
       <div className="card stat g-orange tile tile-link" onClick={() => onNav("fin")}><span className="tile-ico">💸</span><div className="muted">Расходы</div><b>{rub(S.out)}</b><span className="small">{S.inc ? Math.round(S.out / S.inc * 100) + "% выручки" : ""}</span></div>
       <div className={`card stat ${S.prof < 0 ? "g-red" : "g-green"} tile`}><span className="tile-ico">{S.prof < 0 ? "🔻" : "💎"}</span><div className="muted">{S.prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{rub(S.prof)}</b>{S.prof > 0 && P.prof > 0 && <Delta v={S.prof} w={P.prof} />}</div>
-      <div className="card stat g-orange t-light tile"><span className="tile-ico">📈</span><div className="muted">Рентабельность</div><b>{pctS(S.rent)}</b><span className="small">маржинальность <b>{pctS(S.marg)}</b></span></div>
-      <div className="card stat g-blue t-light tile tile-link" style={{ gridColumn: "1 / -1" }} onClick={() => setMargOpen(!margOpen)}>
+      <div className="card stat g-orange t-light tile"><span className="tile-ico">📈</span><div className="muted">Рентабельность</div><b>{pctS(S.rent)}</b><span className="small">маржинальность {pctS(S.marg)}</span></div>
+      <div className="card stat tile tile-link" style={{ gridColumn: "1 / -1", background: "#5b3fa0", color: "#fff", border: 0 }} onClick={() => setMargOpen(!margOpen)}>
         <div className="row" style={{ flexWrap: "wrap", gap: 8 }}><span><span className="tile-ico" style={{ position: "static", marginRight: 6 }}>🛠</span><span className="muted">Проекты в работе</span> <b style={{ fontSize: 22 }}>{work.length}</b></span>
           <span className="small">{unpaidM.length ? `⏳ не оплатили: ${unpaidM.length} · ${rub(unpaidM.reduce((a, x) => a + (x.monthly ? x.price - projIncome(mk, x.id) : debt(x)), 0))}` : "✓ все оплатили"} · {margOpen ? "▾ скрыть" : "▸ открыть"}</span></div></div>
     </div>
@@ -248,7 +259,11 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
             <td>{rub(i)}</td><td className="neg">{c ? rub(c) : "—"}</td><td className={i - c < 0 ? "error" : "ok"}>{rub(i - c)}</td><td><b>{pctS(mm)}</b></td><td className={mm2 != null && mm2 < 0 ? "error" : "muted"}>{pctS(mm2)}</td></tr>; })}
         {!margRows.length && <tr><td className="muted">Нет проектов</td></tr>}
       </tbody></table></div>
-      <div className="small muted">Маржа = (доходы проекта − расходы проекта) ÷ доходы. «С общими» — ещё минус доля общих расходов: {rub(shared(mk))} ÷ {activeIn(mk).length} = {rub(shareOf(mk))} на проект.</div>
+      <Info title="Как считается маржа и рентабельность">
+        <div><b>Маржа проекта</b> = (доходы проекта − расходы проекта) ÷ доходы проекта.</div>
+        <div><b>С общими</b> — ещё минус доля общих расходов: {rub(shared(mk))} ÷ {activeIn(mk).length} проект. = {rub(shareOf(mk))} на проект.</div>
+        <div><b>Рентабельность</b> = (все доходы − все расходы) ÷ все доходы.</div>
+      </Info>
     </div>}
     <div className="card" style={{ marginTop: 12 }}>
       <h3 style={{ marginTop: 0 }}>Показатели · {MONTHS[m - 1]}</h3>
@@ -266,7 +281,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
         </div>
       </div>
     </div>
-    <div className="card" style={{ marginTop: 12 }}>
+    <div className="card" style={{ marginTop: 12 }} id="crm-an">
       <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><h3 style={{ margin: 0 }}>📊 Аналитика</h3>
         <span>{[3, 6, 9, 12].map((n) => <button key={n} className={anN === n ? "" : "ghost"} style={{ padding: "2px 10px", marginLeft: 4 }} onClick={() => setAnN(n)}>{n === 12 ? "год" : n + " мес."}</button>)}</span></div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 110, marginTop: 10 }}>
@@ -283,6 +298,11 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
         <tr className="pnl-key"><td>Итого за {anN === 12 ? "год" : anN + " мес."}</td><td>{rub(tot.inc)}</td><td className={tot.inc - tot.out < 0 ? "error" : "ok"}>{rub(tot.inc - tot.out)}</td>
           <td>{pctS(tot.pi ? Math.round((tot.pi - tot.pc) / tot.pi * 100) : null)}</td><td>{pctS(tot.inc ? Math.round((tot.inc - tot.out) / tot.inc * 100) : null)}</td></tr>
       </tbody></table></div>
+    </div>
+    {/* кнопки внизу: таблица, Нейла, чат, поддержка */}
+    <div className="work-btns" style={{ marginTop: 16 }}>
+      {([["📊 Таблица", p.crmSheet?.url || p.links?.sheet], ["🤖 Нейла", "https://t.me/dsmitovvaservbot"], ["💬 Чат", p.links?.chat], ["🛟 Поддержка", p.links?.support || p.links?.chat]] as [string, string | undefined][]).map(([l, u]) =>
+        u ? <a key={l} className="work-btn" href={u} target="_blank" rel="noopener noreferrer">{l}</a> : <span key={l} className="work-btn off">{l}</span>)}
     </div>
   </>;
 }
@@ -347,7 +367,7 @@ function FinTab({ pending, MonthPick, mk, moves, projects, pname, add, del, upd,
       </div>
     </div>
     <div className="card" style={{ marginTop: 12 }}>
-      <b>📒 Операции за месяц</b> <span className="small muted">— справочник: все доходы и расходы месяца, по проектам и общие</span>
+      <b>📒 Операции за месяц</b>
     <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
       {inM.map((x) => <tr key={x.id}><td className="small">{dmy(x.date)}</td>
         <td>{x.type === "in" ? (x.projectId ? `Оплата: ${pname(x.projectId) || "проект"}` : x.category || "Доход") : (x.category || "Расход") + (x.projectId ? ` · ${pname(x.projectId)}` : "")}<div className="small muted">{x.account || ""}{x.note ? " · " + x.note : ""}</div></td>
@@ -516,7 +536,7 @@ function ClientsTab({ staff, salPending, postSal, clients, projects, products, m
                     : <L l="Оплата до"><input type="date" value={x.payDate || ""} onChange={(e) => upd(x.id, { payDate: e.target.value })} style={{ flex: 1 }} /></L>}
                   <L l="Начало"><input type="date" value={x.start} onChange={(e) => e.target.value && upd(x.id, { start: e.target.value })} style={{ flex: 1 }} /></L>
                 </div>
-                <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 10 }}><span className="muted">изменения сохраняются сами</span>
+                <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 10 }}><span />
                   <span>{x.status !== "done" ? <button style={{ background: "#6b7280", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => finish(x)}>⏸ Отключить проект</button>
                     : <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => { upd(x.id, { status: "work" }); setFilter("all"); }}>▶ Включить проект</button>} <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
               </details>
@@ -601,7 +621,7 @@ function ClientsTab({ staff, salPending, postSal, clients, projects, products, m
                   <input placeholder="Написать комментарий: созвонились, отправил КП…" value={cmt[x.id] || ""} onChange={(e) => setCmt({ ...cmt, [x.id]: e.target.value })} style={{ flex: 1 }} />
                   <button disabled={!(cmt[x.id] || "").trim()}>➤</button></form></div>
               {ps.length > 0 && <div>{ps.map((p) => <div key={p.id}>• {p.name} — {rub(p.price)}{debt(p) ? `, долг ${rub(debt(p))}` : ", оплачен"} · {ST[p.status]}</div>)}</div>}
-              <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">{x.created ? `в базе с ${dmy(x.created)} · ` : ""}изменения сохраняются сами</span>
+              <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">{x.created ? `в базе с ${dmy(x.created)}` : ""}</span>
                 <span><button onClick={() => toProject(x)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>→ В проект</button> <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
             </div>}
           </div>; })}
@@ -617,7 +637,6 @@ function ProductsTab({ products, projects, add, del, upd }: {
   const [f, setF] = useState({ name: "", price: "", descr: "" });
   return <div className="card">
     <h3 style={{ marginTop: 0 }}>📦 Мои продукты и услуги</h3>
-    <div className="small muted" style={{ marginBottom: 8 }}>Заведи услуги с ценой — при создании проекта выбираешь продукт, и сумма подставится сама.</div>
     <form className="row small" style={{ flexWrap: "wrap", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!f.name.trim()) return;
       add({ kind: "product", name: f.name.trim(), price: Number(f.price) || 0, descr: f.descr.trim() }); setF({ name: "", price: "", descr: "" }); }}>
       <input placeholder="Название (например: Дизайн логотипа)" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} style={{ flex: "1 1 180px" }} />
@@ -653,8 +672,8 @@ function Regulars({ mk, regulars, moves, projects, pname, add, del, upd, nActive
       <span>{todo.length > 0 && <button style={{ marginRight: 6 }} onClick={() => todo.forEach(run)}>✓ Провести все за месяц ({todo.length})</button>}
         {inProject && <button className="ghost" onClick={() => setF(f ? null : { name: "", amount: "", day: "1", category: "Сервисы", account: ACCOUNTS[0], projectId: "" })}>{f ? "✕" : "+ Добавить"}</button>}</span></div>
     {!inProject && <div className="small" style={{ margin: "6px 0", padding: "6px 10px", background: "var(--bg)", borderRadius: 8 }}>
-      Все расходы без проекта — общие и делятся поровну на проекты в работе: <b>{rub(sharedM)}</b> ÷ <b>{nActive}</b> проект. = <b>{nActive ? rub(sharedM / nActive) : "—"}</b> на каждый проект.
-      <span className="muted"> Ниже — шаблоны тех, что повторяются каждый месяц: проводишь одной кнопкой.</span></div>}
+      Общие расходы: <b>{rub(sharedM)}</b> ÷ <b>{nActive}</b> проект. = <b>{nActive ? rub(sharedM / nActive) : "—"}</b> на проект
+      </div>}
     {f && <div className="row small" style={{ flexWrap: "wrap", gap: 6, marginTop: 8 }}>
       <input placeholder="Название (Тильда, Figma, аренда…)" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} style={{ flex: "1 1 180px" }} />
       <input type="number" placeholder="Сумма" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} style={{ width: 100 }} />
@@ -713,7 +732,7 @@ function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd,
     <div className="card">
       <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>👷 Сотрудники · {staff.length}</b>
         <button onClick={() => setAddOpen(!addOpen)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addOpen ? "✕ Закрыть" : "+ Добавить сотрудника"}</button></div>
-      <div className="small" style={{ marginTop: 6 }}>Зарплаты за месяц: <b>{rub(total)}</b> <span className="muted">· фикса идёт общим расходом и делится на все проекты, остальное — в расходы своих проектов</span></div>
+      <div className="small" style={{ marginTop: 6 }}>Зарплаты за месяц: <b>{rub(total)}</b></div>
       {addOpen && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!f.name.trim()) return;
         add({ kind: "employee", name: f.name.trim(), contact: f.contact.trim(), projectIds: f.projectIds, payType: f.payType, amount: Number(f.amount) || 0, day: Math.min(31, Math.max(1, Number(f.day) || 10)) });
         setF(blank); setAddOpen(false); }}>
@@ -752,7 +771,7 @@ function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd,
             <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>{e.payType === "percent" ? "Процент" : "Сумма в месяц"}</span><input type="number" key={e.id + "a" + e.amount} defaultValue={e.amount} style={{ flex: 1 }} onBlur={(ev) => upd(e.id, { amount: Number(ev.target.value) || 0 })} /></label>
             <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>День выплаты</span><input type="number" min={1} max={31} key={e.id + "d" + (e.day || "")} defaultValue={e.day || 10} style={{ flex: 1 }} onBlur={(ev) => upd(e.id, { day: Math.min(31, Math.max(1, Number(ev.target.value) || 10)) })} /></label>
             {done.length > 0 && <div><span className="muted">Выплаты за месяц</span>{done.map((m) => <div key={m.id} className="row"><span>{dmy(m.date)} · {m.projectId ? projects.find((x) => x.id === m.projectId)?.name : "общий"}</span><span>{rub(m.amount)} <button className="ghost" style={{ padding: "0 6px" }} onClick={() => del(m.id)}>✕</button></span></div>)}</div>}
-            <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">изменения сохраняются сами · % считается от дохода проекта за месяц</span>
+            <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span />
               <span><button className="ghost" onClick={() => upd(e.id, { off: !e.off })}>{e.off ? "▶ Вернуть" : "⏸ Не работает"}</button> <button className="ghost" onClick={() => del(e.id)}>🗑</button></span></div>
           </div>}
         </div>; })}
