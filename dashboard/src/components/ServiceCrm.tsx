@@ -522,7 +522,6 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
           {pr.monthly
             ? <label className="row small" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Число оплаты</span><input type="number" min={1} max={31} placeholder={"например " + Number(today().slice(8))} value={pr.payDay} onChange={(e) => setPr({ ...pr, payDay: e.target.value })} style={{ flex: 1 }} /></label>
             : <label className="row small" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Оплата до</span><input type="date" value={pr.payDate} onChange={(e) => setPr({ ...pr, payDate: e.target.value })} style={{ flex: 1 }} /></label>}
-          <label className="row small" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Срок сдачи</span><input type="date" value={pr.deadline} onChange={(e) => setPr({ ...pr, deadline: e.target.value })} style={{ flex: 1 }} /></label>
           <button disabled={!pr.name.trim() || !pr.clientId}>✓ Создать проект</button>
         </form>}
       {filter !== "done" && <div style={{ margin: "10px 0 4px", fontSize: 15 }}><Ic n="case" c="#16a34a" />В работе сейчас: <b style={{ fontSize: 20 }}>{projects.filter((x) => x.status !== "done").length}</b>
