@@ -101,6 +101,11 @@ function StatusBtns({ cur, onPick, pad = "0 14px 10px", onStart }: { cur?: strin
       style={{ background: cur === k ? c : "transparent", color: cur === k ? "#fff" : c, border: `1.5px solid ${c}`, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>
       {cur === k ? "✓ " : ""}{k}</button>)}{onStart && <button type="button" onClick={(e) => { e.stopPropagation(); onStart(); }} style={{ background: "#16a34a", color: "#fff", border: "1.5px solid #16a34a", borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>▶ Начали работу</button>}</div>;
 }
+// LTV: сколько клиент принёс за всё время (все оплаты по его проектам) и сколько месяцев платит
+const ltvOf = (moves: { type: string; projectId?: string; amount: number; date: string }[], pids: string[]) => {
+  const pay = moves.filter((m) => m.type === "in" && m.projectId && pids.includes(m.projectId));
+  return { sum: pay.reduce((a, m) => a + m.amount, 0), months: new Set(pay.map((m) => m.date.slice(0, 7))).size };
+};
 // продукты проекта: несколько (productIds) или старое одно поле productId
 const pids = (x: { productId?: string; productIds?: string[] }) => x.productIds || (x.productId ? [x.productId] : []);
 const ST: Record<Status, string> = { new: "🆕 новый", work: "🛠 в работе", done: "✓ сдан" };
@@ -433,6 +438,9 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0 24px" }}>
         <div className="small">
           <div className="row"><span>Новых проектов</span><b>{newProj.length}</b></div>
+          {(() => { const per = clients.map((c) => ltvOf(moves, projects.filter((y) => y.clientId === c.id).map((y) => y.id))).filter((x) => x.sum > 0);
+            return <><div className="row" title="Сколько в среднем приносит клиент за всё время сотрудничества"><span>Средний LTV клиента</span><b>{per.length ? rub(per.reduce((a, x) => a + x.sum, 0) / per.length) : "—"}</b></div>
+              <div className="row"><span>Средний срок с клиентом</span><b>{per.length ? (per.reduce((a, x) => a + x.months, 0) / per.length).toFixed(1).replace(".0", "") + " мес." : "—"}</b></div></>; })()}
           <div className="row"><span>Средний чек</span><b>{avg != null ? rub(avg) : "—"}</b></div>
           <div className="row"><span>Новых клиентов</span><b>{newClients}</b></div>
           <div className="row"><span>Расходы</span><b className="neg">{rub(S.out)}</b></div>
@@ -655,6 +663,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
                   <span><span className="muted">Расходы</span> <b className="neg">{rub(cost)}</b></span><span className="muted">=</span>
                   <span><span className="muted">Прибыль</span> <b className={profit < 0 ? "error" : "ok"}>{rub(profit)}</b></span>
                   <span><span className="muted">Маржа</span> <b className={margin != null && margin < 0 ? "error" : ""}>{margin != null ? margin + "%" : "—"}</b></span></div></div>
+                  {(() => { const lt = ltvOf(moves, projects.filter((y) => y.clientId === x.clientId).map((y) => y.id)); return <span title="Сколько клиент принёс за всё время сотрудничества"><span className="muted">LTV</span> <b>{rub(lt.sum)}</b><span className="muted"> · {lt.months} мес.</span></span>; })()}
               <div className="row" style={{ alignItems: "center", gap: 14 }}>
                 <button onClick={() => { setOpen(on ? null : x.id); setPay(null); setCostF(null); }} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button></div>
             </div>
@@ -833,7 +842,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
                   upd(x.id, { comments: [...(x.comments || []), { at: new Date().toISOString(), text: t }] }); setCmt({ ...cmt, [x.id]: "" }); }}>
                   <input placeholder="Написать комментарий: созвонились, отправил КП…" value={cmt[x.id] || ""} onChange={(e) => setCmt({ ...cmt, [x.id]: e.target.value })} style={{ flex: 1 }} />
                   <button disabled={!(cmt[x.id] || "").trim()}>➤</button></form></div>
-              {ps.length > 0 && <div><span className="muted"><Ic n="case" s={15} />История проектов</span>
+              {ps.length > 0 && <div><span className="muted"><Ic n="case" s={15} />История проектов</span>{(() => { const lt = ltvOf(moves, ps.map((y) => y.id)); return lt.sum ? <span> · <b>LTV {rub(lt.sum)}</b> <span className="muted">за {lt.months} мес.</span></span> : null; })()}
                 {ps.map((p) => { const pin = moves.filter((m) => m.projectId === p.id && m.type === "in").sort((a, b) => a.date.localeCompare(b.date)), pc = moves.filter((m) => m.projectId === p.id && m.type === "out").reduce((a, m) => a + m.amount, 0);
                   const tot = pin.reduce((a, m) => a + m.amount, 0), mg = tot ? Math.round((tot - pc) / tot * 100) : null;
                   return <details key={p.id} style={{ marginTop: 4, padding: "6px 10px", border: "1px solid var(--border, #e5e5e5)", borderRadius: 10, background: "var(--surface, #fff)" }}>
