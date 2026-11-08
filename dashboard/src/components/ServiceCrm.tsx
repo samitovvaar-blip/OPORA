@@ -25,8 +25,8 @@ const CATS = ["Аренда", "Реклама", "Зарплата", "Налог�
 const SOURCES = ["Instagram", "Сарафан / рекомендация", "Авито", "Сайт", "Telegram", "ВКонтакте", "Повторный клиент"];
 const ACCOUNTS = ["Расчётный счёт", "Карта", "Наличные"];
 // статусы клиента в базе (воронка) и их цвета
-// фирменные цвета: оранжевые — ждут действия, красный — отказ, синие — вернуться / закончили
-const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Не дозвонились", "#f0a868"], ["Созвон / в диалоге", "#25476f"], ["Вернуться", "#3b6db3"], ["Отказ", "#c0392b"], ["Закончили работу", "#16304f"]];
+// шкала от зелёного к красному: зелёные — хорошо, жёлтый — вернуться, оранжевые — ждут действия, красный — отказ
+const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Не дозвонились", "#d9622b"], ["Созвон / в диалоге", "#7cb342"], ["Вернуться", "#d4a017"], ["Отказ", "#c0392b"], ["Закончили работу", "#16a34a"]];
 const cstColor = (s?: string) => CST.find(([k]) => k === s)?.[1] || "#888";
 const Badge = ({ s }: { s?: string }) => <span style={{ background: cstColor(s), color: "#fff", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{s || "без статуса"}</span>;
 // вставка списком из таблицы: маленькая кнопка-значок; строки → колонки через Tab
@@ -595,7 +595,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
             <button className="ghost" title="Вставить списком из таблицы" style={{ marginLeft: 6, padding: "2px 8px", opacity: .6 }} onClick={() => { setBulk(bulk == null ? "" : null); setAddOpen(false); }}>{bulk == null ? "📋" : "✕"}</button></span></div>
         {/* Свод: статусы и источники — списком */}
         <div className="lead-sum" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 20, margin: "10px 0", alignItems: "stretch" }}>
-          <div style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: 10, border: "1px solid var(--border, #e5e5e5)", borderRadius: 12 }}>
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: 10, background: "#eef4fb", border: "1px solid #cfe0f5", borderRadius: 12 }}>
           {(() => { // круговая диаграмма по статусам
             const ds = CST.map(([k, c]) => ({ k, c, n: leads.filter((x) => (x.status || "Ждёт обработку") === k).length })).filter((d) => d.n);
             const tot = ds.reduce((a, d) => a + d.n, 0) || 1; let acc = 0;
@@ -616,7 +616,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
           </div>
             </div>
           </div>
-          <div style={{ padding: 10, border: "1px solid var(--border, #e5e5e5)", borderRadius: 12 }}>
+          <div style={{ padding: 10, background: "#eef4fb", border: "1px solid #cfe0f5", borderRadius: 12 }}>
           <div className="small"><div className="muted" style={{ marginBottom: 4 }}>По статусам</div>
             {[["all", "Всего лидов", "#16304f"] as [string, string, string], ...CST.map(([k, c]) => [k, k, c] as [string, string, string])].map(([k, l, c]) => {
               const n = k === "all" ? leads.length : leads.filter((x) => (x.status || "Ждёт обработку") === k).length;
