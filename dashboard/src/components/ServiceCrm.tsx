@@ -73,10 +73,12 @@ export function Ic({ n, c = "#e8873a", s = 18 }: { n: string; c?: string; s?: nu
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "-3px", marginRight: 6, flexShrink: 0 }}><path d={ICONS[n]} /></svg>;
 }
 // свёрнутый раздел: строка с иконкой и жирным заголовком, по нажатию раскрывается
-function Fold({ icon, title, extra, children }: { icon: string; title: React.ReactNode; extra?: React.ReactNode; children: React.ReactNode }) {
-  return <details className="fold" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border, #e5e5e5)" }}>
+function Fold({ icon, title, extra, children, alert }: { icon: string; title: React.ReactNode; extra?: React.ReactNode; children: React.ReactNode; alert?: boolean }) {
+  return <details className="fold" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border, #e5e5e5)",
+    ...(alert ? { background: "rgba(232,135,58,.10)", borderLeft: "4px solid #e8873a" } : {}) }}>
     <summary style={{ cursor: "pointer", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-      <b><Ic n={icon} />{title}</b><span className="small muted">{extra}</span></summary>
+      <b style={alert ? { color: "#c2661c" } : undefined}><Ic n={icon} c={alert ? "#c2661c" : undefined} />{title}</b>
+      <span className="small" style={alert ? { color: "#c2661c", fontWeight: 700 } : { color: "var(--muted, #888)" }}>{extra}</span></summary>
     <div style={{ marginTop: 10 }}>{children}</div></details>;
 }
 // подсказка «как считается» — открывается по нажатию
@@ -429,7 +431,7 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
     </form>}
     </>} />
     </Fold>
-    {(pending || []).length > 0 && <Fold icon="repeat" title={`Не проведено · ${(pending || []).length}`} extra={rub((pending || []).reduce((a, x) => a + (x.type === "out" ? -x.amount : x.amount), 0))}>
+    {(pending || []).length > 0 && <Fold alert icon="repeat" title={`Ждут проведения · ${(pending || []).length}`} extra={rub((pending || []).reduce((a, x) => a + (x.type === "out" ? -x.amount : x.amount), 0))}>
       <button className="ghost small" onClick={() => (pending || []).forEach((x) => x.run())}>✓ Провести всё</button>
       <table className="pnl-table crm-t" style={{ marginTop: 8 }}><tbody>
       {(pending || []).map((x) => <tr key={x.key}><td className="small">{dmy(x.date)}</td>
