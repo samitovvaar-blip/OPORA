@@ -3,8 +3,7 @@ export interface Links { sheet?: string; folder?: string; chat?: string; support
 export const LINK_FIELDS: [keyof Links, string, string][] = [
   ["sheet", "📊 Таблица", "Ссылка на основную таблицу"],
   ["folder", "📁 Документы", "Ссылка на папку с документами"],
-  ["chat", "💬 Чат", "Ссылка на чат или @ник в Telegram"],
-  ["support", "🛟 Поддержка", "Ссылка на поддержку (Telegram бухгалтера)"],
+  ["chat", "💬 Чат поддержки", "Ссылка на чат поддержки или @ник в Telegram"],
 ];
 
 // Только http(s); @ник → Telegram

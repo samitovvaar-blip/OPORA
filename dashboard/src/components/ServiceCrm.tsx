@@ -457,7 +457,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     </div>
     {/* кнопки внизу: Google-таблица, таблица, Нейла, чат, поддержка */}
     <div className="work-btns" style={{ marginTop: 16 }}>
-      {([["sheet", "Таблица", p.crmSheet?.url || p.links?.sheet], ["spark", "Нейла", "https://t.me/dsmitovvaservbot"], ["chat", "Чат поддержки", SUPPORT_URL]] as [string, string, string | undefined][]).map(([ic, l, u]) =>
+      {([["sheet", "Таблица", p.crmSheet?.url || p.links?.sheet], ["spark", "Нейла", "https://t.me/dsmitovvaservbot"], ["chat", "Чат поддержки", p.links?.chat || SUPPORT_URL]] as [string, string, string | undefined][]).map(([ic, l, u]) =>
         u ? <a key={l} className="work-btn" href={u} target="_blank" rel="noopener noreferrer"><Ic n={ic} />{l}</a> : <span key={l} className="work-btn off"><Ic n={ic} c="#999" />{l}</span>)}
     </div>
   </>;
