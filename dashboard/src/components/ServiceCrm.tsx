@@ -358,7 +358,27 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
       </div>}
     </>;
   };
-  if (view === "tips") return <>{fab}{renderTips()}</>;
+  if (view === "tips") return <>{fab}
+    <div className="card" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+      <img src="neyla.jpg" alt="" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+      <div><b style={{ fontSize: 17 }}>Нейла — ваш помощник</b><div className="small muted">Советы по вашим цифрам, обучение, таблица и связь с бухгалтером — всё здесь.</div></div>
+    </div>
+    {/* помощь: обучение, установка на телефон, советы Нейлы */}
+    <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
+      <Fold icon="spark" title="Нейла советует" extra="ваши цифры и ориентиры">{renderTips()}</Fold>
+      <Fold icon="book" title="Помощь" extra="обучение · установка на телефон">
+        <div className="row" style={{ justifyContent: "flex-start", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => goTour(0)}>▶ Пройти обучение</button>
+        </div>
+        <InstallHow />
+      </Fold>
+    </div>
+    {/* кнопки внизу: Google-таблица, таблица, Нейла, чат, поддержка */}
+    <div className="work-btns" style={{ marginTop: 16 }}>
+      {([["sheet", "Таблица", p.crmSheet?.url || p.links?.sheet], ["spark", "Нейла", "https://t.me/dsmitovvaservbot"], ["chat", "Чат поддержки", p.links?.chat || SUPPORT_URL]] as [string, string, string | undefined][]).map(([ic, l, u]) =>
+        u ? <a key={l} className="work-btn" href={u} target="_blank" rel="noopener noreferrer"><Ic n={ic} />{l}</a> : <span key={l} className="work-btn off"><Ic n={ic} c="#999" />{l}</span>)}
+    </div>
+  </>;
   if (view === "fin") return <>
     {fab}
     {MonthPick}
@@ -444,21 +464,6 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
         <tr className="pnl-key"><td>Итого за {anN === 12 ? "год" : anN + " мес."}</td><td>{rub(tot.inc)}</td><td className={tot.inc - tot.out < 0 ? "error" : "ok"}>{rub(tot.inc - tot.out)}</td>
           <td>{pctS(tot.pi ? Math.round((tot.pi - tot.pc) / tot.pi * 100) : null)}</td><td>{pctS(tot.inc ? Math.round((tot.inc - tot.out) / tot.inc * 100) : null)}</td></tr>
       </tbody></table></div>
-    </div>
-    {/* помощь: обучение, установка на телефон, советы Нейлы */}
-    <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
-      <Fold icon="spark" title="Нейла советует" extra="ваши цифры и ориентиры">{renderTips()}</Fold>
-      <Fold icon="book" title="Помощь" extra="обучение · установка на телефон">
-        <div className="row" style={{ justifyContent: "flex-start", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => goTour(0)}>▶ Пройти обучение</button>
-        </div>
-        <InstallHow />
-      </Fold>
-    </div>
-    {/* кнопки внизу: Google-таблица, таблица, Нейла, чат, поддержка */}
-    <div className="work-btns" style={{ marginTop: 16 }}>
-      {([["sheet", "Таблица", p.crmSheet?.url || p.links?.sheet], ["spark", "Нейла", "https://t.me/dsmitovvaservbot"], ["chat", "Чат поддержки", p.links?.chat || SUPPORT_URL]] as [string, string, string | undefined][]).map(([ic, l, u]) =>
-        u ? <a key={l} className="work-btn" href={u} target="_blank" rel="noopener noreferrer"><Ic n={ic} />{l}</a> : <span key={l} className="work-btn off"><Ic n={ic} c="#999" />{l}</span>)}
     </div>
   </>;
 }
@@ -1045,8 +1050,8 @@ const TOUR: { view: CrmView; title: string; text: string[] }[] = [
   { view: "clients", title: "Клиенты: лиды и проекты", text: ["В «Базе лидов» — все, кто к вам обращался. Статус меняется цветной плашкой рядом с именем, «⚙ Настройки» — заметки и комментарии.", "Статус «▶ Начали работу» сразу создаёт проект.", "Во вкладке «Проекты» — сумма в месяц, кнопка «✓ Оплатили», доходы и расходы по проекту, прибыль и маржа."] },
   { view: "fin", title: "Финансы", text: ["Сверху — план / факт месяца и структура расходов: куда уходят деньги.", "Ниже — общие расходы (аренда, сервисы), то, что ждёт проведения, все операции месяца и остатки на счетах.", "Оранжевая строка «Ждут проведения» — напоминание, что что-то ещё не внесено."] },
   { view: "home", title: "Мой кабинет", text: ["Главные цифры месяца: выручка, расходы, чистая прибыль и рентабельность.", "Нажмите на любую плитку — внутри откроется расчёт, откуда взялась цифра.", "Ниже — проекты в работе (кто оплатил, прибыль и маржа), показатели и аналитика за 3–12 месяцев."] },
-  { view: "home", title: "Мои советы", text: ["Внизу «Моего кабинета» — блок «Нейла советует»: я сравниваю ваши цифры с ориентирами для сферы услуг.", "Там же «Помощь»: можно снова пройти это обучение."] },
-  { view: "home", title: "Установите кабинет на телефон 📱", text: ["iPhone: откройте кабинет в Safari → «Поделиться» ⬆ → «На экран „Домой“».", "Android: в Chrome нажмите ⋮ → «Установить приложение» (или «Добавить на главный экран»).", "Иконка появится рядом с другими приложениями. А если нужен совет — нажмите на меня справа внизу 💛"] },
+  { view: "tips", title: "Вкладка «Нейла»", text: ["Здесь мои советы: сравниваю ваши цифры с ориентирами для сферы услуг.", "Тут же «Помощь» (повторить обучение, установить на телефон), таблица и чат поддержки."] },
+  { view: "tips", title: "Установите кабинет на телефон 📱", text: ["iPhone: откройте кабинет в Safari → «Поделиться» ⬆ → «На экран „Домой“».", "Android: в Chrome нажмите ⋮ → «Установить приложение» (или «Добавить на главный экран»).", "Иконка появится рядом с другими приложениями. А если нужен совет — нажмите на меня справа внизу 💛"] },
 ];
 function TourCard({ n, go }: { n: number; go: (n: number | null) => void }) {
   const st = TOUR[n], last = n === TOUR.length - 1;

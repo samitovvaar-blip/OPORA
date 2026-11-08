@@ -57,7 +57,7 @@ export default function Layout() {
 
   const visible = student ? [{ id: "st", title: "", items: [{ to: "/", label: "Домашние задания", icon: "book" }, { to: "/kb", label: "Курсы", icon: "cap" }] }] : clientOf ? [{ id: "client", title: "", items: biz === "services"
     ? [{ to: "/?t=chome", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=cfin", label: "Финансы", icon: "money" }, { to: "/?t=ccli", label: "Клиенты", icon: "users" },
-      { to: "/?t=cstaff", label: "Сотрудники", icon: "case" }, { to: "/?t=cprod", label: "Продукты", icon: "box" }]
+      { to: "/?t=cstaff", label: "Сотрудники", icon: "case" }, { to: "/?t=cprod", label: "Продукты", icon: "box" }, { to: "/?t=ctips", label: "Нейла", icon: "neyla" }]
     : [{ to: "/?t=dash", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=rep", label: "Отчётность", icon: "book" },
     { to: "/?t=work", label: "Ход работы", icon: "case" }, { to: "/?t=plan", label: "Планирование", icon: "plan" }] }] : groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly : i.staff) })).filter((g) => g.items.length);
   const flat = visible.flatMap((g) => g.items);
@@ -69,6 +69,7 @@ export default function Layout() {
       const on = n.to.includes("?t=") ? (loc.search || "?t=dash") === n.to.slice(n.to.indexOf("?")) : isActive || (alias[n.to] || []).some((a) => loc.pathname.startsWith(a));
       return "navlink" + (on ? " active" : "");
     }}><span className="ni">{n.icon === "spiral" ? <img src="spiral-orange.png" alt="" style={{ width: 20, height: 20, objectFit: "contain" }} />
+      : n.icon === "neyla" ? <img src="neyla.jpg" alt="" style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }} />
       : ICONS[n.icon] ? <Ic n={n.icon} c="currentColor" s={20} /> : n.icon}</span>{n.label}</NavLink>
   );
   // ↻: кабинет клиента перезагружает отчёт сам (слушает событие), остальные разделы — перезагрузкой страницы
