@@ -74,7 +74,7 @@ export function Ic({ n, c = "#e8873a", s = 18 }: { n: string; c?: string; s?: nu
 }
 // свёрнутый раздел: строка с иконкой и жирным заголовком, по нажатию раскрывается
 function Fold({ icon, title, extra, children }: { icon: string; title: React.ReactNode; extra?: React.ReactNode; children: React.ReactNode }) {
-  return <details className="card fold" style={{ marginTop: 10, padding: "10px 14px" }}>
+  return <details className="fold" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border, #e5e5e5)" }}>
     <summary style={{ cursor: "pointer", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
       <b><Ic n={icon} />{title}</b><span className="small muted">{extra}</span></summary>
     <div style={{ marginTop: 10 }}>{children}</div></details>;
@@ -406,6 +406,7 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
     prevOut.forEach((m) => add({ kind: "move", type: "out", amount: m.amount, date: `${mk}-${String(Math.min(Number(m.date.slice(8)), lastDay)).padStart(2, "0")}`, note: m.note, category: m.category || "Прочее", account: m.account || ACCOUNTS[0] })); };
   return <>
     {MonthPick}
+    <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
     <Fold icon="wallet" title="Остатки на конец месяца" extra={rub(accs.reduce((x, a) => x + bal(a), 0))}>
         <div>
         {accs.map((a) => <div key={a} className="row small"><span>{a}</span><b className={bal(a) < 0 ? "error" : ""}>{rub(bal(a))}</b></div>)}
@@ -455,6 +456,7 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
         <td><button style={{ padding: "2px 10px" }} onClick={x.run}>Провести</button></td></tr>)}
       </tbody></table>
     </Fold>}
+    </div>
   </>;
 }
 
