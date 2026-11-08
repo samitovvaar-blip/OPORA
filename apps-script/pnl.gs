@@ -19,7 +19,7 @@
 // (часть ссылки между /d/ и /edit). Строку ниже можно оставить пустой; если в ней что-то
 // записано — этот ключ тоже принимается (для старых подключений, например у Аслана).
 var KEY = 'opora-af18tlqro6wg5bup';
-function okKey(k) { return !!k && (k === KEY || k === SpreadsheetApp.getActiveSpreadsheet().getId()); }
+function okKey(k) { return !!k && (k === KEY || k === getSS().getId()); }
 var DEFAULT_SHEETS = ['ДДС БОТ ОСНОВНЫЕ', 'ДДС БОТ ФОНДЫ'];   // основная база + база фондов (траты из фондов — расход в ОПиУ)
 var DIRECTORY = 'Справочник-общее';   // группы статей → статьи (A → B)
 var BALANCES = 'БАЛАНСЫ СЕЙЧАС';
@@ -30,7 +30,7 @@ function buildReport(e) {
   if (!okKey(p.key)) return out({ error: 'Неверный ключ' });
   var dirs = String(p.dir || '').split(',').map(norm).filter(String);
   if (!dirs.length) return out({ error: 'Не указано направление: добавь &dir=Кубики' });
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getSS();
   var names = p.sheet ? String(p.sheet).split(',') : DEFAULT_SHEETS;
 
   var groupsOf = readDirectory(ss);   // статья → [группы] из справочника
@@ -238,7 +238,12 @@ function toDate(x) {
 // Кеш: таблица большая, поэтому готовый ответ храним 10 минут — отчёт открывается мгновенно.
 // &fresh=1 в ссылке — пересчитать сразу (кнопка «Обновить данные» в кабинете).
 var CACHE_SEC = 600;
-function doGet(e) {
+// Таблица, с которой работаем. Из библиотеки «активной» таблицы может не быть —
+// короткий скрипт в таблице передаёт её сам: OporaLib.doGet(e, SpreadsheetApp.getActiveSpreadsheet())
+var SS_ = null;
+function getSS() { return SS_ || SpreadsheetApp.getActiveSpreadsheet(); }
+function doGet(e, ss) {
+  if (ss) SS_ = ss;
   var p = (e && e.parameter) || {};
   if (!okKey(p.key)) return out({ error: 'Неверный ключ' });
   var cache = CacheService.getScriptCache(), ck = 'r:' + (p.dir || '') + '|' + (p.sheet || '');
@@ -265,11 +270,12 @@ function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setM
 
 // Кабинет «Услуги»: приложение присылает все операции, проекты и клиентов — скрипт переписывает листы «ПРИЛОЖЕНИЕ …».
 // Тело запроса (text/plain): { key, moves: [[...]], projects: [[...]], clients: [[...]] }. Ключ — ID этой таблицы.
-function doPost(e) {
+function doPost(e, ss) {
+  if (ss) SS_ = ss;
   var b = {};
   try { b = JSON.parse(e.postData.contents); } catch (x) { return out({ error: 'Плохой запрос' }); }
   if (!okKey(b.key)) return out({ error: 'Неверный ключ' });
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getSS();
   var put = function (name, head, rows) {
     if (!rows) return;
     var sh = ss.getSheetByName(name) || ss.insertSheet(name);

@@ -1,6 +1,4 @@
 // ОПОРА · короткий скрипт для таблицы клиента.
-// Вся логика живёт в общей библиотеке OporaLib (один проект Apps Script у Арины).
-// Библиотека подключена в режиме «HEAD (разработка)» — поэтому, когда меняется общий скрипт,
-// во всех таблицах он обновляется сам, менять код в каждой таблице больше не нужно.
-function doGet(e) { return OporaLib.doGet(e); }
-function doPost(e) { return OporaLib.doPost(e); }
+// Вся логика — в общей библиотеке OporaLib (режим «HEAD»): обновляется сразу во всех таблицах.
+function doGet(e) { return OporaLib.doGet(e, SpreadsheetApp.getActiveSpreadsheet()); }
+function doPost(e) { return OporaLib.doPost(e, SpreadsheetApp.getActiveSpreadsheet()); }
