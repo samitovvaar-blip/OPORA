@@ -185,7 +185,7 @@ function readGoods(ss) {
     if (b && groups[b] !== undefined) return b; if (a && groups[a] !== undefined) return a;
     return a || b;
   };
-  var readMoves = function (sheet, dir) {
+  var readMoves = function (sheet, dir, quiet) {
     var v = sheet.getDataRange().getValues(), hr = 0;
     for (var r = 0; r < Math.min(6, v.length); r++) if (v[r].map(norm).some(function (x) { return /^кол/.test(x); })) { hr = r; break; }
     var h = v[hr].map(norm);
@@ -193,7 +193,7 @@ function readGoods(ss) {
     var cN = col(/наименован/); if (cN < 0) cN = col(/^номенклатур(?!ный)/); if (cN < 0) cN = col(/^товар/);
     var cD = col(/дата для отч/); if (cD < 0) cD = col(/^дата/);
     var cQ = col(/^кол/), cS = col(/сумм/), cT = col(/приход\s*\/|тип|операц/), cNum = col(/номенкла.*номер|номенклатурн/);
-    if (cN < 0 || cQ < 0) { errs.push('На листе «' + sheet.getName() + '» не нашла колонки «наименование» или «Количество»'); return; }
+    if (cN < 0 || cQ < 0) { if (!quiet) errs.push('На листе «' + sheet.getName() + '» не нашла колонки «наименование» или «Количество»'); return; }
     for (var r = hr + 1; r < v.length; r++) {
       var row = v[r], name = nameOf(row, cN, cNum); if (!name) continue;
       var d = toDate(cD >= 0 ? row[cD] : null); if (!d) continue;
@@ -206,7 +206,7 @@ function readGoods(ss) {
   };
   if (inSh) readMoves(inSh, 'in');
   if (outSh) readMoves(outSh, 'out');
-  if (!inSh && !outSh && sh) readMoves(sh, '');
+  if (!inSh && !outSh && sh) readMoves(sh, '', true);   // старый лист «ТОВАРЫ»: читаем, только если он похож на таблицу движения
   // Лист «Товары Инвентаризация»: наименование · Количество (факт) · Дата — факт на конец месяца этой даты.
   // Остатки на старте учёта — та же инвентаризация, датой последнего дня месяца перед началом.
   var inv = {}, invS = {};
