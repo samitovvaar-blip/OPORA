@@ -525,3 +525,4 @@ input,select,textarea{border-radius:12px}
 .tile.g-red{background:#c0392b;color:#fff;border:0}.g-red .muted,.g-red b{color:#fff}
 
 .crm-tiles .tile b{white-space:nowrap;font-size:clamp(18px,2.2vw,26px)}.crm-tiles .tile{min-width:0;overflow:hidden}
+@media (max-width: 720px){.lead-sum{grid-template-columns:1fr !important}}
