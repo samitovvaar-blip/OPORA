@@ -24,7 +24,7 @@ const SOURCES = ["Instagram", "Сарафан / рекомендация", "Ав
 const ACCOUNTS = ["Расчётный счёт", "Карта", "Наличные"];
 // статусы клиента в базе (воронка) и их цвета
 // фирменные цвета: оранжевые — ждут действия, красный — отказ, синие — вернуться / закончили
-const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Ждёт предложение", "#c2661c"], ["Вернуться", "#3b6db3"], ["Отказ", "#c0392b"], ["Закончили работу", "#16304f"]];
+const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Вернуться", "#3b6db3"], ["Отказ", "#c0392b"], ["Закончили работу", "#16304f"]];
 const cstColor = (s?: string) => CST.find(([k]) => k === s)?.[1] || "#888";
 const Badge = ({ s }: { s?: string }) => <span style={{ background: cstColor(s), color: "#fff", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{s || "без статуса"}</span>;
 // подсказка «как считается» — открывается по нажатию
@@ -278,7 +278,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
         </div>
         <div className="small">
           <div className="muted">Лиды ждут действия</div>
-          {["Ждёт обработку", "Ждёт предложение", "Вернуться"].map((st) => <div key={st} className="row" style={{ cursor: "pointer" }} onClick={() => onNav("clients")}>
+          {["Ждёт обработку", "Вернуться"].map((st) => <div key={st} className="row" style={{ cursor: "pointer" }} onClick={() => onNav("clients")}>
             <span><span style={{ color: cstColor(st) }}>●</span> {st}</span><b>{leadsN(st)}</b></div>)}
         </div>
       </div>
@@ -397,6 +397,8 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
   const [addOpen, setAddOpen] = useState(false);
   const [pick, setPick] = useState<string | null>(null);
   const [sel, setSel] = useState<string[]>([]);
+  // убранный статус «Ждёт предложение» → «Ждёт обработку»
+  useEffect(() => { clients.filter((x) => x.status === "Ждёт предложение").forEach((x) => upd(x.id, { status: "Ждёт обработку" })); }, [clients.length]);
   const [pAdd, setPAdd] = useState(false);
   const [costF, setCostF] = useState<{ id: string; amount: string; category: string; note: string; date: string; account: string } | null>(null);
   const [cmt, setCmt] = useState<Record<string, string>>({});
