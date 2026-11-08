@@ -106,9 +106,30 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
     <button className="ghost" onClick={() => setMk(shift(mk, 1))}>›</button></div>;
 
   if (err) return <div className="card error">Нет доступа к данным: {err}</div>;
-  if (view === "clients") return <ClientsTab {...{ clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} />;
+  // зарплата: начислить строки, которых ещё нет в месяце (по проекту или общую)
+  const incK = (K: string, pid: string) => moves.filter((m) => m.type === "in" && m.projectId === pid && mkOf(m.date) === K).reduce((a, m) => a + m.amount, 0);
+  const lastDayOf = (K: string) => new Date(Number(K.slice(0, 4)), Number(K.slice(5)), 0).getDate();
+  const salPosted = (e: CEmployee, K: string, pid?: string) => moves.some((m) => m.employeeId === e.id && mkOf(m.date) === K && (m.projectId || "") === (pid || ""));
+  const salPending = (e: CEmployee, K: string) => e.off ? [] : salaryLines(e, K, (pid) => incK(K, pid)).filter((l) => !salPosted(e, K, l.projectId));
+  const postSal = (e: CEmployee, K: string, pid?: string) => { const date = `${K}-${String(Math.min(e.day || 10, lastDayOf(K))).padStart(2, "0")}`;
+    salPending(e, K).filter((l) => pid === undefined || (l.projectId || "") === pid).forEach((l) => add({ kind: "move", type: "out", amount: l.amount, date, note: e.name, category: "Зарплата", account: ACCOUNTS[0], employeeId: e.id, ...(l.projectId ? { projectId: l.projectId } : {}) })); };
+  // всё, что за месяц ещё не проведено: ожидаемые оплаты проектов, ежемесячные расходы, зарплаты
+  const pendingOf = (K: string) => {
+    const out: { key: string; date: string; label: string; amount: number; type: "in" | "out"; run: () => void }[] = [];
+    projects.filter((x) => x.status !== "done" && x.monthly && mkOf(x.start) <= K).forEach((x) => { const left = x.price - incK(K, x.id); if (left <= 0) return;
+      const date = `${K}-${String(Math.min(x.payDay || 1, lastDayOf(K))).padStart(2, "0")}`;
+      out.push({ key: "p" + x.id, date, label: `Оплата: ${cname(x.clientId)} · ${x.name}`, amount: left, type: "in", run: () => add({ kind: "move", type: "in", amount: left, date, note: "", projectId: x.id, account: ACCOUNTS[0] }) }); });
+    regulars.filter((r) => !r.off && (!r.projectId || projects.some((x) => x.id === r.projectId && x.status !== "done")) && !moves.some((m) => m.regularId === r.id && mkOf(m.date) === K)).forEach((r) => {
+      const date = `${K}-${String(Math.min(r.day, lastDayOf(K))).padStart(2, "0")}`;
+      out.push({ key: "r" + r.id, date, label: `${r.category || "Сервисы"} · ${r.name}${r.projectId ? " · " + pname(r.projectId) : ""}`, amount: r.amount, type: "out",
+        run: () => add({ kind: "move", type: "out", amount: r.amount, date, note: r.name, category: r.category || "Сервисы", account: r.account || ACCOUNTS[0], regularId: r.id, ...(r.projectId ? { projectId: r.projectId } : {}) }) }); });
+    staff.forEach((e) => salPending(e, K).forEach((l) => out.push({ key: "s" + e.id + (l.projectId || ""), date: `${K}-${String(Math.min(e.day || 10, lastDayOf(K))).padStart(2, "0")}`,
+      label: `Зарплата · ${e.name}${l.projectId ? " · " + pname(l.projectId) : " · общий"}`, amount: l.amount, type: "out", run: () => postSal(e, K, l.projectId || "") })));
+    return out.sort((a, b) => a.date.localeCompare(b.date));
+  };
+  if (view === "clients") return <ClientsTab {...{ staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} />;
   if (view === "products") return <ProductsTab {...{ products, projects, add, del, upd }} />;
-  if (view === "staff") return <StaffTab {...{ MonthPick, mk, staff, projects, moves, cname, add, del, upd }} />;
+  if (view === "staff") return <StaffTab {...{ MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }} />;
 
   // ── Мой кабинет = финансы ──
   const projIncome = (k: string, pid?: string) => moves.filter((m) => m.type === "in" && m.projectId && (!pid || m.projectId === pid) && mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0);
@@ -204,7 +225,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
     {MonthPick}
     {planFact(mk)}
     {donut}
-    <div style={{ marginTop: 12 }}><FinTab {...{ MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} /></div>
+    <div style={{ marginTop: 12 }}><FinTab {...{ pending: pendingOf(mk), MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} /></div>
   </>;
   return <>
     {MonthPick}
@@ -266,9 +287,9 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   </>;
 }
 
-function FinTab({ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive }: {
+function FinTab({ pending, MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive }: {
   MonthPick: JSX.Element; mk: string; moves: CMove[]; projects: CProject[]; pname: (id?: string) => string;
-  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void; sumM: (k: string, t: "in" | "out") => number; p: ClientProject; push: () => void; sync: string; regulars: CRegular[]; nActive: number;
+  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void; sumM: (k: string, t: "in" | "out") => number; p: ClientProject; push: () => void; sync: string; regulars: CRegular[]; nActive: number; pending?: { key: string; date: string; label: string; amount: number; type: "in" | "out"; run: () => void }[];
 }) {
   const [f, setF] = useState({ type: "out" as "in" | "out", amount: "", date: today(), note: "", projectId: "", category: "", account: ACCOUNTS[0], repeat: true });
   const inM = moves.filter((m) => mkOf(m.date) === mk);
@@ -333,12 +354,19 @@ function FinTab({ MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p,
         <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
         <td className="small muted">{x.projectId ? "🛠 проект" : x.regularId ? "🧩 общий" : "общий"}</td></tr>)}
       {!inM.length && <tr><td className="muted">В этом месяце операций нет</td></tr>}
+      {(pending || []).length > 0 && <tr><td colSpan={4} style={{ paddingTop: 12 }}><b>⏳ Не проведено · {(pending || []).length}</b>
+        <button className="ghost small" style={{ marginLeft: 8 }} onClick={() => (pending || []).forEach((x) => x.run())}>✓ Провести всё</button></td></tr>}
+      {(pending || []).map((x) => <tr key={x.key} style={{ opacity: .75 }}><td className="small">{dmy(x.date)}</td>
+        <td>{x.label}<div className="small muted">не проведено</div></td>
+        <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
+        <td><button style={{ padding: "2px 10px" }} onClick={x.run}>Провести</button></td></tr>)}
     </tbody></table>
     </div>
   </>;
 }
 
-function ClientsTab({ clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }: {
+function ClientsTab({ staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }: {
+  staff: CEmployee[]; salPending: (e: CEmployee, K: string) => { amount: number; projectId?: string }[]; postSal: (e: CEmployee, K: string, pid?: string) => void;
   clients: CClient[]; projects: CProject[]; products: CProduct[]; moves: CMove[]; regulars: CRegular[]; paidOf: (id: string) => number; costOf: (id: string) => number; monthsOf: (p: CProject) => string[]; expectedOf: (p: CProject) => number; debt: (p: CProject) => number; cname: (id: string) => string;
   add: (d: object) => Promise<unknown>; del: (id: string) => void; upd: (id: string, d: object) => void;
 }) {
@@ -463,6 +491,13 @@ function ClientsTab({ clients, projects, products, moves, regulars, paidOf, cost
                         <span><button disabled={!Number(costF.amount)} onClick={() => { add({ kind: "move", type: "out", amount: Number(costF.amount), date: costF.date, note: costF.note.trim(), category: costF.category.trim() || "Прочее", projectId: x.id, account: costF.account }); setCostF(null); }}>✓ Внести</button> <button className="ghost" onClick={() => setCostF(null)}>Отмена</button></span></div>
                     : <button style={{ marginTop: 8 }} onClick={() => { setPay(null); setCostF({ id: x.id, amount: "", category: "", note: "", date: today(), account: ACCOUNTS[0] }); }}>+ Внести расход</button>}
                   <div style={{ marginTop: 10, borderTop: "1px solid var(--border, #e5e5e5)", paddingTop: 6 }}>
+                    {(() => { const K = today().slice(0, 7), sts = staff.filter((e) => !e.off && e.payType !== "fixed" && (e.projectIds || []).includes(x.id));
+                      if (!sts.length) return null;
+                      return <div style={{ marginBottom: 8 }}><b>👷 Зарплата · {MONTHS[Number(K.slice(5)) - 1].toLowerCase()}</b>
+                        {sts.map((e) => { const pend = salPending(e, K).find((l) => l.projectId === x.id);
+                          return <div key={e.id} className="row" style={{ padding: "3px 0" }}><span>{e.name} <span className="muted">· {e.payType === "percent" ? e.amount + "%" : "фикса"}</span></span>
+                            {pend ? <span><b className="neg">{rub(pend.amount)}</b> <button style={{ padding: "2px 10px" }} onClick={() => postSal(e, K, x.id)}>Провести</button></span>
+                              : <span className="ok small">✓ проведено</span>}</div>; })}</div>; })()}
                     <Regulars {...{ mk: today().slice(0, 7), regulars: regulars.filter((y) => y.projectId === x.id), moves, projects, pname: () => "", add, del, upd, nActive: 0, projectId: x.id }} />
                   </div>
                 </div>
@@ -653,9 +688,10 @@ function salaryLines(e: CEmployee, mk: string, incomeOf: (pid: string) => number
 }
 const PAY: Record<PayType, string> = { fixed: "Фикса · общий расход", fixedProj: "Фикса · делится на его проекты", percent: "% от дохода его проектов" };
 
-function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd }: {
+function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }: {
   MonthPick: JSX.Element; mk: string; staff: CEmployee[]; projects: CProject[]; moves: CMove[]; cname: (id: string) => string;
   add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void;
+  postSal: (e: CEmployee, K: string, pid?: string) => void; salPending: (e: CEmployee, K: string) => { amount: number; projectId?: string }[];
 }) {
   const blank = { name: "", contact: "", projectIds: [] as string[], payType: "fixed" as PayType, amount: "", day: "10" };
   const [f, setF] = useState(blank);
@@ -666,8 +702,7 @@ function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd 
   const incomeOf = (pid: string) => moves.filter((m) => m.type === "in" && m.projectId === pid && mkOf(m.date) === mk).reduce((a, m) => a + m.amount, 0);
   const lastDay = new Date(Number(mk.slice(0, 4)), Number(mk.slice(5)), 0).getDate();
   const paidIn = (e: CEmployee) => moves.filter((m) => m.employeeId === e.id && mkOf(m.date) === mk);
-  const pay = (e: CEmployee) => { const date = `${mk}-${String(Math.min(e.day || 10, lastDay)).padStart(2, "0")}`;
-    salaryLines(e, mk, incomeOf).forEach((l) => add({ kind: "move", type: "out", amount: l.amount, date, note: e.name, category: "Зарплата", account: ACCOUNTS[0], employeeId: e.id, ...(l.projectId ? { projectId: l.projectId } : {}) })); };
+  const pay = (e: CEmployee) => postSal(e, mk);
   const total = staff.filter((e) => !e.off).reduce((a, e) => a + salaryLines(e, mk, incomeOf).reduce((x, l) => x + l.amount, 0), 0);
   const ProjPick = ({ ids, onChange }: { ids: string[]; onChange: (v: string[]) => void }) => <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap" }}>
     {active.map((x) => { const on = ids.includes(x.id); return <button type="button" key={x.id} className={on ? "" : "ghost"} style={{ padding: "2px 10px" }}
@@ -705,7 +740,7 @@ function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd 
                 {lines.map((l, k) => <span key={k} className="muted">{l.projectId ? projects.find((x) => x.id === l.projectId)?.name : "общий"} {rub(l.amount)}</span>)}
                 {done.length > 0 && <span className="ok">✓ выплачено {rub(done.reduce((a, m) => a + m.amount, 0))}</span>}</div></div>
             <span style={{ display: "flex", gap: 6 }}>
-              {!e.off && !done.length && sum > 0 && <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => pay(e)}>✓ Провести ЗП</button>}
+              {salPending(e, mk).length > 0 && <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => pay(e)}>✓ Провести ЗП</button>}
               <button onClick={() => setOpen(on ? null : e.id)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button></span>
           </div>
           {on && <div className="small" style={{ padding: "8px 14px 14px", background: "var(--bg)", display: "grid", gap: 6 }}>
