@@ -10,7 +10,7 @@ import { ClientProject } from "../lib/catalog";
 type CProduct = { id: string; kind: "product"; name: string; price: number; descr?: string };
 type CClient = { id: string; kind: "client"; name: string; status?: string; comments?: { at: string; text: string }[]; company?: string; phone?: string; note?: string; source?: string; created?: string };
 type Status = "new" | "work" | "done";
-type CProject = { id: string; kind: "project"; name: string; clientId: string; productId?: string; price: number; status: Status; start: string; deadline?: string; payDate?: string; monthly?: boolean; payDay?: number };
+type CProject = { id: string; kind: "project"; name: string; clientId: string; productId?: string; price: number; status: Status; start: string; deadline?: string; payDate?: string; monthly?: boolean; payDay?: number; end?: string };
 type CMove = { id: string; kind: "move"; type: "in" | "out"; amount: number; date: string; note: string; projectId?: string; category?: string; account?: string; regularId?: string; employeeId?: string };
 type CRegular = { id: string; kind: "regular"; name: string; amount: number; day: number; category?: string; account?: string; projectId?: string; off?: boolean };
 type PayType = "fixed" | "fixedProj" | "percent";
@@ -433,8 +433,8 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
   const bySrc: Record<string, { n: number; sum: number }> = {};
   clients.forEach((x) => { const k = x.source || "Не указан"; const s = bySrc[k] = bySrc[k] || { n: 0, sum: 0 }; s.n++;
     s.sum += moves.filter((m) => m.type === "in" && projects.some((p) => p.id === m.projectId && p.clientId === x.id)).reduce((a, m) => a + m.amount, 0); });
-  const finish = (x: CProject) => { if (!confirm(`Отключить проект «${x.name}»? Клиент вернётся в базу лидов со статусом «Закончили работу», вся история сохранится.`)) return;
-    upd(x.id, { status: "done" }); upd(x.clientId, { status: "Закончили работу" }); setOpen(null); };
+  const finish = (x: CProject) => { if (!confirm(`Завершить работу по «${x.name}»? Клиент перейдёт в базу лидов со статусом «Закончили работу», вся история по проекту сохранится в его карточке.`)) return;
+    upd(x.id, { status: "done", end: today() }); upd(x.clientId, { status: "Закончили работу" }); setOpen(null); };
   const toProject = (x: CClient) => { setPr({ ...blankP, clientId: x.id }); setSub("projects"); setPAdd(true); setOpen(null); };
   const pickProduct = (id: string) => { const pd = products.find((x) => x.id === id); setPr({ ...pr, productId: id, name: pr.name || pd?.name || "", price: pd ? String(pd.price) : pr.price }); };
 
@@ -447,8 +447,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
 
     {sub === "projects" && <>
       <div className="card">
-        <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>🛠 {filter === "done" ? "Отключённые проекты" : "Проекты"} · {shownP.length}</b><span>
-          {projects.some((x) => x.status === "done") && <button className="ghost" style={{ marginRight: 6 }} onClick={() => setFilter(filter === "done" ? "all" : "done")}>{filter === "done" ? "← Активные" : `⏸ Отключённые · ${projects.filter((x) => x.status === "done").length}`}</button>}
+        <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>🛠 Проекты · {shownP.length}</b><span>
           <button onClick={() => setPAdd(!pAdd)}>{pAdd ? "✕ Закрыть" : "+ Новый проект"}</button>
           <BulkPaste cols="Название · Клиент · Сумма в месяц · Число оплаты" onRows={async (rows) => {
             for (const [name, cl, price, day] of rows) {
@@ -564,8 +563,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
                 </div>
               </details>
                 <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 0 }}><span />
-                  <span>{x.status !== "done" ? <button style={{ background: "#6b7280", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => finish(x)}>⏸ Отключить проект</button>
-                    : <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => { upd(x.id, { status: "work" }); setFilter("all"); }}>▶ Включить проект</button>} <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
+                  <span><button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => finish(x)}>✓ Завершить работу</button> <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
             </div>}
           </div>; })}
         {!shownP.length && <div className="muted" style={{ padding: 6 }}>Проектов нет</div>}
@@ -660,7 +658,15 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
                   upd(x.id, { comments: [...(x.comments || []), { at: new Date().toISOString(), text: t }] }); setCmt({ ...cmt, [x.id]: "" }); }}>
                   <input placeholder="Написать комментарий: созвонились, отправил КП…" value={cmt[x.id] || ""} onChange={(e) => setCmt({ ...cmt, [x.id]: e.target.value })} style={{ flex: 1 }} />
                   <button disabled={!(cmt[x.id] || "").trim()}>➤</button></form></div>
-              {ps.length > 0 && <div>{ps.map((p) => <div key={p.id}>• {p.name} — {rub(p.price)}{debt(p) ? `, долг ${rub(debt(p))}` : ", оплачен"} · {ST[p.status]}</div>)}</div>}
+              {ps.length > 0 && <div><span className="muted">🛠 История проектов</span>
+                {ps.map((p) => { const pin = moves.filter((m) => m.projectId === p.id && m.type === "in").sort((a, b) => a.date.localeCompare(b.date)), pc = moves.filter((m) => m.projectId === p.id && m.type === "out").reduce((a, m) => a + m.amount, 0);
+                  const tot = pin.reduce((a, m) => a + m.amount, 0), mg = tot ? Math.round((tot - pc) / tot * 100) : null;
+                  return <details key={p.id} style={{ marginTop: 4, padding: "6px 10px", border: "1px solid var(--border, #e5e5e5)", borderRadius: 10, background: "var(--surface, #fff)" }}>
+                    <summary style={{ cursor: "pointer" }}><b>{p.name}</b> <span className="muted">· {dmy(p.start)} — {p.status === "done" ? dmy(p.end) || "завершён" : "в работе"} · {p.monthly ? `${rub(p.price)} в мес.` : rub(p.price)}</span>
+                      <div style={{ display: "inline-flex", gap: 8, marginLeft: 6 }}><span>оплатили <b className="ok">{rub(tot)}</b></span><span>расходы <b className="neg">{rub(pc)}</b></span><span>маржа <b>{mg != null ? mg + "%" : "—"}</b></span></div></summary>
+                    {pin.map((m) => <div key={m.id} className="row"><span>{dmy(m.date)}{m.note ? " · " + m.note : ""}</span><b className="ok">+{rub(m.amount)}</b></div>)}
+                    {!pin.length && <div className="muted">Оплат не было</div>}
+                  </details>; })}</div>}
               <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span className="muted">{x.created ? `в базе с ${dmy(x.created)}` : ""}</span>
                 <span><button onClick={() => toProject(x)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>→ В проект</button> <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
             </div>}
