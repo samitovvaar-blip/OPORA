@@ -59,6 +59,22 @@ function ClientGate() {
   return isOwner || clientOf || wsId ? <ClientPortal /> : <Navigate to="/" replace />;
 }
 
+// Нет доступа — говорит Нейла: доступ ещё не открыт, напишите в чат поддержки
+let REF = ""; try { const r = new URLSearchParams(location.search).get("ref"); if (r) localStorage.setItem("opora-ref", r); REF = localStorage.getItem("opora-ref") || ""; } catch { /* */ }
+function NoAccess({ email }: { email: string }) {
+  return <div style={{ maxWidth: 520, margin: "40px auto" }}>
+    <div className="card" style={{ textAlign: "center", padding: "26px 22px", borderTop: "4px solid #e8873a" }}>
+      <img src="neyla.jpg" alt="" style={{ width: 84, height: 84, borderRadius: "50%", objectFit: "cover", boxShadow: "0 6px 18px rgba(22,48,79,.2)" }} />
+      <h2 style={{ margin: "12px 0 6px" }}>Привет! Я Нейла 👋</h2>
+      <p style={{ margin: "6px 0" }}>Вы зарегистрировались{email ? <> с почтой <b>{email}</b></> : null} — отлично!</p>
+      <p style={{ margin: "6px 0" }}>Но ваш кабинет ещё не открыт. Напишите в чат поддержки — бухгалтер ОПОРЫ подключит вас и откроет доступ.</p>
+      {REF && <p className="small" style={{ margin: "10px 0", padding: "8px 12px", background: "rgba(232,135,58,.12)", borderRadius: 10 }}>🎁 Вы пришли по рекомендации — скажите об этом в чате, и первый месяц будет со скидкой 20%.</p>}
+      <a href="https://t.me/samitovva" target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 12, background: "#16304f", color: "#fff", borderRadius: 999, padding: "10px 24px", fontWeight: 700, textDecoration: "none" }}>💬 Чат поддержки</a>
+      <div><button className="ghost small" style={{ marginTop: 12 }} onClick={() => import("./lib/firebase").then(({ auth }) => import("firebase/auth").then(({ signOut }) => signOut(auth)))}>Выйти</button></div>
+    </div>
+  </div>;
+}
+
 // Общие разделы: владелец или приглашённый сотрудник; остальные — «нет доступа»
 function MemberGate({ children }: { children: JSX.Element }) {
   const { wsId, ready, isOwner, clientOf } = useWorkspace();
@@ -66,7 +82,7 @@ function MemberGate({ children }: { children: JSX.Element }) {
   if (clientOf) return <Navigate to="/" replace />;
   if (!ready) return <NeylaLoading />;
   if (!isOwner && user && !user.emailVerified) return <VerifyEmail />;
-  return wsId ? children : <><h1>Нет доступа</h1><div className="card">🔒 Владелец ещё не открыл вам доступ. Выйдите и попросите добавить вашу почту.</div></>;
+  return wsId ? children : <NoAccess email={user?.email || ""} />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
