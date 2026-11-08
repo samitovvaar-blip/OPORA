@@ -189,7 +189,7 @@ export default function ClientPortal() {
                 </div>
                 <div style={{ flex: 1, minWidth: 180 }}>{ds.map((d) => <div key={d.n} className="row small" style={{ padding: "3px 0" }}>
                   <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: d.c, marginRight: 6 }} />{d.n}</span>
-                  <span>{rub(d.v)} <span className="muted">· {(d.v / tot * 100).toFixed(0)}%</span></span></div>)}</div>
+                  <span>{rub(d.v)} <span className="muted">· {((v) => v > 0 && v < 1 ? v.toFixed(2).replace(".", ",") : Math.round(v))(d.v / tot * 100)}%</span></span></div>)}</div>
               </div>;
             })()}
           </div>}
