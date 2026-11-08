@@ -124,6 +124,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
   const [pfOpen, setPfOpen] = useState<Record<string, boolean>>({});
   const [gs, setGs] = useState<{ url: string; exec: string } | null>(null);
   const [calc, setCalc] = useState<"inc" | "out" | "prof" | "rent" | null>(null);
+  const [pwx, setPwx] = useState<{ id: string; k: "p" | "m" } | null>(null);
 
   const products = items.filter((x): x is CProduct => x.kind === "product").sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const clients = items.filter((x): x is CClient => x.kind === "client").sort((a, b) => a.name.localeCompare(b.name, "ru"));
@@ -336,12 +337,19 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
         <span className="small">{unpaidM.length ? <span className="neg">⏳ не оплатили: {unpaidM.length} · {rub(unpaidM.reduce((a, x) => a + (x.monthly ? x.price - projIncome(mk, x.id) : debt(x)), 0))}</span> : <span className="ok">✓ все оплатили</span>}</span></div>
       {<>
       <div style={{ overflowX: "auto", marginTop: 10 }}><table className="pnl-table crm-t"><tbody>
-        <tr className="muted small"><td>Проект</td><td>Оплата</td><td>Доходы</td><td>Расходы</td><td>Прибыль</td><td>Маржинальность</td><td>С общими расходами</td></tr>
-        {margRows.map(({ x, i, c, sh, mm, mm2 }) => { const un = unpaidM.some((y) => y.id === x.id);
-          return <tr key={x.id}><td>{x.name}<div className="small muted">{cname(x.clientId)}</div></td>
-            <td className={un ? "error" : "ok"}>{un ? `⏳ не оплатил ${rub(x.monthly ? x.price - i : debt(x))}` : i ? "✓ оплатил" : "—"}</td>
-            <td>{rub(i)}</td><td className="neg">{c ? rub(c) : "—"}</td><td className={i - c < 0 ? "error" : "ok"}>{rub(i - c)}</td><td>{mm != null && mm < 0 ? <span className="error" title="Расходы проекта больше дохода — проект в минусе">невыгодный</span> : <b>{pctS(mm)}</b>}</td>
-            <td>{mm2 != null && mm2 < 0 ? <span className="error" title="С учётом доли общих расходов проект в минусе">невыгодный</span> : <span className="muted">{pctS(mm2)}</span>}</td></tr>; })}
+        <tr className="muted small"><td>Проект</td><td>Оплата</td><td>Чистая прибыль</td><td>Маржа</td></tr>
+        {margRows.map(({ x, i, c, sh, mm, mm2 }) => { const un = unpaidM.some((y) => y.id === x.id), prof = i - c - sh, open = pwx?.id === x.id ? pwx.k : null;
+          const tg = (k: "p" | "m") => setPwx(open === k ? null : { id: x.id, k });
+          const Ln = ({ l, v, b, cl }: { l: string; v: string; b?: boolean; cl?: string }) => <div className="row" style={{ padding: "2px 0", fontWeight: b ? 700 : 400 }}><span>{l}</span><span className={cl}>{v}</span></div>;
+          return <Fragment key={x.id}><tr><td>{x.name}<div className="small muted">{cname(x.clientId)}</div></td>
+            <td className={un ? "error" : "ok"}>{un ? `⏳ ${rub(x.monthly ? x.price - i : debt(x))}` : i ? "✓ оплатил" : "—"}</td>
+            <td style={{ cursor: "pointer" }} onClick={() => tg("p")}><b className={prof < 0 ? "error" : "ok"} style={{ borderBottom: "1px dashed currentColor" }}>{rub(prof)}</b></td>
+            <td style={{ cursor: "pointer" }} onClick={() => tg("m")}>{mm2 != null && mm2 < 0 ? <span className="error" style={{ borderBottom: "1px dashed currentColor" }}>невыгодный</span> : <b style={{ borderBottom: "1px dashed currentColor" }}>{pctS(mm2)}</b>}</td></tr>
+            {open && <tr><td colSpan={4}><div className="small" style={{ padding: "6px 10px", background: "var(--bg)", borderRadius: 8, maxWidth: 420, marginLeft: "auto" }}>
+              <Ln l="Доходы проекта" v={rub(i)} cl="ok" /><Ln l="− Расходы проекта" v={rub(c)} cl="neg" /><Ln l="− Доля общих расходов" v={rub(sh)} cl="neg" />
+              <Ln l="= Чистая прибыль проекта" v={rub(prof)} b cl={prof < 0 ? "error" : "ok"} />
+              {open === "m" && <><Ln l="÷ Доходы проекта × 100%" v={rub(i)} /><Ln l="= Маржа" v={mm2 != null && mm2 < 0 ? "невыгодный (" + mm2 + "%)" : pctS(mm2)} b /></>}
+            </div></td></tr>}</Fragment>; })}
         {!margRows.length && <tr><td className="muted">Нет проектов</td></tr>}
       </tbody></table></div>
       </>}
