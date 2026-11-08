@@ -615,7 +615,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
               </div>
               {/* общие настройки */}
               <details style={{ margin: 0 }}>
-                <summary className="muted" style={{ cursor: "pointer" }}>⚙ Общие настройки — название, клиент, сумма, дата оплаты</summary>
+                <summary className="ghost" style={{ cursor: "pointer", display: "inline-block", padding: "4px 12px", border: "1px solid var(--border, #ddd)", borderRadius: 8 }}>⚙ Общие настройки</summary>
                 <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
                   <L l="Название"><input key={x.id + "n" + x.name} defaultValue={x.name} style={{ flex: 1 }} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== x.name && upd(x.id, { name: e.target.value.trim() })} /></L>
                   <L l="Клиент"><select value={x.clientId} onChange={(e) => upd(x.id, { clientId: e.target.value })} style={{ flex: 1 }}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></L>
@@ -627,9 +627,9 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
                     : <L l="Оплата до"><input type="date" value={x.payDate || ""} onChange={(e) => upd(x.id, { payDate: e.target.value })} style={{ flex: 1 }} /></L>}
                   <L l="Начало"><input type="date" value={x.start} onChange={(e) => e.target.value && upd(x.id, { start: e.target.value })} style={{ flex: 1 }} /></L>
                 </div>
+                <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 10 }}><span />
+                  <span><button className="ghost" onClick={() => finish(x)}>Завершить работу</button> <button className="ghost" onClick={() => del(x.id)}>Удалить проект</button></span></div>
               </details>
-                <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 0 }}><span />
-                  <span><button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => finish(x)}>✓ Завершить работу</button> <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
             </div>}
           </div>; })}
         {!shownP.length && <div className="muted" style={{ padding: 6 }}>Проектов нет</div>}
