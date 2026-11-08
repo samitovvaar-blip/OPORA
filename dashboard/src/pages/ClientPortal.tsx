@@ -15,6 +15,7 @@ import { useAuth } from "../lib/auth";
 import { LINK_FIELDS } from "../components/ProjectLinks";
 import NeylaLoading from "../components/NeylaLoading";
 import GoodsReport from "../components/GoodsReport";
+import { exportCabinet } from "../lib/cabinetExport";
 import ServiceCrm, { Ic, InstallHow, NeylaFab, RecommendCard, RecommendPopup, SUPPORT_URL } from "../components/ServiceCrm";
 import PayCalendar, { monthSum } from "../components/PayCalendar";
 
@@ -59,6 +60,9 @@ export default function ClientPortal() {
   const [rep, setRep] = useState<"pnl" | "dds" | "an" | "goods">("pnl");
   const loc = useLocation();
   useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op", "neyla", "chome", "cfin", "ccli", "cstaff", "cprod"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
+  // «Товары»: данные из кабинета (ОП, планирование, ход работы) уходят в таблицу клиента — через 2 сек после изменения
+  const expKey = p ? JSON.stringify([p.sales, p.prepay, p.kpi, p.planSales, p.plans, p.payCal, p.workStatus, p.calls]) : "";
+  useEffect(() => { if (!p || p.bizType === "services" || !p.pnlUrl) return; const t = setTimeout(() => { exportCabinet(p); }, 2000); return () => clearTimeout(t); }, [expKey]);
   // меню слева показывает разделы по виду кабинета
   useEffect(() => { if (!p) return; const b = p.bizType || "goods"; try { localStorage.setItem("opora-biz", b); } catch { /* */ } dispatchEvent(new CustomEvent("opora-biz", { detail: b })); }, [p?.bizType, !!p]);
   const [pnl, setPnl] = useState<Pnl | null>(null);
@@ -536,7 +540,8 @@ export default function ClientPortal() {
           </div>}
           {neySub === "sheet" && <div className="card"><h3 style={{ marginTop: 0 }}><Ic n="sheet" />Google-таблица</h3>
             <div className="work-btns">{sheet ? <a className="work-btn" href={sheet} target="_blank" rel="noopener noreferrer"><Ic n="sheet" />Открыть таблицу</a> : <span className="work-btn off"><Ic n="sheet" c="#999" />Таблица не подключена</span>}
-              <button className="work-btn" onClick={() => setReload((x) => x + 1)}>🔄 Обновить цифры из таблицы</button></div></div>}
+              <button className="work-btn" onClick={() => setReload((x) => x + 1)}>🔄 Обновить цифры из таблицы</button>
+              {isOwner && <button className="work-btn" onClick={() => exportCabinet(p, true).then((ok) => alert(ok ? "Данные кабинета отправлены в таблицу (листы «КАБИНЕТ · …»)" : "Не получилось — проверь подключение таблицы"))}>📤 Выгрузить данные кабинета в таблицу</button>}</div></div>}
         </>;
       })()}
       {!svc && !isOwner && !staffView && <RecommendPopup id={p.id} from={p.name} />}
