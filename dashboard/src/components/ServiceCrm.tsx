@@ -583,10 +583,13 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
           {(() => { // круговая диаграмма по статусам
             const ds = CST.map(([k, c]) => ({ k, c, n: leads.filter((x) => (x.status || "Ждёт обработку") === k).length })).filter((d) => d.n);
             const tot = ds.reduce((a, d) => a + d.n, 0) || 1; let acc = 0;
-            const grad = ds.map((d) => { const f = acc / tot * 360; acc += d.n; return `${d.c} ${f}deg ${acc / tot * 360}deg`; }).join(", ") || "var(--border) 0deg 360deg";
+            // лёгкий стиль: те же цвета статусов, но полупрозрачные, тонкое кольцо и зазоры между секторами
+            const soft = (h: string) => `rgba(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)}, .55)`;
+            const gap = ds.length > 1 ? 1.5 : 0;
+            const grad = ds.map((d) => { const f = acc / tot * 360; acc += d.n; const t = acc / tot * 360; return `${soft(d.c)} ${f}deg ${t - gap}deg, transparent ${t - gap}deg ${t}deg`; }).join(", ") || "var(--border) 0deg 360deg";
             return <div style={{ display: "grid", placeItems: "center" }}>
               <div style={{ width: 150, height: 150, borderRadius: "50%", background: `conic-gradient(${grad})`, display: "grid", placeItems: "center" }}>
-                <div style={{ width: 92, height: 92, borderRadius: "50%", background: "var(--surface)", display: "grid", placeItems: "center", textAlign: "center" }} className="small">
+                <div style={{ width: 118, height: 118, borderRadius: "50%", background: "var(--surface)", display: "grid", placeItems: "center", textAlign: "center" }} className="small">
                   <div><b style={{ fontSize: 22 }}>{leads.length}</b><div className="muted">лидов</div></div></div></div></div>; })()}
           <div className="small"><div className="muted" style={{ marginBottom: 4 }}>По статусам</div>
             {[["all", "Всего лидов", "#16304f"] as [string, string, string], ...CST.map(([k, c]) => [k, k, c] as [string, string, string])].map(([k, l, c]) => {
