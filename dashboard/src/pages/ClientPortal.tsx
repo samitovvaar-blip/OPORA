@@ -15,7 +15,7 @@ import { useAuth } from "../lib/auth";
 import { LINK_FIELDS } from "../components/ProjectLinks";
 import NeylaLoading from "../components/NeylaLoading";
 import GoodsReport from "../components/GoodsReport";
-import ServiceCrm from "../components/ServiceCrm";
+import ServiceCrm, { Ic, NeylaFab } from "../components/ServiceCrm";
 import PayCalendar, { monthSum } from "../components/PayCalendar";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
@@ -165,13 +165,13 @@ export default function ClientPortal() {
       {tab === "dash" && pnl && cur != null && <>
         <div className="dash-grid" style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "stretch" }}>
           <div style={{ display: "contents" }}>
-          <div className="card stat g-blue tile tile-link" onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico">💰</span><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
-          <div className="card stat g-orange tile tile-link" onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico">💸</span><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
-          <div className={`card stat ${prof != null && prof < 0 ? "g-red" : "g-green"} tile tile-link`} onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico">{prof != null && prof < 0 ? "🔻" : "💎"}</span><div className="muted">{prof != null && prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{prof != null ? rub(prof) : "—"}</b>{prof != null && prof > 0 && prevProf != null && prevProf > 0 && <Delta v={delta(prof, prevProf)} />}</div>
-          <div className="card stat g-orange t-light tile tile-link" onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico">📈</span><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
+          <div className="card stat g-blue tile tile-link" onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico"><Ic n="money" c="#fff" s={26} /></span><div className="muted">Выручка</div><b>{rev != null ? rub(rev) : "—"}</b><Delta v={delta(rev, prevRev)} /></div>
+          <div className="card stat g-orange tile tile-link" onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico"><Ic n="out" c="#fff" s={26} /></span><div className="muted">Расходы</div><b>{exp != null ? rub(exp) : "—"}</b></div>
+          <div className={`card stat ${prof != null && prof < 0 ? "g-red" : "g-green"} tile tile-link`} onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico"><Ic n="trend" c="#fff" s={26} /></span><div className="muted">{prof != null && prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{prof != null ? rub(prof) : "—"}</b>{prof != null && prof > 0 && prevProf != null && prevProf > 0 && <Delta v={delta(prof, prevProf)} />}</div>
+          <div className="card stat g-orange t-light tile tile-link" onClick={() => { setTab("rep"); setRep("pnl"); }}><span className="tile-ico"><Ic n="chart" c="#fff" s={26} /></span><div className="muted">Рентабельность</div><b>{pct(prof, rev) != null ? pct(prof, rev) + "%" : "—"}</b></div>
 
           {pnl.depts.length > 0 && <div className="card span2">
-            <h3 style={{ marginTop: 0 }}>Структура расходов · {pnl.months[cur].label}</h3>
+            <h3 style={{ marginTop: 0 }}><Ic n="pie" />Структура расходов · {pnl.months[cur].label}</h3>
             <div className="row small" style={{ marginBottom: 6 }}><b>Расходы итого</b><b>{exp != null ? rub(exp) : "—"} <span className="muted">· {exp != null && rev ? (exp / rev * 100).toFixed(1) : "—"}% выручки</span></b></div>
             {(() => {
               // круговая диаграмма: доля каждого отдела в расходах
@@ -202,7 +202,7 @@ export default function ClientPortal() {
             const Num = ({ f, l }: { f: "units" | "newClients" | "orders"; l: string }) => <div className="row small" style={{ margin: "1px 0", padding: "2px 0" }}><span>{l}</span>
               <b className={kp[f] == null ? "muted" : ""}>{kp[f] ?? "нет информации от ОП"}</b></div>;
             return <><div className="card span2">
-              <h3 style={{ marginTop: 0 }}>Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
+              <h3 style={{ marginTop: 0 }}><Ic n="trend" />Ключевые метрики бизнеса · {pnl.months[cur].label}</h3>
               {(() => {
                 // Точка безубыточности: постоянные / (1 − переменные / выручка); в штуках — через средний чек
                 const vr = Math.abs(pnl.variable[cur] || 0), fx = Math.abs(pnl.fixed[cur] || 0), share = rev ? vr / rev : null;
@@ -253,7 +253,7 @@ export default function ClientPortal() {
             // Цель месяца: план продаж (Данные от ОП) против факта выручки
             const mk = pnl.months[cur].mk || "", plan = p.planSales?.[mk] ?? null, pc = plan && rev != null ? Math.round(rev / plan * 100) : null;
             return <div className="card span2">
-              <h3 style={{ marginTop: 0 }}>🎯 Цель месяца · {pnl.months[cur].label}</h3>
+              <h3 style={{ marginTop: 0 }}><Ic n="plan" />Цель месяца · {pnl.months[cur].label}</h3>
               {plan == null ? <div className="muted">Цель на этот месяц не задана</div> : <>
                 <div className="row"><span>План продаж</span><b>{rub(plan)}</b></div>
                 <div className="row"><span>Факт</span><b>{rev != null ? rub(rev) : "—"}</b></div>
@@ -262,7 +262,7 @@ export default function ClientPortal() {
               </>}
             </div>; })()}
           <div className="card span2">
-            <h3>Выручка и прибыль по месяцам</h3>
+            <h3><Ic n="chart" />Выручка и прибыль по месяцам</h3>
             <div className="chart">{series.map((s, k) => (
               <div key={k} className="chart-col" title={`Выручка ${rub(s.rev)} · Прибыль ${rub(s.prof)}`}>
                 <div className="chart-bars"><div className="bar-i" style={{ height: s.rev / max * 100 + "%", opacity: s.closed ? 1 : .5, background: "#25476f" }} /><div className="bar-e" style={{ height: Math.max(0, s.prof) / max * 100 + "%", background: "#16a34a", opacity: s.closed ? 1 : .5 }} /></div>
@@ -276,7 +276,7 @@ export default function ClientPortal() {
       </>}
 
       {view === "pnl" && pnl && cur != null && <div className="card soft-card" style={{ overflowX: "auto", maxWidth: 900 }}>
-        <h3 style={{ marginTop: 0 }}>Отчёт о прибылях и убытках · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
+        <h3 style={{ marginTop: 0 }}><Ic n="book" />Отчёт о прибылях и убытках · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
         {(() => {
           // дерево: итоговые строки → процессы → статьи
           let l0 = "", l1 = "";
@@ -346,7 +346,7 @@ export default function ClientPortal() {
           </Fragment>)}
         </>;
         return <div className="card soft-card" style={{ overflowX: "auto", maxWidth: 900 }}>
-          <h3 style={{ marginTop: 0 }}>Движение денежных средств · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
+          <h3 style={{ marginTop: 0 }}><Ic n="wallet" />Движение денежных средств · {pnl.months[cur].label} {pnl.months[cur].year}</h3>
           <table className="pnl-table"><tbody>
             <tr className="pnl-sec"><td>Остаток на начало месяца{isOwner && <div className="small muted" style={{ fontWeight: 400 }}>{op[mk] != null ? "✏️ вводный остаток (по выписке)" : prevOp ? "= конец прошлого месяца" : B ? "= из «БАЛАНСЫ СЕЙЧАС» + движения" : "не введён"}</div>}</td><Money v={startBal} /></tr>
             {isOwner && <tr className="small"><td colSpan={2}><div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
@@ -382,7 +382,7 @@ export default function ClientPortal() {
               return { a, start, inc, out, end: start + inc + out };
             });
             return <>
-              <h3 style={{ marginTop: 18 }}>🏦 Фонды · {pnl.months[cur].label}</h3>
+              <h3 style={{ marginTop: 18 }}><Ic n="wallet" />Фонды · {pnl.months[cur].label}</h3>
               <div className="muted small" style={{ marginBottom: 6 }}>Пополнение — переводы с основного счёта. Потрачено — расходы из фонда (они уже в ОПиУ по своим статьям).</div>
               <table className="pnl-table">
                 <thead><tr><th>Фонд</th><th className="small">На начало</th><th className="small">Пополнено</th><th className="small">Потрачено</th><th className="small">На конец</th></tr></thead>
@@ -439,7 +439,7 @@ export default function ClientPortal() {
         const sum = (arr: (number | null)[]) => arr.reduce((x: number, y) => x + (y || 0), 0);
         const revs = a(pnl.revenue), profs = a(pnl.profit);
         return <div className="card soft-card print-area" style={{ overflowX: "auto", maxWidth: 1000 }}>
-          <div className="row"><h3 style={{ margin: 0 }}>📈 Аналитика по месяцам</h3>
+          <div className="row"><h3 style={{ margin: 0 }}><Ic n="chart" />Аналитика по месяцам</h3>
             <span className="chips no-print">
               <button className={`chipbtn ${anMode === "cmp" ? "on" : ""}`} onClick={() => setAnMode("cmp")}>± К прошлому месяцу</button>
               {[3, 6, 12].map((n) => <button key={n} className={`chipbtn ${anMode === "months" && anN === n ? "on" : ""}`} onClick={() => { setAnMode("months"); setAnN(n); }}>{n === 3 ? "3 месяца" : n === 6 ? "Полгода" : "Год"}</button>)}</span></div>
@@ -491,12 +491,7 @@ export default function ClientPortal() {
         const goal = p.planSales?.[pnl.months[cur].mk || ""], goalDone = view !== "an" && !!goal && (rev || 0) >= goal;
         if (goalDone) lines.unshift("🎯 Цель месяца взята! Вы молодцы!");
         if (record) lines.unshift("🏆 Это ваш рекорд по прибыли! Так держать!");
-        return <div className={`neyla-insight no-print ${goalDone ? "ni-dance" : ""}`}>
-          {(record || goalDone) && <div className="confetti">{Array.from({ length: 24 }, (_, k) => <i key={k} style={{ left: (k * 37) % 100 + "%", animationDelay: (k % 8) * 0.15 + "s", background: ["#e8883a", "#16a34a", "#3b6db3", "#9aa6d6", "#facc15"][k % 5] }} />)}</div>}
-          <button className="ghost ni-close" onClick={() => setHideNeyla(true)}>✕</button>
-          <img src="neyla.jpg" alt="" onClick={() => setTaps((t) => t + 1)} style={{ cursor: "pointer" }} />
-          <div>{taps >= 5 && <p className="ni-joke">{JOKES[taps % JOKES.length]}</p>}<b>Нейла · {view === "an" ? `вывод за ${anN === 12 ? "год" : anN === 6 ? "полгода" : "3 месяца"}` : `вывод за ${pnl.months[cur].label.toLowerCase()}`}</b>{lines.slice(0, 3).map((l, k) => <p key={k}>{l}</p>)}</div>
-        </div>;
+        return <NeylaFab lines={lines} />;
       })()}
 
       {tab === "op" && (() => {
@@ -575,7 +570,7 @@ export default function ClientPortal() {
                 : <span className="pill pill-info">{ws.loadedTo ? new Date(ws.loadedTo).toLocaleDateString("ru-RU") : "—"}</span>}</div>
             <Flag f="reportsDone" l="📑 Отчётность сдана" />
             <Flag f="taxesPaid" l="🧾 Налоги оплачены" />
-            <h3 className="work-calls">📞 Итоги созвонов</h3>
+            <h3 className="work-calls"><Ic n="chat" />Итоги созвонов</h3>
             {isOwner && <div style={{ marginBottom: 10 }}>
               <textarea rows={4} placeholder="Что обсудили, какие вопросы открыты, что ждём от клиента" value={note} onChange={(e) => setNote(e.target.value)} />
               <button disabled={!note.trim()} onClick={() => { updateDoc(ref, { calls: [{ id: String(Date.now()), at: new Date().toISOString(), text: note.trim() }, ...calls] }); setNote(""); }}>💾 Сохранить итог</button>
@@ -637,7 +632,7 @@ export default function ClientPortal() {
             </tbody>
           </table>
           {canEditClient && <div className="muted small">План доходов — из «📥 Данные от ОП». План расходов — сумма платежей в платёжном календаре ниже.</div>}
-          <h3 style={{ marginBottom: 6 }}>📝 Фокус месяца</h3>
+          <h3 style={{ marginBottom: 6 }}><Ic n="book" />Фокус месяца</h3>
           {canEditClient ? <textarea rows={4} placeholder="Цели и задачи на месяц: что делаем, на что обратить внимание" key={"n" + pmk} defaultValue={pl.note || ""} onBlur={(e) => e.target.value !== (pl.note || "") && save("note", e.target.value)} />
             : <div className="comment" style={{ whiteSpace: "pre-wrap" }}>{pl.note || "—"}</div>}
         </div>

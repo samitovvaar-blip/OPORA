@@ -65,7 +65,7 @@ const ICONS: Record<string, string> = {
   trend: "M3 17l6-6 4 4 8-8M15 7h6v6",
   heart: "M12 20s-8-5-8-11a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 6-8 11-8 11z",
 };
-function Ic({ n, c = "#e8873a", s = 18 }: { n: string; c?: string; s?: number }) {
+export function Ic({ n, c = "#e8873a", s = 18 }: { n: string; c?: string; s?: number }) {
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "-3px", marginRight: 6, flexShrink: 0 }}><path d={ICONS[n]} /></svg>;
 }
 // подсказка «как считается» — открывается по нажатию
@@ -925,7 +925,7 @@ function StaffTab({ del0, MonthPick, mk, staff, projects, moves, cname, add, del
 
 // плавающая Нейла: иконка в правом нижнем углу, сообщение только по нажатию
 const NEYLA_JOKES = ["Деньги любят счёт. А я люблю ваши цифры 💙", "Совет дня: сначала заплати себе — отложи в резерв 💰", "Каждый проведённый расход — минус одна бессонная ночь 😌", "Маржа — это не имя, но звучит красиво ✨"];
-function NeylaFab({ lines }: { lines: string[] }) {
+export function NeylaFab({ lines }: { lines: string[] }) {
   const [open, setOpen] = useState(false), [taps, setTaps] = useState(0);
   const msg = taps >= 5 ? [NEYLA_JOKES[taps % NEYLA_JOKES.length]] : lines.slice(0, 3);
   return <div className="no-print" style={{ position: "fixed", right: 16, bottom: 84, zIndex: 50, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
