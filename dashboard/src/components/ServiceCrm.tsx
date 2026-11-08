@@ -338,33 +338,28 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     {donut}
     <div style={{ marginTop: 12 }}><FinTab {...{ del0, pending: pendingOf(mk), MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} /></div>
   </>;
+  // расчёт плитки — раскрывается прямо внутри плитки
+  const calcBody = (k: "inc" | "out" | "prof" | "rent") => {
+    const ins = moves.filter((x) => x.type === "in" && mkOf(x.date) === mk), outs = moves.filter((x) => x.type === "out" && mkOf(x.date) === mk);
+    const group = (list: CMove[], key: (x: CMove) => string) => { const g: Record<string, number> = {}; list.forEach((x) => { const kk = key(x); g[kk] = (g[kk] || 0) + x.amount; }); return Object.entries(g).sort((a, b) => b[1] - a[1]).slice(0, 8); };
+    const Line = ({ l, v, b }: { l: string; v: string; b?: boolean }) => <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "2px 0", borderBottom: "1px dashed rgba(255,255,255,.35)", fontWeight: b ? 700 : 400 }}><span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{l}</span><span style={{ whiteSpace: "nowrap" }}>{v}</span></div>;
+    return <div className="small" style={{ marginTop: 8, fontSize: 12, lineHeight: 1.35, textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+      {k === "inc" && <>{group(ins, (x) => x.projectId ? pname(x.projectId) || "Проект" : x.category || "Прочий доход").map(([kk, v]) => <Line key={kk} l={kk} v={rub(v)} />)}<Line l="= Выручка" v={rub(S.inc)} b /></>}
+      {k === "out" && <>{group(outs, (x) => (x.category || "Прочее") + (x.projectId ? " · проект" : " · общий")).map(([kk, v]) => <Line key={kk} l={kk} v={rub(v)} />)}<Line l="= Расходы" v={rub(S.out)} b /></>}
+      {k === "prof" && <><Line l="Выручка" v={rub(S.inc)} /><Line l="− Расходы" v={rub(S.out)} /><Line l={S.prof < 0 ? "= Убыток" : "= Чистая прибыль"} v={rub(S.prof)} b /></>}
+      {k === "rent" && <><Line l="Чистая прибыль" v={rub(S.prof)} /><Line l="÷ Выручка × 100%" v={rub(S.inc)} /><Line l="= Рентабельность" v={pctS(S.rent)} b /></>}
+      <div style={{ textAlign: "center", marginTop: 4, opacity: .8, cursor: "pointer" }} onClick={() => setCalc(null)}>▲ свернуть</div>
+    </div>;
+  };
   return <>
     {fab}
     {MonthPick}
     <div className="crm-tiles">
-      <div className={`card stat g-blue tile tile-link ${calc === "inc" ? "on" : ""}`} onClick={() => setCalc(calc === "inc" ? null : "inc")}><span className="tile-ico"><Ic n="money" c="#fff" s={26} /></span><div className="muted">Выручка</div><b>{rub(S.inc)}</b><Delta v={S.inc} w={P.inc} /></div>
-      <div className="card stat g-orange tile tile-link" onClick={() => setCalc(calc === "out" ? null : "out")}><span className="tile-ico"><Ic n="out" c="#fff" s={26} /></span><div className="muted">Расходы</div><b>{rub(S.out)}</b><span className="small">{S.inc ? Math.round(S.out / S.inc * 100) + "% выручки" : ""}</span></div>
-      <div className={`card stat ${S.prof < 0 ? "g-red" : "g-green"} tile tile-link`} onClick={() => setCalc(calc === "prof" ? null : "prof")}><span className="tile-ico"><Ic n="trend" c="#fff" s={26} /></span><div className="muted">{S.prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{rub(S.prof)}</b>{S.prof > 0 && P.prof > 0 && <Delta v={S.prof} w={P.prof} />}</div>
-      <div className="card stat g-orange t-light tile tile-link" onClick={() => setCalc(calc === "rent" ? null : "rent")}><span className="tile-ico"><Ic n="chart" c="#fff" s={26} /></span><div className="muted">Рентабельность бизнеса</div><b>{pctS(S.rent)}</b></div>
+      <div className={`card stat g-blue tile tile-link ${calc === "inc" ? "on" : ""}`} onClick={() => setCalc(calc === "inc" ? null : "inc")}><span className="tile-ico"><Ic n="money" c="#fff" s={26} /></span><div className="muted">Выручка</div><b>{rub(S.inc)}</b><Delta v={S.inc} w={P.inc} />{calc === "inc" && calcBody("inc")}</div>
+      <div className="card stat g-orange tile tile-link" onClick={() => setCalc(calc === "out" ? null : "out")}><span className="tile-ico"><Ic n="out" c="#fff" s={26} /></span><div className="muted">Расходы</div><b>{rub(S.out)}</b><span className="small">{S.inc ? Math.round(S.out / S.inc * 100) + "% выручки" : ""}</span>{calc === "out" && calcBody("out")}</div>
+      <div className={`card stat ${S.prof < 0 ? "g-red" : "g-green"} tile tile-link`} onClick={() => setCalc(calc === "prof" ? null : "prof")}><span className="tile-ico"><Ic n="trend" c="#fff" s={26} /></span><div className="muted">{S.prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{rub(S.prof)}</b>{S.prof > 0 && P.prof > 0 && <Delta v={S.prof} w={P.prof} />}{calc === "prof" && calcBody("prof")}</div>
+      <div className="card stat g-orange t-light tile tile-link" onClick={() => setCalc(calc === "rent" ? null : "rent")}><span className="tile-ico"><Ic n="chart" c="#fff" s={26} /></span><div className="muted">Рентабельность бизнеса</div><b>{pctS(S.rent)}</b>{calc === "rent" && calcBody("rent")}</div>
     </div>
-    {calc && (() => {
-      const ins = moves.filter((x) => x.type === "in" && mkOf(x.date) === mk), outs = moves.filter((x) => x.type === "out" && mkOf(x.date) === mk);
-      const group = (list: CMove[], key: (x: CMove) => string) => { const g: Record<string, number> = {}; list.forEach((x) => { const k = key(x); g[k] = (g[k] || 0) + x.amount; }); return Object.entries(g).sort((a, b) => b[1] - a[1]); };
-      const Line = ({ l, v, b, c }: { l: string; v: string; b?: boolean; c?: string }) => <div className="row" style={{ padding: "3px 0", borderBottom: "1px dashed var(--border, #ddd)", fontWeight: b ? 700 : 400 }}><span>{l}</span><span className={c}>{v}</span></div>;
-      return <div className="card small" style={{ marginTop: 12 }}>
-        <div className="row"><b>{calc === "inc" ? "Как считается выручка" : calc === "out" ? "Как считаются расходы" : calc === "prof" ? "Как считается чистая прибыль" : "Как считается рентабельность бизнеса"} · {MONTHS[m - 1]}</b>
-          <button className="ghost" style={{ padding: "0 8px" }} onClick={() => setCalc(null)}>✕</button></div>
-        <div style={{ maxWidth: 520, marginTop: 6 }}>
-          {calc === "inc" && <>{group(ins, (x) => x.projectId ? pname(x.projectId) || "Проект" : x.category || "Прочий доход").map(([k, v]) => <Line key={k} l={k} v={rub(v)} />)}
-            <Line l="Выручка = сумма всех поступлений за месяц" v={rub(S.inc)} b c="ok" /></>}
-          {calc === "out" && <>{group(outs, (x) => (x.category || "Прочее") + (x.projectId ? " · проект" : " · общий")).map(([k, v]) => <Line key={k} l={k} v={rub(v)} />)}
-            <Line l="Расходы = все проведённые расходы за месяц" v={rub(S.out)} b c="neg" /></>}
-          {calc === "prof" && <><Line l="Выручка" v={rub(S.inc)} c="ok" /><Line l="− Расходы" v={rub(S.out)} c="neg" />
-            <Line l={S.prof < 0 ? "= Убыток" : "= Чистая прибыль"} v={rub(S.prof)} b c={S.prof < 0 ? "error" : "ok"} /></>}
-          {calc === "rent" && <><Line l="Чистая прибыль" v={rub(S.prof)} /><Line l="÷ Выручка" v={rub(S.inc)} />
-            <Line l="× 100% = Рентабельность бизнеса" v={pctS(S.rent)} b />
-            <div className="muted" style={{ marginTop: 6 }}>Показывает, сколько копеек прибыли остаётся с каждого рубля выручки.</div></>}
-        </div></div>; })()}
     <div className="card" style={{ marginTop: 12 }}>
       <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
         <h3 style={{ margin: 0 }}><Ic n="case" />Проекты в работе · {work.length}</h3>
