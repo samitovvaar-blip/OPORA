@@ -247,7 +247,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     {MonthPick}
     {planFact(mk)}
     {donut}
-    <div style={{ marginTop: 12 }}><FinTab {...{ pending: pendingOf(mk), MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} /></div>
+    <div style={{ marginTop: 12 }}><FinTab {...{ del0, pending: pendingOf(mk), MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} /></div>
   </>;
   return <>
     {MonthPick}
@@ -329,13 +329,14 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
   </>;
 }
 
-function FinTab({ pending, MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive }: {
+function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive }: {
   MonthPick: JSX.Element; mk: string; moves: CMove[]; projects: CProject[]; pname: (id?: string) => string;
-  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void; sumM: (k: string, t: "in" | "out") => number; p: ClientProject; push: () => void; sync: string; regulars: CRegular[]; nActive: number; pending?: { key: string; date: string; label: string; amount: number; type: "in" | "out"; run: () => void }[];
+  add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void; sumM: (k: string, t: "in" | "out") => number; p: ClientProject; push: () => void; sync: string; regulars: CRegular[]; nActive: number; del0: (id: string) => void; pending?: { key: string; date: string; label: string; amount: number; type: "in" | "out"; run: () => void }[];
 }) {
   const [f, setF] = useState({ type: "out" as "in" | "out", amount: "", date: today(), note: "", projectId: "", category: "", account: ACCOUNTS[0], repeat: true });
   const inM = moves.filter((m) => mkOf(m.date) === mk);
   const [addF, setAddF] = useState(false);
+  const [selO, setSelO] = useState<string[]>([]);
   const income = sumM(mk, "in"), expense = sumM(mk, "out");
   const submit = (e: FormEvent) => { e.preventDefault(); const amount = Number(f.amount); if (!amount) return;
     if (f.type === "out" && f.repeat) { add({ kind: "regular", name: f.note.trim() || f.category.trim() || "Расход", amount, day: Number(f.date.slice(8)) || 1, category: f.category.trim() || "Прочее", account: f.account }); setF({ ...f, amount: "", note: "" }); setAddF(false); return; }
@@ -383,16 +384,20 @@ function FinTab({ pending, MonthPick, mk, moves, projects, pname, add, del, upd,
       </div>
     </div>
     <div className="card" style={{ marginTop: 12 }}>
-      <b>📒 Операции за месяц</b>
+      <div className="row small" style={{ flexWrap: "wrap", gap: 6 }}><b style={{ fontSize: 15 }}>📒 Операции за месяц</b>
+        <span><label style={{ cursor: "pointer" }}><input type="checkbox" checked={inM.length > 0 && inM.every((x) => selO.includes(x.id))} onChange={(e) => setSelO(e.target.checked ? inM.map((x) => x.id) : [])} /> выбрать все</label>
+          <button className="ghost" style={{ marginLeft: 6, padding: "2px 8px" }} onClick={() => setSelO(inM.filter((x) => x.employeeId || /зарплат/i.test(x.category || "")).map((x) => x.id))}>выбрать зарплаты</button></span></div>
+      {selO.length > 0 && <div className="row small" style={{ marginTop: 6, padding: "6px 10px", background: "var(--bg)", borderRadius: 8 }}><b>Выбрано: {selO.length} · {rub(inM.filter((x) => selO.includes(x.id)).reduce((a, x) => a + x.amount, 0))}</b>
+        <span><button className="ghost" onClick={() => setSelO([])}>✕ Снять</button> <button style={{ background: "#c0392b", color: "#fff", border: 0 }} onClick={() => { if (confirm(`Удалить ${selO.length} операций?`)) { selO.forEach((id) => del0(id)); setSelO([]); } }}>🗑 Удалить выбранные</button></span></div>}
     <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
-      {inM.map((x) => <tr key={x.id}><td className="small">{dmy(x.date)}</td>
+      {inM.map((x) => <tr key={x.id}><td style={{ width: 22 }}><input type="checkbox" checked={selO.includes(x.id)} onChange={(e) => setSelO(e.target.checked ? [...selO, x.id] : selO.filter((i) => i !== x.id))} /></td><td className="small">{dmy(x.date)}</td>
         <td>{x.type === "in" ? (x.projectId ? `Оплата: ${pname(x.projectId) || "проект"}` : x.category || "Доход") : (x.category || "Расход") + (x.projectId ? ` · ${pname(x.projectId)}` : "")}<div className="small muted">{x.account || ""}{x.note ? " · " + x.note : ""}</div></td>
         <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
         <td style={{ whiteSpace: "nowrap" }}><span className="small muted">{x.projectId ? "🛠 проект" : "общий"}</span> <button className="ghost" style={{ padding: "0 6px" }} onClick={() => del(x.id)}>🗑</button></td></tr>)}
       {!inM.length && <tr><td className="muted">В этом месяце операций нет</td></tr>}
-      {(pending || []).length > 0 && <tr><td colSpan={4} style={{ paddingTop: 12 }}><b>⏳ Не проведено · {(pending || []).length}</b>
+      {(pending || []).length > 0 && <tr><td colSpan={5} style={{ paddingTop: 12 }}><b>⏳ Не проведено · {(pending || []).length}</b>
         <button className="ghost small" style={{ marginLeft: 8 }} onClick={() => (pending || []).forEach((x) => x.run())}>✓ Провести всё</button></td></tr>}
-      {(pending || []).map((x) => <tr key={x.key} style={{ opacity: .75 }}><td className="small">{dmy(x.date)}</td>
+      {(pending || []).map((x) => <tr key={x.key} style={{ opacity: .75 }}><td /><td className="small">{dmy(x.date)}</td>
         <td>{x.label}<div className="small muted">не проведено</div></td>
         <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
         <td><button style={{ padding: "2px 10px" }} onClick={x.run}>Провести</button></td></tr>)}
