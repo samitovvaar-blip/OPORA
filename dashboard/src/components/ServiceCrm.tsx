@@ -18,6 +18,8 @@ type CEmployee = { id: string; kind: "employee"; name: string; contact?: string;
 type Item = CProduct | CClient | CProject | CMove | CRegular | CEmployee;
 export type CrmView = "home" | "fin" | "clients" | "products" | "staff";
 
+// личный Telegram бухгалтера — кнопка «Чат и поддержка» у всех клиентов на услугах
+const SUPPORT_URL = "";
 const MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 const CATS = ["Аренда", "Реклама", "Зарплата", "Налоги", "Материалы", "Связь и сервисы", "Транспорт", "Обучение", "Банк и комиссии", "Прочее"];
 const SOURCES = ["Instagram", "Сарафан / рекомендация", "Авито", "Сайт", "Telegram", "ВКонтакте", "Повторный клиент"];
@@ -309,7 +311,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
       {p.crmSheet?.exec
         ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={push} title="Отправить все данные в Google-таблицу">📗 Google-таблица {sync === "wait" ? "· отправляю…" : sync === "sent" ? "· ✓ отправлено" : sync === "fail" ? "· ⚠️ ошибка" : "· 🔄 обновить"}</span>
         : isOwner ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={() => setGs(gs ? null : { url: "", exec: "" })}>📗 Добавить Google-таблицу</span> : null}
-      {([["📊 Таблица", p.crmSheet?.url || p.links?.sheet], ["🤖 Нейла", "https://t.me/dsmitovvaservbot"], ["💬 Чат", p.links?.chat], ["🛟 Поддержка", p.links?.support || p.links?.chat]] as [string, string | undefined][]).map(([l, u]) =>
+      {([["📊 Таблица", p.crmSheet?.url || p.links?.sheet], ["🤖 Нейла", "https://t.me/dsmitovvaservbot"], ["💬 Чат и поддержка", SUPPORT_URL]] as [string, string | undefined][]).map(([l, u]) =>
         u ? <a key={l} className="work-btn" href={u} target="_blank" rel="noopener noreferrer">{l}</a> : <span key={l} className="work-btn off">{l}</span>)}
     </div>
     {gs && <div className="card small" style={{ marginTop: 10, display: "grid", gap: 6 }}>
