@@ -152,7 +152,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
   };
   if (view === "clients") return <ClientsTab {...{ del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} />;
   if (view === "products") return <ProductsTab {...{ products, projects, add, del, upd }} />;
-  if (view === "staff") return <StaffTab {...{ MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }} />;
+  if (view === "staff") return <StaffTab {...{ del0, MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }} />;
 
   // ── Мой кабинет = финансы ──
   const projIncome = (k: string, pid?: string) => moves.filter((m) => m.type === "in" && m.projectId && (!pid || m.projectId === pid) && mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0);
@@ -773,10 +773,10 @@ function salaryLines(e: CEmployee, mk: string, incomeOf: (pid: string) => number
 }
 const PAY: Record<PayType, string> = { fixed: "Фикса · общий расход", fixedProj: "Фикса · делится на его проекты", percent: "% от дохода его проектов" };
 
-function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }: {
+function StaffTab({ del0, MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }: {
   MonthPick: JSX.Element; mk: string; staff: CEmployee[]; projects: CProject[]; moves: CMove[]; cname: (id: string) => string;
   add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void;
-  postSal: (e: CEmployee, K: string, pid?: string) => void; salPending: (e: CEmployee, K: string) => { amount: number; projectId?: string }[];
+  del0: (id: string) => void; postSal: (e: CEmployee, K: string, pid?: string) => void; salPending: (e: CEmployee, K: string) => { amount: number; projectId?: string }[];
 }) {
   const blank = { name: "", contact: "", projectIds: [] as string[], payType: "fixed" as PayType, amount: "", day: "10" };
   const [f, setF] = useState(blank);
@@ -788,6 +788,8 @@ function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd,
   const lastDay = new Date(Number(mk.slice(0, 4)), Number(mk.slice(5)), 0).getDate();
   const paidIn = (e: CEmployee) => moves.filter((m) => m.employeeId === e.id && mkOf(m.date) === mk);
   const pay = (e: CEmployee) => postSal(e, mk);
+  const [arch, setArch] = useState(false), [selS, setSelS] = useState<string[]>([]);
+  const shownS = staff.filter((e) => !!e.off === arch);
   const total = staff.filter((e) => !e.off).reduce((a, e) => a + salaryLines(e, mk, incomeOf).reduce((x, l) => x + l.amount, 0), 0);
   const ProjPick = ({ ids, onChange }: { ids: string[]; onChange: (v: string[]) => void }) => <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap" }}>
     {active.map((x) => { const on = ids.includes(x.id); return <button type="button" key={x.id} className={on ? "" : "ghost"} style={{ padding: "2px 10px" }}
@@ -815,10 +817,21 @@ function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd,
         <button disabled={!f.name.trim()}>✓ Добавить</button>
       </form>}
     </div>
+    <div className="row small" style={{ marginTop: 12, flexWrap: "wrap", gap: 6 }}>
+      <span><button className={!arch ? "" : "ghost"} style={{ padding: "2px 10px" }} onClick={() => { setArch(false); setSelS([]); }}>Работают · {staff.filter((e) => !e.off).length}</button>
+        <button className={arch ? "" : "ghost"} style={{ padding: "2px 10px", marginLeft: 4 }} onClick={() => { setArch(true); setSelS([]); }}>🗄 Архив · {staff.filter((e) => e.off).length}</button></span>
+      <label style={{ cursor: "pointer" }}><input type="checkbox" checked={shownS.length > 0 && shownS.every((e) => selS.includes(e.id))} onChange={(ev) => setSelS(ev.target.checked ? shownS.map((e) => e.id) : [])} /> выбрать всех</label>
+    </div>
+    {selS.length > 0 && <div className="card small row" style={{ marginTop: 8, flexWrap: "wrap", gap: 6 }}><b>Выбрано: {selS.length}</b>
+      <span><button className="ghost" onClick={() => setSelS([])}>✕ Снять</button>
+        {arch ? <button onClick={() => { selS.forEach((id) => upd(id, { off: false })); setSelS([]); }}>▶ Вернуть в работу</button>
+          : <button style={{ background: "#16304f", color: "#fff", border: 0 }} onClick={() => { selS.forEach((id) => upd(id, { off: true })); setSelS([]); }}>🗄 В архив (неактивен)</button>}
+        <button className="ghost" style={{ color: "#b02a2a" }} onClick={() => { if (confirm(`Удалить ${selS.length}?`)) { selS.forEach((id) => del0(id)); setSelS([]); } }}>🗑</button></span></div>}
     <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-      {staff.map((e) => { const lines = salaryLines(e, mk, incomeOf), sum = lines.reduce((a, l) => a + l.amount, 0), done = paidIn(e), on = open === e.id;
+      {shownS.map((e) => { const lines = salaryLines(e, mk, incomeOf), sum = lines.reduce((a, l) => a + l.amount, 0), done = paidIn(e), on = open === e.id;
         return <div key={e.id} style={{ border: "1px solid var(--border, #e5e5e5)", borderRadius: 12, overflow: "hidden", background: "var(--surface, #fff)", opacity: e.off ? .6 : 1 }}>
           <div className="row" style={{ padding: "10px 14px", gap: 10, flexWrap: "wrap" }}>
+            <input type="checkbox" checked={selS.includes(e.id)} onChange={(ev) => setSelS(ev.target.checked ? [...selS, e.id] : selS.filter((i) => i !== e.id))} />
             <div style={{ flex: "1 1 240px", minWidth: 0 }}><b>{e.name}</b> {e.contact && <span className="muted small">· {e.contact}</span>}
               <div className="small muted">{PAY[e.payType]}{e.payType === "percent" ? ` · ${e.amount}%` : ` · ${rub(e.amount)}`} · {e.day || 10}-го{(e.projectIds || []).length ? ` · проекты: ${(e.projectIds || []).map(pn).join(", ")}` : ""}</div>
               <div className="small" style={{ marginTop: 6, display: "inline-flex", gap: 10, flexWrap: "wrap", background: "var(--bg)", border: "1px solid var(--border, #e5e5e5)", borderRadius: 999, padding: "4px 12px" }}>
@@ -839,9 +852,10 @@ function StaffTab({ MonthPick, mk, staff, projects, moves, cname, add, del, upd,
             <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>День выплаты</span><input type="number" min={1} max={31} key={e.id + "d" + (e.day || "")} defaultValue={e.day || 10} style={{ flex: 1 }} onBlur={(ev) => upd(e.id, { day: Math.min(31, Math.max(1, Number(ev.target.value) || 10)) })} /></label>
             {done.length > 0 && <div><span className="muted">Выплаты за месяц</span>{done.map((m) => <div key={m.id} className="row"><span>{dmy(m.date)} · {m.projectId ? projects.find((x) => x.id === m.projectId)?.name : "общий"}</span><span>{rub(m.amount)} <button className="ghost" style={{ padding: "0 6px" }} onClick={() => del(m.id)}>✕</button></span></div>)}</div>}
             <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span />
-              <span><button className="ghost" onClick={() => upd(e.id, { off: !e.off })}>{e.off ? "▶ Вернуть" : "⏸ Не работает"}</button> <button className="ghost" onClick={() => del(e.id)}>🗑</button></span></div>
+              <span><button className="ghost" onClick={() => upd(e.id, { off: !e.off })}>{e.off ? "▶ Вернуть в работу" : "🗄 В архив"}</button> <button className="ghost" onClick={() => del(e.id)}>🗑</button></span></div>
           </div>}
         </div>; })}
+      {!shownS.length && staff.length > 0 && <div className="card muted">{arch ? "Архив пуст" : "Все сотрудники в архиве"}</div>}
       {!staff.length && <div className="card muted">Сотрудников пока нет — нажми «+ Добавить сотрудника»</div>}
     </div>
   </>;
