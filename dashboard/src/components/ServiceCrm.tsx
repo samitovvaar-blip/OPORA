@@ -176,9 +176,18 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
       label: `Зарплата · ${e.name}${l.projectId ? " · " + pname(l.projectId) : " · общий"}`, amount: l.amount, type: "out", run: () => postSal(e, K, l.projectId || "") })));
     return out.sort((a, b) => a.date.localeCompare(b.date));
   };
-  if (view === "clients") return <ClientsTab {...{ del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} />;
-  if (view === "products") return <ProductsTab {...{ del0, products, projects, add, del, upd }} />;
-  if (view === "staff") return <StaffTab {...{ del0, MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }} />;
+  // Нейла: только иконка справа снизу; нажал — короткий совет по цифрам, ещё раз — закрыла
+  const nowK = today().slice(0, 7), incNow = sumM(nowK, "in"), incPrev = sumM(shift(nowK, -1), "in"), profNow = incNow - sumM(nowK, "out");
+  const neylaLines = [
+    incPrev ? (incNow >= incPrev ? `Выручка уже ${rub(incNow)} — это ${Math.round(incNow / incPrev * 100)}% от прошлого месяца 💪` : `Выручка пока ${rub(incNow)}, в прошлом месяце было ${rub(incPrev)}. Догоним!`) : `Выручка за месяц: ${rub(incNow)}.`,
+    profNow < 0 ? `Пока месяц в минусе на ${rub(-profNow)}. Проверь расходы — может, что-то можно сдвинуть.` : `Чистая прибыль месяца: ${rub(profNow)} ✨`,
+    (() => { const n = projects.filter((x) => x.status !== "done" && x.monthly && paidOf(x.id) < expectedOf(x)).length; return n ? `${n} проект(а) ещё не оплатили — загляни в «Проекты».` : "Все проекты оплачены — красота!"; })(),
+    (() => { const n = clients.filter((c) => (c.status || "Ждёт обработку") === "Ждёт обработку" && !projects.some((p) => p.clientId === c.id && p.status !== "done")).length; return n ? `${n} лид(ов) ждут обработки. Один звонок — и может быть новый проект 📞` : ""; })(),
+  ].filter(Boolean);
+  const fab = <NeylaFab lines={neylaLines} />;
+  if (view === "clients") return <>{fab}<ClientsTab {...{ del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} /></>;
+  if (view === "products") return <>{fab}<ProductsTab {...{ del0, products, projects, add, del, upd }} /></>;
+  if (view === "staff") return <>{fab}<StaffTab {...{ del0, MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }} /></>;
 
   // ── Мой кабинет = финансы ──
   const projIncome = (k: string, pid?: string) => moves.filter((m) => m.type === "in" && m.projectId && (!pid || m.projectId === pid) && mkOf(m.date) === k).reduce((a, m) => a + m.amount, 0);
@@ -270,12 +279,14 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     })()
   );
   if (view === "fin") return <>
+    {fab}
     {MonthPick}
     {planFact(mk)}
     {donut}
     <div style={{ marginTop: 12 }}><FinTab {...{ del0, pending: pendingOf(mk), MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} /></div>
   </>;
   return <>
+    {fab}
     {MonthPick}
     <div className="crm-tiles" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, alignItems: "stretch" }}>
       <div className="card stat g-blue tile"><span className="tile-ico"><Ic n="money" c="#fff" s={26} /></span><div className="muted">Выручка</div><b>{rub(S.inc)}</b><Delta v={S.inc} w={P.inc} /></div>
@@ -910,4 +921,17 @@ function StaffTab({ del0, MonthPick, mk, staff, projects, moves, cname, add, del
       {!staff.length && <div className="card muted">Сотрудников пока нет — нажми «+ Добавить сотрудника»</div>}
     </div>
   </>;
+}
+
+// плавающая Нейла: иконка в правом нижнем углу, сообщение только по нажатию
+const NEYLA_JOKES = ["Деньги любят счёт. А я люблю ваши цифры 💙", "Совет дня: сначала заплати себе — отложи в резерв 💰", "Каждый проведённый расход — минус одна бессонная ночь 😌", "Маржа — это не имя, но звучит красиво ✨"];
+function NeylaFab({ lines }: { lines: string[] }) {
+  const [open, setOpen] = useState(false), [taps, setTaps] = useState(0);
+  const msg = taps >= 5 ? [NEYLA_JOKES[taps % NEYLA_JOKES.length]] : lines.slice(0, 3);
+  return <div className="no-print" style={{ position: "fixed", right: 16, bottom: 84, zIndex: 50, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+    {open && <div className="card small" style={{ margin: 0, maxWidth: 280, boxShadow: "0 6px 20px rgba(22,48,79,.18)", borderRadius: 14 }} onClick={() => setOpen(false)}>
+      <b>Нейла</b>{msg.map((l, k) => <p key={k} style={{ margin: "4px 0" }}>{l}</p>)}</div>}
+    <img src="neyla.jpg" alt="Нейла" title="Нейла" onClick={() => { setOpen(!open); setTaps((t) => t + 1); }}
+      style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", cursor: "pointer", boxShadow: "0 4px 14px rgba(22,48,79,.25)", border: "2px solid #fff" }} />
+  </div>;
 }
