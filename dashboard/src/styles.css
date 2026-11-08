@@ -526,3 +526,8 @@ input,select,textarea{border-radius:12px}
 
 .crm-tiles .tile b{white-space:nowrap;font-size:clamp(18px,2.2vw,26px)}.crm-tiles .tile{min-width:0;overflow:hidden}
 @media (max-width: 720px){.lead-sum{grid-template-columns:1fr !important}}
+/* таблицы кабинета «Услуги»: без горизонтальной прокрутки, текст переносится */
+.pnl-table.crm-t{min-width:0;width:100%}
+.pnl-table.crm-t td,.pnl-table.crm-t th{white-space:normal;word-break:break-word}
+.pnl-table.crm-t td:first-child,.pnl-table.crm-t th:first-child{min-width:0}
+.pnl-table.crm-t td.ok,.pnl-table.crm-t td.neg,.pnl-table.crm-t td.error{white-space:nowrap}

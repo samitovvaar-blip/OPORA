@@ -199,7 +199,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     const tog = (k: string) => setPfOpen({ ...pfOpen, [k]: !pfOpen[k] });
     return <div className="card" style={{ margin: 0 }}>
       <h3 style={{ marginTop: 0 }}>🎯 План / факт · {MONTHS[Number(K.slice(5)) - 1]} {K.slice(0, 4)}</h3>
-      <div style={{ overflowX: "auto" }}><table className="pnl-table">
+      <div style={{ overflowX: "auto" }}><table className="pnl-table crm-t">
         <thead><tr><th /><th className="small">План</th><th className="small">Факт</th><th className="small">%</th></tr></thead>
         <tbody>
           <tr className="pnl-key" style={{ cursor: "pointer" }} onClick={() => tog("in")}><td>{pfOpen.in ? "▾" : "▸"} Доходы</td><td>{rub(pIn)}</td><td>{rub(fIn)}</td>{pc(pIn, fIn)}</tr>
@@ -262,7 +262,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
         <h3 style={{ margin: 0 }}>{margOpen ? "▾" : "▸"} 🛠 Проекты в работе · {work.length}</h3>
         <span className="small">{unpaidM.length ? <span className="neg">⏳ не оплатили: {unpaidM.length} · {rub(unpaidM.reduce((a, x) => a + (x.monthly ? x.price - projIncome(mk, x.id) : debt(x)), 0))}</span> : <span className="ok">✓ все оплатили</span>}</span></div>
       {margOpen && <>
-      <div style={{ overflowX: "auto", marginTop: 10 }}><table className="pnl-table"><tbody>
+      <div style={{ overflowX: "auto", marginTop: 10 }}><table className="pnl-table crm-t"><tbody>
         <tr className="muted small"><td>Проект</td><td>Оплата</td><td>Доходы</td><td>Расходы</td><td>Прибыль</td><td>Маржа</td><td>С общими</td></tr>
         {margRows.map(({ x, i, c, sh, mm, mm2 }) => { const un = unpaidM.some((y) => y.id === x.id);
           return <tr key={x.id}><td>{x.name}<div className="small muted">{cname(x.clientId)}</div></td>
@@ -299,7 +299,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
           <div className="small muted">{MONTHS[Number(x.k.slice(5)) - 1].slice(0, 3)}</div></div>)}
       </div>
       <div className="small muted">■ <span style={{ color: "#25476f" }}>выручка</span> · ■ <span style={{ color: "#16a34a" }}>прибыль</span></div>
-      <div style={{ overflowX: "auto" }}><table className="pnl-table" style={{ marginTop: 8 }}><tbody>
+      <div style={{ overflowX: "auto" }}><table className="pnl-table crm-t" style={{ marginTop: 8 }}><tbody>
         <tr className="muted small"><td>Месяц</td><td>Выручка</td><td>Прибыль</td><td>Маржинальность</td><td>Рентабельность</td></tr>
         {series.slice().reverse().map((x) => <tr key={x.k}><td>{MONTHS[Number(x.k.slice(5)) - 1]} {x.k.slice(0, 4)}</td><td>{rub(x.inc)}</td><td className={x.prof < 0 ? "error" : "ok"}>{rub(x.prof)}</td><td>{pctS(x.marg)}</td><td>{pctS(x.rent)}</td></tr>)}
         <tr className="pnl-key"><td>Итого за {anN === 12 ? "год" : anN + " мес."}</td><td>{rub(tot.inc)}</td><td className={tot.inc - tot.out < 0 ? "error" : "ok"}>{rub(tot.inc - tot.out)}</td>
@@ -389,7 +389,7 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
           <button className="ghost" style={{ marginLeft: 6, padding: "2px 8px" }} onClick={() => setSelO(inM.filter((x) => x.employeeId || /зарплат/i.test(x.category || "")).map((x) => x.id))}>выбрать зарплаты</button></span></div>
       {selO.length > 0 && <div className="row small" style={{ marginTop: 6, padding: "6px 10px", background: "var(--bg)", borderRadius: 8 }}><b>Выбрано: {selO.length} · {rub(inM.filter((x) => selO.includes(x.id)).reduce((a, x) => a + x.amount, 0))}</b>
         <span><button className="ghost" onClick={() => setSelO([])}>✕ Снять</button> <button style={{ background: "#c0392b", color: "#fff", border: 0 }} onClick={() => { if (confirm(`Удалить ${selO.length} операций?`)) { selO.forEach((id) => del0(id)); setSelO([]); } }}>🗑 Удалить выбранные</button></span></div>}
-    <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
+    <table className="pnl-table crm-t" style={{ marginTop: 8 }}><tbody>
       {inM.map((x) => <tr key={x.id}><td style={{ width: 22 }}><input type="checkbox" checked={selO.includes(x.id)} onChange={(e) => setSelO(e.target.checked ? [...selO, x.id] : selO.filter((i) => i !== x.id))} /></td><td className="small">{dmy(x.date)}</td>
         <td>{x.type === "in" ? (x.projectId ? `Оплата: ${pname(x.projectId) || "проект"}` : x.category || "Доход") : (x.category || "Расход") + (x.projectId ? ` · ${pname(x.projectId)}` : "")}<div className="small muted">{x.account || ""}{x.note ? " · " + x.note : ""}</div></td>
         <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
@@ -417,6 +417,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
   const [pick, setPick] = useState<string | null>(null);
   const [sel, setSel] = useState<string[]>([]);
   const [bulkSrc, setBulkSrc] = useState("");
+  const [selP, setSelP] = useState<string[]>([]);
   const [srcF, setSrcF] = useState<string | null>(null);
   // убранный статус «Ждёт предложение» → «Ждёт обработку»
   useEffect(() => { clients.filter((x) => x.status === "Ждёт предложение").forEach((x) => upd(x.id, { status: "Ждёт обработку" })); }, [clients.length]);
@@ -482,6 +483,14 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
         </form>}
       {filter !== "done" && <div style={{ margin: "10px 0 4px", fontSize: 15 }}>🟢 В работе сейчас: <b style={{ fontSize: 20 }}>{projects.filter((x) => x.status !== "done").length}</b>
         <span className="muted small"> · ждём в этом месяце {rub(projects.filter((x) => x.status !== "done" && x.monthly).reduce((a, x) => a + x.price, 0))}{projects.some((x) => debt(x) > 0) ? ` · долг ${rub(projects.reduce((a, x) => a + debt(x), 0))}` : ""}</span></div>}
+      <div className="row small" style={{ marginTop: 10, flexWrap: "wrap", gap: 6 }}>
+        <label style={{ cursor: "pointer" }}><input type="checkbox" checked={shownP.length > 0 && shownP.every((x) => selP.includes(x.id))} onChange={(e) => setSelP(e.target.checked ? shownP.map((x) => x.id) : [])} /> выбрать все</label>
+        {selP.length > 0 && <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}><b>Выбрано: {selP.length}</b>
+          <button style={{ background: "#16304f", color: "#fff", border: 0 }} onClick={() => { if (!confirm(`Завершить работу по ${selP.length} проект(ам)? Клиенты перейдут в лиды «Закончили работу».`)) return;
+            projects.filter((x) => selP.includes(x.id)).forEach((x) => { upd(x.id, { status: "done", end: today() }); upd(x.clientId, { status: "Закончили работу" }); }); setSelP([]); }}>✓ Завершить работу</button>
+          <button className="ghost" style={{ color: "#b02a2a" }} onClick={() => { if (confirm(`Удалить ${selP.length} проект(ов)? Оплаты и расходы по ним останутся в операциях.`)) { selP.forEach((id) => del0(id)); setSelP([]); } }}>🗑 Удалить</button>
+          <button className="ghost" onClick={() => setSelP([])}>✕</button></span>}
+      </div>
       {/* Проекты — плитками; ⚙ раскрывает проект на всю ширину */}
       <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
         {shownP.map((x) => { const on = open === x.id, paid = paidOf(x.id), cost = costOf(x.id), d = debt(x);
@@ -495,6 +504,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
           const L = ({ l, children }: { l: string; children: React.ReactNode }) => <label className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 120 }}>{l}</span><span style={{ flex: 1, display: "flex" }}>{children}</span></label>;
           return <div key={x.id} style={{ border: `1px solid ${on ? "#16304f" : "var(--border, #e5e5e5)"}`, borderRadius: 12, overflow: "hidden", background: "var(--surface, #fff)", opacity: x.status === "done" ? .7 : 1 }}>
             <div className="row" style={{ padding: "10px 14px", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <input type="checkbox" checked={selP.includes(x.id)} onChange={(e) => setSelP(e.target.checked ? [...selP, x.id] : selP.filter((i) => i !== x.id))} />
               <div style={{ minWidth: 0, flex: "1 1 240px" }}><b>{x.name}</b> <span className="muted small">· {cname(x.clientId)}</span>
                 <div className="small muted">{x.monthly ? `${rub(x.price)} в месяц, ${x.payDay || 1}-го` : `${rub(x.price)} разово`}{d > 0 && <span className={payLate ? "error" : "neg"}> · долг {rub(d)}</span>}</div>
                 <div className="small" style={{ marginTop: 6, display: "inline-flex", flexWrap: "wrap", gap: "2px 10px", alignItems: "baseline", background: "var(--bg)", border: "1px solid var(--border, #e5e5e5)", borderRadius: 999, padding: "4px 12px" }}>
@@ -724,7 +734,7 @@ function ProductsTab({ del0, products, projects, add, del, upd }: {
         <button className="ghost" style={{ color: "#b02a2a" }} onClick={() => { if (confirm(`Удалить ${sel.length} продукт(ов)?`)) { sel.forEach((id) => del0(id)); setSel([]); } }}>🗑 Удалить</button>
         <button className="ghost" onClick={() => setSel([])}>✕</button></span>}
     </div>
-    <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
+    <table className="pnl-table crm-t" style={{ marginTop: 8 }}><tbody>
       {products.map((x) => { const used = projects.filter((p) => p.productId === x.id);
         return <tr key={x.id}><td style={{ width: 24 }}><input type="checkbox" checked={sel.includes(x.id)} onChange={(e) => setSel(e.target.checked ? [...sel, x.id] : sel.filter((i) => i !== x.id))} /></td><td>{x.name}{x.descr && <div className="small muted">{x.descr}</div>}<div className="small muted">продано: {used.length} · на {rub(used.reduce((a, p) => a + p.price, 0))}</div></td>
           <td><input type="number" style={{ width: 110 }} key={x.id + x.price} defaultValue={x.price} onBlur={(e) => Number(e.target.value) !== x.price && upd(x.id, { price: Number(e.target.value) || 0 })} /></td>
@@ -764,7 +774,7 @@ function Regulars({ mk, regulars, moves, projects, pname, add, del, upd, nActive
       <button disabled={!f.name.trim() || !Number(f.amount)} onClick={() => { add({ kind: "regular", name: f.name.trim(), amount: Number(f.amount), day: Math.min(31, Math.max(1, Number(f.day) || 1)),
         category: f.category.trim() || "Сервисы", account: f.account, ...(projectId ? { projectId } : {}) }); setF(null); }}>✓ Сохранить</button>
     </div>}
-    <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
+    <table className="pnl-table crm-t" style={{ marginTop: 8 }}><tbody>
       {regulars.map((r) => { const m = doneIn(r);
         return <tr key={r.id} style={{ opacity: r.off ? .5 : 1 }}><td>{r.name}<div className="small muted">{r.day}-го · {r.category || "Сервисы"}{r.projectId ? " · " + pname(r.projectId) : ""}</div></td>
           <td className="neg">−{rub(r.amount)}</td>
