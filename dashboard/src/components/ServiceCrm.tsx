@@ -644,7 +644,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
             return <div style={{ display: "grid", placeItems: "center", flexShrink: 0 }}>
               <div style={{ width: 104, height: 104, borderRadius: "50%", background: `conic-gradient(${grad})`, display: "grid", placeItems: "center" }}>
                 <div style={{ width: 78, height: 78, borderRadius: "50%", background: "#eef4fb", display: "grid", placeItems: "center", textAlign: "center" }} className="small">
-                  <div><b style={{ fontSize: 18 }}>{clients.length}</b><div className="muted">клиентов</div></div></div></div></div>; })()}
+                  <div><b style={{ fontSize: 18 }}>{clients.length}</b><div className="muted">лидов</div></div></div></div></div>; })()}
             <div style={{ flex: 1, minWidth: 0 }}>
           <div className="small"><div className="muted" style={{ marginBottom: 4 }}><Ic n="source" s={15} />Откуда приходят</div>
             {srcList.map(([k, v], n) => <div key={k} className="row" onClick={() => setSrcF(srcF === k ? null : k)}
