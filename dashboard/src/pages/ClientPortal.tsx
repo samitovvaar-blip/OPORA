@@ -527,7 +527,7 @@ export default function ClientPortal() {
                 <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>{x.t}</b><span><b style={{ fontSize: 18 }}>{has ? x.v + "%" : "—"}</b> <span className="small" style={{ color: !has ? "#999" : good ? "#16a34a" : "#c2661c" }}>{!has ? "нет данных" : good ? "в норме" : "есть куда расти"}</span></span></div>
                 <div className="small"><span className="muted">Стремимся к:</span> <b>{x.goal}</b></div><div className="small muted">{x.why}</div></div>; })}</div>
           </div>}
-          {neySub === "advice" && <div style={{ marginTop: 12 }}><RecommendCard /></div>}
+          {neySub === "advice" && <div style={{ marginTop: 12 }}><RecommendCard from={p.name} id={p.id} /></div>}
           {neySub === "help" && <div className="card">
             <b>📱 Установить кабинет на телефон</b><InstallHow />
             <div className="row" style={{ marginTop: 16, flexWrap: "wrap", gap: 8, paddingTop: 12, borderTop: "1px solid var(--border, #e5e5e5)" }}>
@@ -539,7 +539,7 @@ export default function ClientPortal() {
               <button className="work-btn" onClick={() => setReload((x) => x + 1)}>🔄 Обновить цифры из таблицы</button></div></div>}
         </>;
       })()}
-      {!svc && !isOwner && !staffView && <RecommendPopup id={p.id} />}
+      {!svc && !isOwner && !staffView && <RecommendPopup id={p.id} from={p.name} />}
       {tab === "op" && (() => {
         const canEdit = canEditClient;
         const ref = doc(db, "workspaces", wsId!, "clients", p.id);
