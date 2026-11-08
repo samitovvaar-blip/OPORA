@@ -206,7 +206,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     (() => { const n = clients.filter((c) => (c.status || "Ждёт обработку") === "Ждёт обработку" && !projects.some((p) => p.clientId === c.id && p.status !== "done")).length; return n ? `${n} лид(ов) ждут обработки. Один звонок — и может быть новый проект 📞` : ""; })(),
   ].filter(Boolean);
   // обучение: при первом входе клиента (и по кнопке в «Рекомендациях»)
-  const fab = <>{tour == null ? <NeylaFab lines={neylaLines} /> : <TourCard n={tour} go={goTour} />}</>;
+  const fab = <>{tour == null ? <><NeylaFab lines={neylaLines} />{!isOwner && <RecommendPopup id={p.id} />}</> : <TourCard n={tour} go={goTour} />}</>;
   if (view === "clients") return <>{fab}<ClientsTab {...{ del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} /></>;
   if (view === "products") return <>{fab}<ProductsTab {...{ del0, products, projects, add, del, upd }} /></>;
   if (view === "staff") return <>{fab}<StaffTab {...{ del0, MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }} /></>;
@@ -331,12 +331,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
               <div className="small muted">{x.why}</div></div>; })}
         </div>
       </div>
-      <div className="card" style={{ marginTop: 12, textAlign: "center" }}>
-        <h3 style={{ marginTop: 0 }}><Ic n="heart" />Нравится, как мы вместе считаем деньги?</h3>
-        <div className="small muted" style={{ marginBottom: 10 }}>Расскажите про ОПОРУ знакомым предпринимателям — я и им помогу разобраться с цифрами 💛 — Нейла</div>
-        <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700, padding: "8px 18px" }} onClick={() => { const url = location.origin + location.pathname, text = "Веду финансы бизнеса с ОПОРОЙ — понятные цифры каждый месяц. Рекомендую!";
-          if (navigator.share) navigator.share({ title: "ОПОРА", text, url }).catch(() => {}); else { navigator.clipboard?.writeText(text + " " + url); alert("Ссылка скопирована — отправьте её другу 💛"); } }}><Ic n="heart" c="#fff" />Порекомендовать ОПОРУ</button>
-      </div>
+      <div style={{ marginTop: 12 }}><RecommendCard /></div>
     </>;
   };
   if (view === "tips") return <>{fab}
@@ -1107,4 +1102,26 @@ export function InstallHow() {
     <div style={{ padding: 10, borderRadius: 10, border: `1px solid ${!ios ? "#e8873a" : "var(--border, #e5e5e5)"}` }}><b>🤖 Android</b>
       <ol style={{ margin: "4px 0 0", paddingLeft: 18 }}><li>Откройте кабинет в <b>Chrome</b></li><li>Нажмите ⋮ в правом верхнем углу</li><li>Выберите <b>«Установить приложение»</b> или «Добавить на главный экран»</li></ol></div>
   </div>;
+}
+
+// «Порекомендовать ОПОРУ» — выделенная карточка; раз в 30 дней всплывает подсказкой у клиента
+const shareOpora = () => { const url = location.origin + location.pathname, text = "Веду финансы бизнеса с ОПОРОЙ — понятные цифры каждый месяц. Рекомендую!";
+  if (navigator.share) navigator.share({ title: "ОПОРА", text, url }).catch(() => {}); else { navigator.clipboard?.writeText(text + " " + url); alert("Ссылка скопирована — отправьте её другу 💛"); } };
+export function RecommendCard({ onClose }: { onClose?: () => void }) {
+  return <div style={{ position: "relative", borderRadius: 18, padding: "18px 20px", color: "#fff", background: "linear-gradient(135deg, #16304f 0%, #25476f 55%, #e8873a 130%)", boxShadow: "0 10px 28px rgba(22,48,79,.3)", overflow: "hidden" }}>
+    <img src="spiral.png" alt="" style={{ position: "absolute", right: -30, bottom: -30, width: 150, opacity: .15, pointerEvents: "none" }} />
+    {onClose && <button onClick={onClose} style={{ position: "absolute", top: 8, right: 10, background: "transparent", border: 0, color: "#fff", fontSize: 18, cursor: "pointer" }}>✕</button>}
+    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+      <img src="neyla.jpg" alt="" style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,.7)", flexShrink: 0 }} />
+      <div><b style={{ fontSize: 17 }}>Нравится, как мы вместе считаем деньги?</b>
+        <div style={{ fontSize: 13, opacity: .9, marginTop: 2 }}>Расскажите про ОПОРУ знакомым предпринимателям — я и им помогу разобраться с цифрами 💛</div></div></div>
+    <button onClick={() => { shareOpora(); onClose?.(); }} style={{ marginTop: 14, background: "#e8873a", color: "#fff", border: 0, borderRadius: 999, fontWeight: 700, padding: "9px 20px" }}><Ic n="heart" c="#fff" />Порекомендовать ОПОРУ</button>
+  </div>;
+}
+export function RecommendPopup({ id }: { id: string }) {
+  const key = "opora-rec-" + id;
+  const [show, setShow] = useState(() => { try { const t = Number(localStorage.getItem(key) || 0); if (!t) { localStorage.setItem(key, String(Date.now())); return false; } return Date.now() - t > 30 * 864e5; } catch { return false; } });
+  if (!show) return null;
+  const close = () => { try { localStorage.setItem(key, String(Date.now())); } catch { /* */ } setShow(false); };
+  return <div className="no-print" style={{ position: "fixed", left: 16, bottom: 84, zIndex: 55, width: "min(380px, calc(100vw - 32px))" }}><RecommendCard onClose={close} /></div>;
 }
