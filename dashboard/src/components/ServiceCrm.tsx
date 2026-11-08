@@ -409,12 +409,6 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
   return <>
     {MonthPick}
     <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
-    <Fold icon="wallet" title="Остатки на конец месяца" extra={rub(accs.reduce((x, a) => x + bal(a), 0))}>
-        <div>
-        {accs.map((a) => <div key={a} className="row small"><span>{a}</span><b className={bal(a) < 0 ? "error" : ""}>{rub(bal(a))}</b></div>)}
-        <div className="row small" style={{ borderTop: "1px solid var(--border, #ddd)", paddingTop: 4 }}><b>Всего</b><b>{rub(accs.reduce((x, a) => x + bal(a), 0))}</b></div>
-        </div>
-    </Fold>
     <Fold icon="layers" title="Общие расходы" extra={rub(moves.filter((m) => m.type === "out" && !m.projectId && mkOf(m.date) === mk).reduce((a, m) => a + m.amount, 0)) + " за месяц"}>
     <Regulars {...{ mk, regulars: regulars.filter((x) => !x.projectId), moves, projects, pname, add, del, upd, nActive, projectId: undefined, flat: true }} extra={<>
       <div className="row small" style={{ justifyContent: "flex-start", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
@@ -435,6 +429,15 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
     </form>}
     </>} />
     </Fold>
+    {(pending || []).length > 0 && <Fold icon="repeat" title={`Не проведено · ${(pending || []).length}`} extra={rub((pending || []).reduce((a, x) => a + (x.type === "out" ? -x.amount : x.amount), 0))}>
+      <button className="ghost small" onClick={() => (pending || []).forEach((x) => x.run())}>✓ Провести всё</button>
+      <table className="pnl-table crm-t" style={{ marginTop: 8 }}><tbody>
+      {(pending || []).map((x) => <tr key={x.key}><td className="small">{dmy(x.date)}</td>
+        <td>{x.label}<div className="small muted">не проведено</div></td>
+        <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
+        <td><button style={{ padding: "2px 10px" }} onClick={x.run}>Провести</button></td></tr>)}
+      </tbody></table>
+    </Fold>}
     <Fold icon="book" title="Операции за месяц" extra={`${inM.length} операц.`}>
       <div className="row small" style={{ flexWrap: "wrap", gap: 6 }}><span />
         <span><label style={{ cursor: "pointer" }}><input type="checkbox" checked={inM.length > 0 && inM.every((x) => selO.includes(x.id))} onChange={(e) => setSelO(e.target.checked ? inM.map((x) => x.id) : [])} /> выбрать все</label>
@@ -449,15 +452,12 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
       {!inM.length && <tr><td className="muted">В этом месяце операций нет</td></tr>}
     </tbody></table>
     </Fold>
-    {(pending || []).length > 0 && <Fold icon="repeat" title={`Не проведено · ${(pending || []).length}`} extra={rub((pending || []).reduce((a, x) => a + (x.type === "out" ? -x.amount : x.amount), 0))}>
-      <button className="ghost small" onClick={() => (pending || []).forEach((x) => x.run())}>✓ Провести всё</button>
-      <table className="pnl-table crm-t" style={{ marginTop: 8 }}><tbody>
-      {(pending || []).map((x) => <tr key={x.key}><td className="small">{dmy(x.date)}</td>
-        <td>{x.label}<div className="small muted">не проведено</div></td>
-        <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
-        <td><button style={{ padding: "2px 10px" }} onClick={x.run}>Провести</button></td></tr>)}
-      </tbody></table>
-    </Fold>}
+    <Fold icon="wallet" title="Остатки на конец месяца" extra={rub(accs.reduce((x, a) => x + bal(a), 0))}>
+        <div>
+        {accs.map((a) => <div key={a} className="row small"><span>{a}</span><b className={bal(a) < 0 ? "error" : ""}>{rub(bal(a))}</b></div>)}
+        <div className="row small" style={{ borderTop: "1px solid var(--border, #ddd)", paddingTop: 4 }}><b>Всего</b><b>{rub(accs.reduce((x, a) => x + bal(a), 0))}</b></div>
+        </div>
+    </Fold>
     </div>
   </>;
 }
