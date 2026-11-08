@@ -539,8 +539,8 @@ export default function ClientPortal() {
       })()}
 
       {tab === "work" && <div className="work-btns" style={{ maxWidth: 860 }}>
-        {LINK_FIELDS.map(([k, label]) => p.links?.[k]
-          ? <a key={k} className="work-btn" href={p.links[k]} target="_blank" rel="noopener noreferrer">{label}</a>
+        {LINK_FIELDS.map(([k, label]) => (p.links?.[k] || k === "chat")
+          ? <a key={k} className="work-btn" href={p.links?.[k] || "https://t.me/samitovva"} target="_blank" rel="noopener noreferrer">{label}</a>
           : <span key={k} className="work-btn off">{label}</span>)}
         <a className="work-btn neyla-work" href={NEYLA_URL} target="_blank" rel="noreferrer"><img src="neyla.jpg" alt="" />Внести наличные</a>
       </div>}

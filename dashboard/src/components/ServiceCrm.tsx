@@ -19,7 +19,7 @@ type Item = CProduct | CClient | CProject | CMove | CRegular | CEmployee;
 export type CrmView = "home" | "fin" | "clients" | "products" | "staff" | "tips";
 
 // личный Telegram бухгалтера — кнопка «Чат и поддержка» у всех клиентов на услугах
-const SUPPORT_URL = "";
+const SUPPORT_URL = "https://t.me/samitovva";
 const MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 const CATS = ["Аренда", "Реклама", "Зарплата", "Налоги", "Материалы", "Связь и сервисы", "Транспорт", "Обучение", "Банк и комиссии", "Прочее"];
 const SOURCES = ["Instagram", "Сарафан / рекомендация", "Авито", "Сайт", "Telegram", "ВКонтакте", "Повторный клиент"];
