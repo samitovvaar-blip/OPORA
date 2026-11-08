@@ -10,7 +10,7 @@ import { useAuth } from "./auth";
 const OWNER = ((import.meta.env.VITE_OWNER_EMAIL as string) || "").toLowerCase();
 
 export interface Workspace { members: string[]; open: boolean; courses?: { id: string; name: string; icon: string }[]; }
-interface Ctx { wsId: string | null; isOwner: boolean; ws: Workspace | null; ready: boolean; clientOf?: string; student?: boolean; }
+interface Ctx { wsId: string | null; isOwner: boolean; ws: Workspace | null; ready: boolean; clientOf?: string; student?: boolean; demo?: boolean; }
 const NONE: Ctx = { wsId: null, isOwner: false, ws: null, ready: true };
 const C = createContext<Ctx>({ ...NONE, ready: false });
 
@@ -65,6 +65,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return () => unsub();
   }, [user?.uid, user?.emailVerified]);
 
-  return <C.Provider value={state}>{children}</C.Provider>;
+  // Демо-режим: владелец «входит» в демо-кабинет и видит его ровно как клиент
+  const demoCid = (() => { try { return sessionStorage.getItem("opora-demo") || ""; } catch { return ""; } })();
+  const value = state.isOwner && demoCid ? { ...state, isOwner: false, clientOf: demoCid, demo: true } : state;
+  return <C.Provider value={value}>{children}</C.Provider>;
 }
 export const useWorkspace = () => useContext(C);
+export const enterDemo = (cid: string) => { try { sessionStorage.setItem("opora-demo", cid); } catch { /* */ } location.hash = "#/"; location.reload(); };
+export const exitDemo = () => { try { sessionStorage.removeItem("opora-demo"); } catch { /* */ } location.hash = "#/projects"; location.reload(); };

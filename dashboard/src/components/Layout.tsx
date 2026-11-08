@@ -1,4 +1,5 @@
 import { Ic, ICONS } from "./ServiceCrm";
+import { exitDemo } from "../lib/workspace";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
@@ -49,11 +50,11 @@ export default function Layout() {
   }, [theme]);
   useEffect(() => setMore(false), [loc.pathname]);
   // сотрудник: отмечаем онлайн и рабочее время
-  const { wsId } = useWorkspace();
+  const { wsId, demo } = useWorkspace();
   // вид кабинета клиента (товары / услуги) — сообщает кабинет, чтобы меню показывало нужные разделы
   const [biz, setBiz] = useState<string>(() => { try { return localStorage.getItem("opora-biz") || ""; } catch { return ""; } });
   useEffect(() => { const f = (e: Event) => setBiz((e as CustomEvent).detail || ""); addEventListener("opora-biz", f); return () => removeEventListener("opora-biz", f); }, []);
-  useEffect(() => !isOwner && !student && wsId && user?.email ? startPresence(wsId, user.email) : undefined, [isOwner, clientOf, wsId, user?.email]);   // сотрудник и клиент
+  useEffect(() => !isOwner && !student && !demo && wsId && user?.email ? startPresence(wsId, user.email) : undefined, [isOwner, clientOf, wsId, user?.email]);   // сотрудник и клиент
 
   const visible = student ? [{ id: "st", title: "", items: [{ to: "/", label: "Домашние задания", icon: "book" }, { to: "/kb", label: "Курсы", icon: "cap" }] }] : clientOf ? [{ id: "client", title: "", items: biz === "services"
     ? [{ to: "/?t=chome", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=cfin", label: "Финансы", icon: "money" }, { to: "/?t=ccli", label: "Клиенты", icon: "users" },
@@ -92,6 +93,7 @@ export default function Layout() {
 
   return (
     <div className="shell">
+      {demo && <button onClick={exitDemo} className="no-print" style={{ position: "fixed", top: 10, right: 12, zIndex: 900, background: "#e8873a", color: "#fff", border: 0, borderRadius: 999, padding: "6px 14px", fontWeight: 700, boxShadow: "0 4px 14px rgba(0,0,0,.2)" }}>🎭 Демо · выйти</button>}
       <aside className="side">
         <div className="logo" onClick={refresh} title="Обновить данные" style={{ cursor: "pointer" }}><img src="logo.png" alt="" />ОПОРА</div>
         {clientOf && <div id="side-slot" />}
