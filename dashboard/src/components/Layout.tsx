@@ -1,3 +1,4 @@
+import { Ic, ICONS } from "./ServiceCrm";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
@@ -15,21 +16,21 @@ interface Group { id: string; title: string; items: Item[]; }
 // Меню по группам. staff — пункт виден сотруднику
 const groups = (): Group[] => [
   { id: "mgmt", title: "Управление", items: [
-    { to: "/", label: "Главная", icon: "◧", staff: true },
-    { to: "/pnl", label: "Финансы", icon: "₽" },
+    { to: "/", label: "Главная", icon: "home", staff: true },
+    { to: "/pnl", label: "Финансы", icon: "money" },
   ] },
   { id: "mkt", title: "Маркетинг", items: [
     ...modules.map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })),
   ] },
   { id: "ops", title: "Операционка", items: [
-    { to: "/projects", label: "Клиенты", icon: "◆" },
-    { to: "/tasks", label: "Задания", icon: "▦", staff: true },
-    { to: "/monthly", label: "Мои клиенты", icon: "👥", staff: true, staffOnly: true },
+    { to: "/projects", label: "Клиенты", icon: "users" },
+    { to: "/tasks", label: "Задания", icon: "tasks", staff: true },
+    { to: "/monthly", label: "Мои клиенты", icon: "users", staff: true, staffOnly: true },
   ] },
   { id: "ref", title: "Справочник", items: [
-    { to: "/products", label: "Продукты", icon: "★" },
-    { to: "/kb", label: "База знаний", icon: "🎓", staff: true },
-    { to: "/admin", label: "Админка", icon: "⚙" },
+    { to: "/products", label: "Продукты", icon: "box" },
+    { to: "/kb", label: "База знаний", icon: "cap", staff: true },
+    { to: "/admin", label: "Админка", icon: "gear" },
   ] },
 ];
 // Нижняя панель на телефоне
@@ -49,10 +50,16 @@ export default function Layout() {
   useEffect(() => setMore(false), [loc.pathname]);
   // сотрудник: отмечаем онлайн и рабочее время
   const { wsId } = useWorkspace();
+  // вид кабинета клиента (товары / услуги) — сообщает кабинет, чтобы меню показывало нужные разделы
+  const [biz, setBiz] = useState<string>(() => { try { return localStorage.getItem("opora-biz") || ""; } catch { return ""; } });
+  useEffect(() => { const f = (e: Event) => setBiz((e as CustomEvent).detail || ""); addEventListener("opora-biz", f); return () => removeEventListener("opora-biz", f); }, []);
   useEffect(() => !isOwner && !student && wsId && user?.email ? startPresence(wsId, user.email) : undefined, [isOwner, clientOf, wsId, user?.email]);   // сотрудник и клиент
 
-  const visible = student ? [{ id: "st", title: "", items: [{ to: "/", label: "Домашние задания", icon: "📝" }, { to: "/kb", label: "Курсы", icon: "🎓" }] }] : clientOf ? [{ id: "client", title: "", items: [{ to: "/?t=dash", label: "Мой кабинет", icon: "◎" }, { to: "/?t=rep", label: "Отчётность", icon: "📑" },
-    { to: "/?t=work", label: "Ход работы", icon: "🛠" }, { to: "/?t=plan", label: "Планирование", icon: "🎯" }] }] : groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly : i.staff) })).filter((g) => g.items.length);
+  const visible = student ? [{ id: "st", title: "", items: [{ to: "/", label: "Домашние задания", icon: "book" }, { to: "/kb", label: "Курсы", icon: "cap" }] }] : clientOf ? [{ id: "client", title: "", items: biz === "services"
+    ? [{ to: "/?t=chome", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=cfin", label: "Финансы", icon: "money" }, { to: "/?t=ccli", label: "Клиенты", icon: "users" },
+      { to: "/?t=cstaff", label: "Сотрудники", icon: "case" }, { to: "/?t=cprod", label: "Продукты", icon: "box" }]
+    : [{ to: "/?t=dash", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=rep", label: "Отчётность", icon: "book" },
+    { to: "/?t=work", label: "Ход работы", icon: "case" }, { to: "/?t=plan", label: "Планирование", icon: "plan" }] }] : groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly : i.staff) })).filter((g) => g.items.length);
   const flat = visible.flatMap((g) => g.items);
   const mobile = isOwner ? flat.filter((i) => MOBILE.includes(i.to)) : flat;
   const link = (n: Item) => (
@@ -61,7 +68,8 @@ export default function Layout() {
       const alias: Record<string, string[]> = { "/projects": ["/clients"], "/pnl": ["/wallet"], "/admin": ["/team-clients", "/report"] };   // вкладки одного раздела
       const on = n.to.includes("?t=") ? (loc.search || "?t=dash") === n.to.slice(n.to.indexOf("?")) : isActive || (alias[n.to] || []).some((a) => loc.pathname.startsWith(a));
       return "navlink" + (on ? " active" : "");
-    }}><span className="ni">{n.icon}</span>{n.label}</NavLink>
+    }}><span className="ni">{n.icon === "spiral" ? <img src="spiral-orange.png" alt="" style={{ width: 20, height: 20, objectFit: "contain" }} />
+      : ICONS[n.icon] ? <Ic n={n.icon} c="currentColor" s={20} /> : n.icon}</span>{n.label}</NavLink>
   );
   // ↻: кабинет клиента перезагружает отчёт сам (слушает событие), остальные разделы — перезагрузкой страницы
   const refresh = () => { if (window.dispatchEvent(new Event("opora-refresh", { cancelable: true }))) location.reload(); };

@@ -44,7 +44,11 @@ function BulkPaste({ cols, onRows }: { cols: string; onRows: (rows: string[][]) 
   </>;
 }
 // фирменные линейные значки ОПОРЫ (вместо стандартных смайликов)
-const ICONS: Record<string, string> = {
+export const ICONS: Record<string, string> = {
+  home: "M3 11l9-8 9 8M5 9v11h14V9",
+  tasks: "M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2",
+  cap: "M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5",
+  gear: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1",
   plan: "M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
   case: "M4 8h16v11H4zM9 8V5h6v3M4 13h16",
   chart: "M4 20V10M10 20V4M16 20v-7M22 20H2",

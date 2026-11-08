@@ -57,7 +57,9 @@ export default function ClientPortal() {
   const [taps, setTaps] = useState(0);
   const [rep, setRep] = useState<"pnl" | "dds" | "an" | "goods">("pnl");
   const loc = useLocation();
-  useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
+  useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op", "chome", "cfin", "ccli", "cstaff", "cprod"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
+  // меню слева показывает разделы по виду кабинета
+  useEffect(() => { if (!p) return; const b = p.bizType || "goods"; try { localStorage.setItem("opora-biz", b); } catch { /* */ } dispatchEvent(new CustomEvent("opora-biz", { detail: b })); }, [p?.bizType, !!p]);
   const [pnl, setPnl] = useState<Pnl | null>(null);
   const [pnlErr, setPnlErr] = useState("");
   const [mi, setMi] = useState<number | null>(null);
@@ -147,11 +149,11 @@ export default function ClientPortal() {
       })()}
       {preview && <h1>{p.name}</h1>}
       {preview && <div className="chips" style={{ marginTop: 12 }}>
-        {([...(svc ? [["chome", "◎ Мой кабинет"], ["cfin", "₽ Финансы"], ["ccli", "👥 Клиенты"], ["cstaff", "👷 Сотрудники"], ["cprod", "📦 Продукты"]] as const : []), ["dash", "◎ Мой кабинет"], ["rep", "📑 Отчётность"], ["work", "🛠 Ход работы"], ["plan", "🎯 Планирование"], ["op", "📥 Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => !svc || ["chome", "cfin", "ccli", "cstaff", "cprod"].includes(k)).map(([k, l]) =>
-          <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
+        {([...(svc ? [["chome", "spiral|Мой кабинет"], ["cfin", "money|Финансы"], ["ccli", "users|Клиенты"], ["cstaff", "case|Сотрудники"], ["cprod", "box|Продукты"]] as const : []), ["dash", "spiral|Мой кабинет"], ["rep", "book|Отчётность"], ["work", "case|Ход работы"], ["plan", "plan|Планирование"], ["op", "in|Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => !svc || ["chome", "cfin", "ccli", "cstaff", "cprod"].includes(k)).map(([k, l]) =>
+          <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{(() => { const [ic, t] = l.split("|"); return <>{ic === "spiral" ? <img src="spiral-orange.png" alt="" style={{ width: 16, height: 16, verticalAlign: "-3px", marginRight: 6 }} /> : <Ic n={ic} c="currentColor" s={16} />}{t}</>; })()}</button>)}
       </div>}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
-        {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"], ["an", "Аналитика"], ...(pnl?.goods && !svc ? [["goods", "📦 Товары"]] as const : [])] as const).map(([k, l]) =>
+        {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"], ["an", "Аналитика"], ...(pnl?.goods && !svc ? [["goods", "Товары"]] as const : [])] as const).map(([k, l]) =>
           <button key={k} className={`chipbtn ${rep === k ? "on" : ""}`} onClick={() => setRep(k)}>{l}</button>)}
       </div>}
 
