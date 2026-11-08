@@ -24,7 +24,7 @@ const SOURCES = ["Instagram", "Сарафан / рекомендация", "Ав
 const ACCOUNTS = ["Расчётный счёт", "Карта", "Наличные"];
 // статусы клиента в базе (воронка) и их цвета
 // фирменные цвета: оранжевые — ждут действия, красный — отказ, синие — вернуться / закончили
-const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Вернуться", "#3b6db3"], ["Отказ", "#c0392b"], ["Закончили работу", "#16304f"]];
+const CST: [string, string][] = [["Ждёт обработку", "#e8873a"], ["Не дозвонились", "#f0a868"], ["Созвон / в диалоге", "#25476f"], ["Вернуться", "#3b6db3"], ["Отказ", "#c0392b"], ["Закончили работу", "#16304f"]];
 const cstColor = (s?: string) => CST.find(([k]) => k === s)?.[1] || "#888";
 const Badge = ({ s }: { s?: string }) => <span style={{ background: cstColor(s), color: "#fff", borderRadius: 999, padding: "1px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{s || "без статуса"}</span>;
 // подсказка «как считается» — открывается по нажатию
@@ -55,7 +55,7 @@ const shift = (mk: string, n: number) => { const [y, m] = mk.split("-").map(Numb
 const dmy = (d?: string) => d ? d.split("-").reverse().join(".") : "";
 const pct = (a: number, b: number) => b ? Math.round((a - b) / Math.abs(b) * 100) : null;
 
-export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: ClientProject; view: CrmView; onNav: (v: CrmView) => void }) {
+export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: string; p: ClientProject; view: CrmView; onNav: (v: CrmView) => void; isOwner?: boolean }) {
   const col = collection(db, "workspaces", wsId, "clients", p.id, "crm");
   const [items, setItems] = useState<Item[]>([]);
   const [err, setErr] = useState("");
@@ -66,6 +66,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   const [anN, setAnN] = useState(6);
   const [margOpen, setMargOpen] = useState(false);
   const [pfOpen, setPfOpen] = useState<Record<string, boolean>>({});
+  const [gs, setGs] = useState<{ url: string; exec: string } | null>(null);
 
   const products = items.filter((x): x is CProduct => x.kind === "product").sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const clients = items.filter((x): x is CClient => x.kind === "client").sort((a, b) => a.name.localeCompare(b.name, "ru"));
@@ -195,18 +196,11 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
           {pfOpen.out && <>{regs.map((r) => <Sub key={r.id} l={`${r.day}-го · ${r.name}${r.projectId ? " · " + pname(r.projectId) : " · общий"}`} pl={r.amount} fa={factReg(r)} />)}
             {staffPlan.map(({ e, v }) => <Sub key={e.id} l={`👷 ${e.name} · зарплата`} pl={v} fa={moves.filter((m) => m.employeeId === e.id && mkOf(m.date) === K).reduce((a, m) => a + m.amount, 0)} />)}
             {otherOut.length > 0 && <Sub l="Разовые расходы" pl={null} fa={otherOut.reduce((a, m) => a + m.amount, 0)} />}
-            {!regs.length && <tr className="small muted"><td style={{ paddingLeft: 22 }} colSpan={4}>Ежемесячных расходов нет — добавь ниже или внутри проекта</td></tr>}</>}
+            {!regs.length && <tr className="small muted"><td style={{ paddingLeft: 22 }} colSpan={4}>Ежемесячных расходов нет</td></tr>}</>}
           <tr className="pnl-key"><td className="profit">Чистая прибыль</td><td>{rub(pIn - pOut)}</td><td className={fIn - fOut < 0 ? "error profit" : "profit"}>{rub(fIn - fOut)}</td>{pc(pIn - pOut, fIn - fOut)}</tr>
           <tr><td>Рентабельность</td><td>{pIn ? Math.round((pIn - pOut) / pIn * 100) + "%" : "—"}</td><td>{fIn ? Math.round((fIn - fOut) / fIn * 100) + "%" : "—"}</td><td /></tr>
           <tr><td>Маржинальность</td><td>{pMarg != null ? pMarg + "%" : "—"}</td><td>{fMarg != null ? fMarg + "%" : "—"}</td><td /></tr>
         </tbody></table></div>
-      <Info title="Как считается план / факт, рентабельность и маржинальность">
-        <div><b>План доходов</b> — ежемесячные проекты (сумма в месяц) и разовые с оплатой в этом месяце. <b>Факт</b> — что реально пришло.</div>
-        <div><b>План расходов</b> — ежемесячные расходы (общие и по проектам) и зарплаты сотрудников. <b>Факт</b> — проведённые расходы.</div>
-        <div><b>Рентабельность</b> = (все доходы − все расходы) ÷ все доходы.</div>
-        <div><b>Маржинальность</b> = (доходы проектов − расходы проектов) ÷ доходы проектов. Общие расходы сюда не входят.</div>
-        <div>Нажми «Доходы» или «Расходы» в таблице — раскроется по каждому проекту и расходу.</div>
-      </Info>
     </div>;
   };
   const donut = (
@@ -261,11 +255,6 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
             <td>{rub(i)}</td><td className="neg">{c ? rub(c) : "—"}</td><td className={i - c < 0 ? "error" : "ok"}>{rub(i - c)}</td><td><b>{pctS(mm)}</b></td><td className={mm2 != null && mm2 < 0 ? "error" : "muted"}>{pctS(mm2)}</td></tr>; })}
         {!margRows.length && <tr><td className="muted">Нет проектов</td></tr>}
       </tbody></table></div>
-      <Info title="Как считается маржа и рентабельность">
-        <div><b>Маржа проекта</b> = (доходы проекта − расходы проекта) ÷ доходы проекта.</div>
-        <div><b>С общими</b> — ещё минус доля общих расходов: {rub(shared(mk))} ÷ {activeIn(mk).length} проект. = {rub(shareOf(mk))} на проект.</div>
-        <div><b>Рентабельность</b> = (все доходы − все расходы) ÷ все доходы.</div>
-      </Info>
       </>}
     </div>
     <div className="card" style={{ marginTop: 12 }}>
@@ -279,7 +268,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
         </div>
         <div className="small">
           <div className="muted">Лиды ждут действия</div>
-          {["Ждёт обработку", "Вернуться"].map((st) => <div key={st} className="row" style={{ cursor: "pointer" }} onClick={() => onNav("clients")}>
+          {["Ждёт обработку", "Не дозвонились", "Созвон / в диалоге", "Вернуться"].map((st) => <div key={st} className="row" style={{ cursor: "pointer" }} onClick={() => onNav("clients")}>
             <span><span style={{ color: cstColor(st) }}>●</span> {st}</span><b>{leadsN(st)}</b></div>)}
         </div>
       </div>
@@ -302,11 +291,26 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
           <td>{pctS(tot.pi ? Math.round((tot.pi - tot.pc) / tot.pi * 100) : null)}</td><td>{pctS(tot.inc ? Math.round((tot.inc - tot.out) / tot.inc * 100) : null)}</td></tr>
       </tbody></table></div>
     </div>
-    {/* кнопки внизу: таблица, Нейла, чат, поддержка */}
+    {/* кнопки внизу: Google-таблица, таблица, Нейла, чат, поддержка */}
     <div className="work-btns" style={{ marginTop: 16 }}>
+      {p.crmSheet?.exec
+        ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={push} title="Отправить все данные в Google-таблицу">📗 Google-таблица {sync === "wait" ? "· отправляю…" : sync === "sent" ? "· ✓ отправлено" : sync === "fail" ? "· ⚠️ ошибка" : "· 🔄 обновить"}</span>
+        : isOwner ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={() => setGs(gs ? null : { url: "", exec: "" })}>📗 Добавить Google-таблицу</span> : null}
       {([["📊 Таблица", p.crmSheet?.url || p.links?.sheet], ["🤖 Нейла", "https://t.me/dsmitovvaservbot"], ["💬 Чат", p.links?.chat], ["🛟 Поддержка", p.links?.support || p.links?.chat]] as [string, string | undefined][]).map(([l, u]) =>
         u ? <a key={l} className="work-btn" href={u} target="_blank" rel="noopener noreferrer">{l}</a> : <span key={l} className="work-btn off">{l}</span>)}
     </div>
+    {gs && <div className="card small" style={{ marginTop: 10, display: "grid", gap: 6 }}>
+      <b>📗 Google-таблица для данных клиента</b>
+      <div className="muted">Все доходы, расходы, проекты и клиенты будут сами попадать в таблицу (листы «ПРИЛОЖЕНИЕ …»).</div>
+      <ol style={{ margin: 0, paddingLeft: 18 }}>
+        <li>Создай Google-таблицу и вставь ссылку на неё:</li></ol>
+      <input placeholder="https://docs.google.com/spreadsheets/d/…/edit" value={gs.url} onChange={(e) => setGs({ ...gs, url: e.target.value })} />
+      <ol start={2} style={{ margin: 0, paddingLeft: 18 }}>
+        <li>Расширения → Apps Script → вставь общий скрипт pnl.gs → Развёртывание → «Веб-приложение», доступ «Все» → скопируй ссылку …/exec:</li></ol>
+      <input placeholder="https://script.google.com/macros/s/…/exec" value={gs.exec} onChange={(e) => setGs({ ...gs, exec: e.target.value })} />
+      {(() => { const key = (gs.url.match(/\/d\/([\w-]{20,})/) || [])[1];
+        return <button disabled={!key || !gs.exec.trim()} onClick={() => { updateDoc(doc(db, "workspaces", wsId, "clients", p.id), { crmSheet: { url: gs.url.trim(), exec: gs.exec.trim().replace(/\?.*$/, ""), key } }); setGs(null); }}>💾 Привязать таблицу</button>; })()}
+    </div>}
   </>;
 }
 
@@ -335,13 +339,6 @@ function FinTab({ pending, MonthPick, mk, moves, projects, pname, add, del, upd,
   return <>
     {MonthPick}
     <div className="card" style={{ marginTop: 12 }}>
-    <div className="small" style={{ marginBottom: 10, padding: "6px 10px", background: "var(--bg)", borderRadius: 8 }}>
-      {p.crmSheet?.exec
-        ? <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><span>📗 Все доходы и расходы сами попадают в Google-таблицу (лист «ПРИЛОЖЕНИЕ ФИНАНСЫ»)
-          {sync === "wait" ? " · отправляю…" : sync === "sent" ? " · ✓ отправлено" : sync === "fail" ? " · ⚠️ не отправилось" : ""}</span>
-          <span>{p.crmSheet.url && <a className="linkbtn" href={p.crmSheet.url} target="_blank" rel="noopener noreferrer">Открыть таблицу</a>} <button className="ghost" onClick={push}>🔄 Отправить сейчас</button></span></div>
-        : <span className="muted">📗 Таблица пока не привязана — бухгалтер подключит её в настройках, и операции будут попадать туда сами.</span>}
-    </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
         <div>
         <b>💳 Остатки на конец месяца</b>
@@ -375,7 +372,7 @@ function FinTab({ pending, MonthPick, mk, moves, projects, pname, add, del, upd,
       {inM.map((x) => <tr key={x.id}><td className="small">{dmy(x.date)}</td>
         <td>{x.type === "in" ? (x.projectId ? `Оплата: ${pname(x.projectId) || "проект"}` : x.category || "Доход") : (x.category || "Расход") + (x.projectId ? ` · ${pname(x.projectId)}` : "")}<div className="small muted">{x.account || ""}{x.note ? " · " + x.note : ""}</div></td>
         <td className={x.type === "in" ? "ok" : "neg"}>{x.type === "in" ? "+" : "−"}{rub(x.amount)}</td>
-        <td className="small muted">{x.projectId ? "🛠 проект" : x.regularId ? "🧩 общий" : "общий"}</td></tr>)}
+        <td style={{ whiteSpace: "nowrap" }}><span className="small muted">{x.projectId ? "🛠 проект" : "общий"}</span> <button className="ghost" style={{ padding: "0 6px" }} onClick={() => del(x.id)}>🗑</button></td></tr>)}
       {!inM.length && <tr><td className="muted">В этом месяце операций нет</td></tr>}
       {(pending || []).length > 0 && <tr><td colSpan={4} style={{ paddingTop: 12 }}><b>⏳ Не проведено · {(pending || []).length}</b>
         <button className="ghost small" style={{ marginLeft: 8 }} onClick={() => (pending || []).forEach((x) => x.run())}>✓ Провести всё</button></td></tr>}
@@ -453,7 +450,6 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
             : <label className="row small" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Оплата до</span><input type="date" value={pr.payDate} onChange={(e) => setPr({ ...pr, payDate: e.target.value })} style={{ flex: 1 }} /></label>}
           <label className="row small" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 110 }}>Срок сдачи</span><input type="date" value={pr.deadline} onChange={(e) => setPr({ ...pr, deadline: e.target.value })} style={{ flex: 1 }} /></label>
           <button disabled={!pr.name.trim() || !pr.clientId}>✓ Создать проект</button>
-          {!clients.length && <div className="muted small">Сначала добавь клиента во вкладке «База лидов».</div>}
         </form>}
       {filter !== "done" && <div style={{ margin: "10px 0 4px", fontSize: 15 }}>🟢 В работе сейчас: <b style={{ fontSize: 20 }}>{projects.filter((x) => x.status !== "done").length}</b>
         <span className="muted small"> · ждём в этом месяце {rub(projects.filter((x) => x.status !== "done" && x.monthly).reduce((a, x) => a + x.price, 0))}{projects.some((x) => debt(x) > 0) ? ` · долг ${rub(projects.reduce((a, x) => a + debt(x), 0))}` : ""}</span></div>}
@@ -587,7 +583,6 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
           <button disabled={!c.name.trim()}>✓ Добавить</button>
         </form>}
         {bulk != null && <div style={{ marginBottom: 10 }} className="card soft-card" >
-          <div className="small muted">Скопируй строки из таблицы (Имя · Телефон или Telegram · Комментарий) и вставь сюда — каждая строка станет клиентом. Строка заголовков и повторы пропускаются.</div>
           <textarea rows={6} style={{ width: "100%" }} value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder={"Артур\t@ArturBilimbaev\nИнсаф и Лия\t\tпо Максу предложить"} />
           {(() => { const have = new Set(clients.map((x) => x.name.trim().toLowerCase()));
             const rows = bulk.split(/\r?\n/).map((l) => l.split("\t").map((x) => x.trim())).filter((x) => x[0] && !/^имя$/i.test(x[0]));
