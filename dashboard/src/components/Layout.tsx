@@ -57,7 +57,7 @@ export default function Layout() {
 
   const visible = student ? [{ id: "st", title: "", items: [{ to: "/", label: "Домашние задания", icon: "book" }, { to: "/kb", label: "Курсы", icon: "cap" }] }] : clientOf ? [{ id: "client", title: "", items: biz === "services"
     ? [{ to: "/?t=chome", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=cfin", label: "Финансы", icon: "money" }, { to: "/?t=ccli", label: "Клиенты", icon: "users" },
-      { to: "/?t=cstaff", label: "Сотрудники", icon: "case" }, { to: "/?t=cprod", label: "Продукты", icon: "box" }]
+      { to: "/?t=cstaff", label: "Сотрудники", icon: "case" }, { to: "/?t=cprod", label: "Продукты", icon: "box" }, { to: "/?t=ctips", label: "Рекомендации", icon: "spark" }]
     : [{ to: "/?t=dash", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=rep", label: "Отчётность", icon: "book" },
     { to: "/?t=work", label: "Ход работы", icon: "case" }, { to: "/?t=plan", label: "Планирование", icon: "plan" }] }] : groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly : i.staff) })).filter((g) => g.items.length);
   const flat = visible.flatMap((g) => g.items);

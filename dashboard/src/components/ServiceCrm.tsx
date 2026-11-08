@@ -16,7 +16,7 @@ type CRegular = { id: string; kind: "regular"; name: string; amount: number; day
 type PayType = "fixed" | "fixedProj" | "percent";
 type CEmployee = { id: string; kind: "employee"; name: string; contact?: string; projectIds?: string[]; payType: PayType; amount: number; day?: number; off?: boolean };
 type Item = CProduct | CClient | CProject | CMove | CRegular | CEmployee;
-export type CrmView = "home" | "fin" | "clients" | "products" | "staff";
+export type CrmView = "home" | "fin" | "clients" | "products" | "staff" | "tips";
 
 // личный Telegram бухгалтера — кнопка «Чат и поддержка» у всех клиентов на услугах
 const SUPPORT_URL = "";
@@ -297,6 +297,40 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
       </div>;
     })()
   );
+  if (view === "tips") {
+    // ориентиры для бизнеса в сфере услуг (за текущий месяц)
+    const K = today().slice(0, 7), T = stat(K);
+    const salary = moves.filter((x) => x.type === "out" && (x.employeeId || /зарплат/i.test(x.category || "")) && mkOf(x.date) === K).reduce((a, x) => a + x.amount, 0);
+    const sharedK = shared(K), debtAll = projects.reduce((a, x) => a + debt(x), 0);
+    const leadsAll = clients.length, conv = leadsAll ? Math.round(clients.filter((c) => projects.some((p) => p.clientId === c.id)).length / leadsAll * 100) : null;
+    const rows: { t: string; v: number | null; goal: string; ok: (v: number) => boolean; why: string; unit?: string }[] = [
+      { t: "Рентабельность бизнеса", v: T.rent, goal: "от 20%, хорошо 25–35%", ok: (v) => v >= 20, why: "Сколько прибыли остаётся с каждого рубля выручки после всех расходов." },
+      { t: "Маржинальность проектов", v: T.marg, goal: "от 40%, хорошо 50–60%", ok: (v) => v >= 40, why: "Сколько остаётся с проекта после прямых расходов (исполнители, сервисы проекта)." },
+      { t: "Зарплаты (ФОТ) от выручки", v: T.inc ? Math.round(salary / T.inc * 100) : null, goal: "не больше 40–50%", ok: (v) => v <= 50, why: "Если ФОТ съедает больше половины выручки — на развитие и прибыль почти ничего не остаётся." },
+      { t: "Общие расходы от выручки", v: T.inc ? Math.round(sharedK / T.inc * 100) : null, goal: "не больше 15–20%", ok: (v) => v <= 20, why: "Аренда, сервисы, подписки. Растут незаметно — стоит проверять раз в квартал." },
+      { t: "Конверсия лидов в проекты", v: conv, goal: "20–30%", ok: (v) => v >= 20, why: "Из 10 лидов 2–3 должны становиться клиентами. Меньше — стоит пересмотреть обработку и КП." },
+      { t: "Долги клиентов", v: debtAll, unit: "₽", goal: "0 ₽ — все оплаты вовремя", ok: (v) => v === 0, why: "Неоплаченные проекты — это ваша работа без денег. Напоминайте об оплате в день платежа." },
+    ];
+    return <>{fab}
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}><Ic n="plan" />Ключевые показатели · {MONTHS[Number(K.slice(5)) - 1]}</h3>
+        <div style={{ display: "grid", gap: 8 }}>
+          {rows.map((x) => { const has = x.v != null, good = has && x.ok(x.v!);
+            return <div key={x.t} style={{ padding: "10px 12px", border: "1px solid var(--border, #e5e5e5)", borderRadius: 12, borderLeft: `4px solid ${!has ? "#ccc" : good ? "#16a34a" : "#e8873a"}` }}>
+              <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>{x.t}</b>
+                <span><b style={{ fontSize: 18 }}>{!has ? "—" : x.unit === "₽" ? rub(x.v!) : x.v + "%"}</b> <span className="small" style={{ color: !has ? "#999" : good ? "#16a34a" : "#c2661c" }}>{!has ? "нет данных" : good ? "в норме" : "есть куда расти"}</span></span></div>
+              <div className="small"><span className="muted">Ориентир для сферы услуг:</span> <b>{x.goal}</b></div>
+              <div className="small muted">{x.why}</div></div>; })}
+        </div>
+      </div>
+      <div className="card" style={{ marginTop: 12, textAlign: "center" }}>
+        <h3 style={{ marginTop: 0 }}><Ic n="heart" />Нравится работать с ОПОРОЙ?</h3>
+        <div className="small muted" style={{ marginBottom: 10 }}>Порекомендуйте нас знакомым предпринимателям — им тоже станет понятнее с деньгами.</div>
+        <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700, padding: "8px 18px" }} onClick={() => { const url = location.origin + location.pathname, text = "Веду финансы бизнеса с ОПОРОЙ — понятные цифры каждый месяц. Рекомендую!";
+          if (navigator.share) navigator.share({ title: "ОПОРА", text, url }).catch(() => {}); else { navigator.clipboard?.writeText(text + " " + url); alert("Ссылка скопирована — отправьте её другу 💛"); } }}><Ic n="heart" c="#fff" />Порекомендовать ОПОРУ</button>
+      </div>
+    </>;
+  }
   if (view === "fin") return <>
     {fab}
     {MonthPick}
@@ -393,10 +427,8 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
       {p.crmSheet?.exec
         ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={push} title="Отправить все данные в Google-таблицу"><Ic n="sheet" />Google-таблица {sync === "wait" ? "· отправляю…" : sync === "sent" ? "· ✓ отправлено" : sync === "fail" ? "· ⚠️ ошибка" : "· 🔄 обновить"}</span>
         : isOwner ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={() => setGs(gs ? null : { url: "", exec: "" })}><Ic n="sheet" />Добавить Google-таблицу</span> : null}
-      {([["sheet", "Таблица", p.crmSheet?.url || p.links?.sheet], ["spark", "Нейла", "https://t.me/dsmitovvaservbot"], ["chat", "Чат и поддержка", SUPPORT_URL]] as [string, string, string | undefined][]).map(([ic, l, u]) =>
+      {([["sheet", "Таблица", p.crmSheet?.url || p.links?.sheet], ["spark", "Нейла", "https://t.me/dsmitovvaservbot"], ["chat", "Чат поддержки", SUPPORT_URL]] as [string, string, string | undefined][]).map(([ic, l, u]) =>
         u ? <a key={l} className="work-btn" href={u} target="_blank" rel="noopener noreferrer"><Ic n={ic} />{l}</a> : <span key={l} className="work-btn off"><Ic n={ic} c="#999" />{l}</span>)}
-      <span className="work-btn" style={{ cursor: "pointer" }} onClick={() => { const url = location.origin + location.pathname, text = "Веду финансы бизнеса с ОПОРОЙ — понятные цифры каждый месяц. Рекомендую!";
-        if (navigator.share) navigator.share({ title: "ОПОРА", text, url }).catch(() => {}); else { navigator.clipboard?.writeText(text + " " + url); alert("Ссылка скопирована — отправь её другу 💛"); } }}><Ic n="heart" />Порекомендовать ОПОРУ</span>
     </div>
     {gs && <div className="card small" style={{ marginTop: 10, display: "grid", gap: 6 }}>
       <b><Ic n="sheet" />Google-таблица для данных клиента</b>
