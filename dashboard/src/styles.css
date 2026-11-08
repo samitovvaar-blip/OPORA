@@ -542,3 +542,5 @@ input,select,textarea{border-radius:12px}
 .crm-tiles .tile[data-open]{border-bottom-left-radius:0!important;border-bottom-right-radius:0!important;overflow:visible!important;box-shadow:none}
 .crm-tiles .tile>.tile-calc{position:absolute!important;max-width:none!important;z-index:30!important;left:0;right:0;border-radius:0 0 22px 22px!important}
 @media (max-width:720px){.crm-tiles .tile>.tile-calc{border-radius:0 0 18px 18px!important}}
+.crm-tiles .tile>.tile-calc{padding:6px 22px 12px!important}
+@media (max-width:720px){.crm-tiles .tile>.tile-calc{padding:6px 14px 10px!important}}
