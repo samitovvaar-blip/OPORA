@@ -88,6 +88,7 @@ function applySnaps(j: any, snaps: Record<string, MonthSnap>) {
 export async function loadPnl(url: string, closed: string[] = [], snaps: Record<string, MonthSnap> = {}): Promise<Pnl> {
   const key = "pnl:" + url.replace("&fresh=1", "");
   const build = (j: any): Pnl => j.mode === "db" ? { ...buildFromDb(applySnaps(j, snaps), closed), goods: j.goods || null } : { ...parsePnl(j.values, j.title || j.sheet), at: j.at };
+  if (url.startsWith("demo:")) { const { demoGoodsJson } = await import("./demo"); return build(demoGoodsJson()); }
   let last = "";
   for (let a = 0; a < 3; a++) {
     try {
