@@ -151,7 +151,7 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
   const newProj = projects.filter((x) => mkOf(x.start) === mk);
   const avg = newProj.length ? newProj.reduce((a, x) => a + x.price, 0) / newProj.length : null;
   const newClients = clients.filter((c) => c.created && mkOf(c.created) === mk).length;
-  const leadsN = (st: string) => clients.filter((c) => (c.status || "") === st && !projects.some((p) => p.clientId === c.id && p.status !== "done")).length;
+  const leadsN = (st: string) => clients.filter((c) => (c.status || "Ждёт обработку") === st && !projects.some((p) => p.clientId === c.id && p.status !== "done")).length;
   const Delta = ({ v, w }: { v: number; w: number }) => !w ? null : <span className="small"> {v >= w ? "▲" : "▼"} {Math.abs(Math.round((v - w) / Math.abs(w) * 100))}%</span>;
   const pctS = (v: number | null) => v == null ? "—" : v + "%";
   const series = Array.from({ length: anN }, (_, k) => shift(mk, k - anN + 1)).map((k) => ({ k, ...stat(k) }));
@@ -410,7 +410,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
   const ql = q.trim().toLowerCase();
   const active = (cid: string) => projects.some((p) => p.clientId === cid && p.status !== "done");
   const leads = clients.filter((x) => !active(x.id));
-  const shownC = leads.filter((x) => cst === "all" || (x.status || "") === cst).filter((x) => !ql || [x.name, x.company, x.phone, x.note].join(" ").toLowerCase().includes(ql));
+  const shownC = leads.filter((x) => cst === "all" || (x.status || "Ждёт обработку") === cst).filter((x) => !ql || [x.name, x.company, x.phone, x.note].join(" ").toLowerCase().includes(ql));
   const shownP = projects.filter((x) => (filter === "all" ? x.status !== "done" : filter === "debt" ? debt(x) > 0 : x.status === filter) && (!ql || (x.name + " " + cname(x.clientId)).toLowerCase().includes(ql)));
   const bySrc: Record<string, { n: number; sum: number }> = {};
   clients.forEach((x) => { const k = x.source || "Не указан"; const s = bySrc[k] = bySrc[k] || { n: 0, sum: 0 }; s.n++;
@@ -559,7 +559,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, margin: "10px 0" }}>
           <div className="small"><div className="muted" style={{ marginBottom: 4 }}>По статусам</div>
             {[["all", "Всего лидов", "#16304f"] as [string, string, string], ...CST.map(([k, c]) => [k, k, c] as [string, string, string])].map(([k, l, c]) => {
-              const n = k === "all" ? leads.length : leads.filter((x) => (x.status || "") === k).length;
+              const n = k === "all" ? leads.length : leads.filter((x) => (x.status || "Ждёт обработку") === k).length;
               return <div key={k} className="row" onClick={() => setCst(cst === k ? "all" : k)} style={{ cursor: "pointer", padding: "3px 6px", borderRadius: 6, background: cst === k ? "var(--bg)" : undefined, fontWeight: k === "all" || cst === k ? 700 : 400 }}>
                 <span><span style={{ color: c, fontSize: 14 }}>●</span> {l}</span><span><b>{n}</b>{k !== "all" && leads.length ? <span className="muted"> · {Math.round(n / leads.length * 100)}%</span> : null}</span></div>; })}
           </div>
@@ -588,7 +588,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
           {(() => { const have = new Set(clients.map((x) => x.name.trim().toLowerCase()));
             const rows = bulk.split(/\r?\n/).map((l) => l.split("\t").map((x) => x.trim())).filter((x) => x[0] && !/^имя$/i.test(x[0]));
             const fresh = rows.filter((x, i) => !have.has(x[0].toLowerCase()) && rows.findIndex((y) => y[0].toLowerCase() === x[0].toLowerCase()) === i);
-            return <button disabled={!fresh.length} onClick={() => { fresh.forEach((x) => add({ kind: "client", name: x[0], company: "", phone: x[1] || "", note: [x[2], x[3]].filter(Boolean).join(" · "), source: c.source.trim(), created: today() })); setBulk(null); }}>
+            return <button disabled={!fresh.length} onClick={() => { fresh.forEach((x) => add({ kind: "client", status: "Ждёт обработку", name: x[0], company: "", phone: x[1] || "", note: [x[2], x[3]].filter(Boolean).join(" · "), source: c.source.trim(), created: today() })); setBulk(null); }}>
               ✓ Добавить {fresh.length} клиент.{rows.length - fresh.length ? ` (повторов пропущено: ${rows.length - fresh.length})` : ""}</button>; })()}
         </div>}
       </div>
@@ -611,11 +611,11 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
               <input type="checkbox" checked={sel.includes(x.id)} onChange={(e) => setSel(e.target.checked ? [...sel, x.id] : sel.filter((i) => i !== x.id))} style={{ flexShrink: 0 }} />
               <div style={{ minWidth: 0, flex: 1 }}><b>{x.name}</b>{x.company && <span className="muted"> · {x.company}</span>}{" "}
                 <button onClick={() => setPick(pick === x.id ? null : x.id)} title="Сменить статус"
-                  style={{ background: cstColor(x.status), color: "#fff", border: 0, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 700, marginLeft: 4 }}>{x.status || "Статус"} ▾</button>
+                  style={{ background: cstColor(x.status || "Ждёт обработку"), color: "#fff", border: 0, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 700, marginLeft: 4 }}>{x.status || "Ждёт обработку"} ▾</button>
                 <div className="small muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[x.phone, x.source, ps.length ? `${ps.length} проект.` : "", d > 0 ? `долг ${rub(d)}` : ""].filter(Boolean).join(" · ") || "—"}</div></div>
               <button onClick={() => setOpen(on ? null : x.id)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700, flexShrink: 0 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button>
             </div>
-            {pick === x.id && <StatusBtns cur={x.status} onPick={(k) => { upd(x.id, { status: k }); setPick(null); }} />}
+            {pick === x.id && <StatusBtns cur={x.status || "Ждёт обработку"} onPick={(k) => { upd(x.id, { status: k }); setPick(null); }} />}
             {on && <div className="small" style={{ padding: "4px 14px 14px", display: "grid", gap: 6, background: "var(--bg)" }}>
               {([["name", "Имя"], ["company", "Компания"], ["phone", "Телефон / Telegram"], ["source", "Откуда пришёл"]] as const).map(([k, l]) =>
                 <label key={k} className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 130 }}>{l}</span>
