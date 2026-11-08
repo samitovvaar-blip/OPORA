@@ -412,6 +412,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
   const [pick, setPick] = useState<string | null>(null);
   const [sel, setSel] = useState<string[]>([]);
   const [bulkSrc, setBulkSrc] = useState("");
+  const [srcF, setSrcF] = useState<string | null>(null);
   // убранный статус «Ждёт предложение» → «Ждёт обработку»
   useEffect(() => { clients.filter((x) => x.status === "Ждёт предложение").forEach((x) => upd(x.id, { status: "Ждёт обработку" })); }, [clients.length]);
   const [pAdd, setPAdd] = useState(false);
@@ -428,7 +429,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
   const ql = q.trim().toLowerCase();
   const active = (cid: string) => projects.some((p) => p.clientId === cid && p.status !== "done");
   const leads = clients.filter((x) => !active(x.id));
-  const shownC = leads.filter((x) => cst === "all" || (x.status || "Ждёт обработку") === cst).filter((x) => !ql || [x.name, x.company, x.phone, x.note].join(" ").toLowerCase().includes(ql));
+  const shownC = leads.filter((x) => cst === "all" || (x.status || "Ждёт обработку") === cst).filter((x) => srcF == null || (x.source || "Не указан") === srcF).filter((x) => !ql || [x.name, x.company, x.phone, x.note].join(" ").toLowerCase().includes(ql));
   const shownP = projects.filter((x) => (filter === "all" ? x.status !== "done" : filter === "debt" ? debt(x) > 0 : x.status === filter) && (!ql || (x.name + " " + cname(x.clientId)).toLowerCase().includes(ql)));
   const bySrc: Record<string, { n: number; sum: number }> = {};
   clients.forEach((x) => { const k = x.source || "Не указан"; const s = bySrc[k] = bySrc[k] || { n: 0, sum: 0 }; s.n++;
@@ -578,7 +579,15 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
           <span><button onClick={() => { setAddOpen(!addOpen); setBulk(null); }}>{addOpen ? "✕ Закрыть" : "+ Добавить лида"}</button>
             <button className="ghost" title="Вставить списком из таблицы" style={{ marginLeft: 6, padding: "2px 8px", opacity: .6 }} onClick={() => { setBulk(bulk == null ? "" : null); setAddOpen(false); }}>{bulk == null ? "📋" : "✕"}</button></span></div>
         {/* Свод: статусы и источники — списком */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, margin: "10px 0" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, margin: "10px 0", alignItems: "start" }}>
+          {(() => { // круговая диаграмма по статусам
+            const ds = CST.map(([k, c]) => ({ k, c, n: leads.filter((x) => (x.status || "Ждёт обработку") === k).length })).filter((d) => d.n);
+            const tot = ds.reduce((a, d) => a + d.n, 0) || 1; let acc = 0;
+            const grad = ds.map((d) => { const f = acc / tot * 360; acc += d.n; return `${d.c} ${f}deg ${acc / tot * 360}deg`; }).join(", ") || "var(--border) 0deg 360deg";
+            return <div style={{ display: "grid", placeItems: "center" }}>
+              <div style={{ width: 150, height: 150, borderRadius: "50%", background: `conic-gradient(${grad})`, display: "grid", placeItems: "center" }}>
+                <div style={{ width: 92, height: 92, borderRadius: "50%", background: "var(--surface)", display: "grid", placeItems: "center", textAlign: "center" }} className="small">
+                  <div><b style={{ fontSize: 22 }}>{leads.length}</b><div className="muted">лидов</div></div></div></div></div>; })()}
           <div className="small"><div className="muted" style={{ marginBottom: 4 }}>По статусам</div>
             {[["all", "Всего лидов", "#16304f"] as [string, string, string], ...CST.map(([k, c]) => [k, k, c] as [string, string, string])].map(([k, l, c]) => {
               const n = k === "all" ? leads.length : leads.filter((x) => (x.status || "Ждёт обработку") === k).length;
@@ -586,7 +595,8 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
                 <span><span style={{ color: c, fontSize: 14 }}>●</span> {l}</span><span><b>{n}</b>{k !== "all" && leads.length ? <span className="muted"> · {Math.round(n / leads.length * 100)}%</span> : null}</span></div>; })}
           </div>
           <div className="small"><div className="muted" style={{ marginBottom: 4 }}>📣 Откуда приходят</div>
-            {Object.entries(bySrc).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => <div key={k} className="row" style={{ padding: "3px 6px" }}>
+            {Object.entries(bySrc).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => <div key={k} className="row" onClick={() => setSrcF(srcF === k ? null : k)}
+              style={{ padding: "3px 6px", cursor: "pointer", borderRadius: 6, background: srcF === k ? "var(--bg)" : undefined, fontWeight: srcF === k ? 700 : 400 }}>
               <span>{k}</span><span><b>{v.n}</b>{v.sum ? <span className="muted"> · оплатили {rub(v.sum)}</span> : null}</span></div>)}
             {!clients.length && <div className="muted">Пока нет лидов</div>}
           </div>
@@ -615,8 +625,8 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
       </div>
       {/* База лидов: имя слева, статус справа; нажал — карточка с правкой и комментариями */}
       <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
-        <div className="row" style={{ padding: "10px 14px", borderBottom: "1px solid var(--border, #e5e5e5)" }}><b>📋 База лидов{cst !== "all" ? ` · ${cst}` : ""} · {shownC.length}</b>
-          <span>{cst !== "all" && <button className="ghost small" onClick={() => setCst("all")}>показать всех</button>}
+        <div className="row" style={{ padding: "10px 14px", borderBottom: "1px solid var(--border, #e5e5e5)" }}><b>📋 База лидов{cst !== "all" ? ` · ${cst}` : ""}{srcF ? ` · ${srcF}` : ""} · {shownC.length}</b>
+          <span>{(cst !== "all" || srcF) && <button className="ghost small" onClick={() => { setCst("all"); setSrcF(null); }}>показать всех</button>}
             <label className="small" style={{ marginLeft: 8, cursor: "pointer" }}><input type="checkbox" checked={shownC.length > 0 && shownC.every((x) => sel.includes(x.id))}
               onChange={(e) => setSel(e.target.checked ? shownC.map((x) => x.id) : [])} /> выбрать всех</label></span></div>
         {sel.length > 0 && <div className="small" style={{ padding: "8px 14px", background: "var(--bg)", borderBottom: "1px solid var(--border, #e5e5e5)", display: "grid", gap: 6 }}>
