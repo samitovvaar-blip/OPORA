@@ -304,31 +304,54 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     const sharedK = shared(K), debtAll = projects.reduce((a, x) => a + debt(x), 0);
     const leadsAll = clients.length, conv = leadsAll ? Math.round(clients.filter((c) => projects.some((p) => p.clientId === c.id)).length / leadsAll * 100) : null;
     const rows: { t: string; v: number | null; goal: string; ok: (v: number) => boolean; why: string; unit?: string }[] = [
-      { t: "Рентабельность бизнеса", v: T.rent, goal: "от 20%, хорошо 25–35%", ok: (v) => v >= 20, why: "Сколько прибыли остаётся с каждого рубля выручки после всех расходов." },
-      { t: "Маржинальность проектов", v: T.marg, goal: "от 40%, хорошо 50–60%", ok: (v) => v >= 40, why: "Сколько остаётся с проекта после прямых расходов (исполнители, сервисы проекта)." },
-      { t: "Зарплаты (ФОТ) от выручки", v: T.inc ? Math.round(salary / T.inc * 100) : null, goal: "не больше 40–50%", ok: (v) => v <= 50, why: "Если ФОТ съедает больше половины выручки — на развитие и прибыль почти ничего не остаётся." },
-      { t: "Общие расходы от выручки", v: T.inc ? Math.round(sharedK / T.inc * 100) : null, goal: "не больше 15–20%", ok: (v) => v <= 20, why: "Аренда, сервисы, подписки. Растут незаметно — стоит проверять раз в квартал." },
-      { t: "Конверсия лидов в проекты", v: conv, goal: "20–30%", ok: (v) => v >= 20, why: "Из 10 лидов 2–3 должны становиться клиентами. Меньше — стоит пересмотреть обработку и КП." },
-      { t: "Долги клиентов", v: debtAll, unit: "₽", goal: "0 ₽ — все оплаты вовремя", ok: (v) => v === 0, why: "Неоплаченные проекты — это ваша работа без денег. Напоминайте об оплате в день платежа." },
+      { t: "Рентабельность бизнеса", v: T.rent, goal: "от 20%, хорошо 25–35%", ok: (v) => v >= 20, why: "Я смотрю, сколько прибыли остаётся с каждого рубля выручки после всех расходов." },
+      { t: "Маржинальность проектов", v: T.marg, goal: "от 40%, хорошо 50–60%", ok: (v) => v >= 40, why: "Это то, что остаётся с проекта после оплаты исполнителей и сервисов проекта." },
+      { t: "Зарплаты (ФОТ) от выручки", v: T.inc ? Math.round(salary / T.inc * 100) : null, goal: "не больше 40–50%", ok: (v) => v <= 50, why: "Если зарплаты съедают больше половины выручки, на развитие и прибыль почти ничего не останется — я бы за этим следила." },
+      { t: "Общие расходы от выручки", v: T.inc ? Math.round(sharedK / T.inc * 100) : null, goal: "не больше 15–20%", ok: (v) => v <= 20, why: "Аренда, сервисы, подписки растут незаметно. Советую пересматривать их раз в квартал." },
+      { t: "Конверсия лидов в проекты", v: conv, goal: "20–30%", ok: (v) => v >= 20, why: "Из 10 лидов 2–3 должны становиться клиентами. Если меньше — давайте посмотрим, как вы обрабатываете заявки и что в КП." },
+      { t: "Долги клиентов", v: debtAll, unit: "₽", goal: "0 ₽ — все оплаты вовремя", ok: (v) => v === 0, why: "Неоплаченный проект — это ваша работа без денег. Я бы напоминала клиенту об оплате прямо в день платежа." },
     ];
     return <>{fab}
       <div className="card">
-        <h3 style={{ marginTop: 0 }}><Ic n="plan" />Ключевые показатели · {MONTHS[Number(K.slice(5)) - 1]}</h3>
+        <div className="row" style={{ justifyContent: "flex-start", gap: 12, alignItems: "center", marginBottom: 10 }}>
+          <img src="neyla.jpg" alt="" style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+          <div><b>Нейла советует · {MONTHS[Number(K.slice(5)) - 1]}</b>
+            <div className="small muted">Я сравнила ваши цифры с тем, к чему стремятся хорошие бизнесы в сфере услуг. Вот что вижу:</div></div></div>
         <div style={{ display: "grid", gap: 8 }}>
           {rows.map((x) => { const has = x.v != null, good = has && x.ok(x.v!);
             return <div key={x.t} style={{ padding: "10px 12px", border: "1px solid var(--border, #e5e5e5)", borderRadius: 12, borderLeft: `4px solid ${!has ? "#ccc" : good ? "#16a34a" : "#e8873a"}` }}>
               <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>{x.t}</b>
                 <span><b style={{ fontSize: 18 }}>{!has ? "—" : x.unit === "₽" ? rub(x.v!) : x.v + "%"}</b> <span className="small" style={{ color: !has ? "#999" : good ? "#16a34a" : "#c2661c" }}>{!has ? "нет данных" : good ? "в норме" : "есть куда расти"}</span></span></div>
-              <div className="small"><span className="muted">Ориентир для сферы услуг:</span> <b>{x.goal}</b></div>
+              <div className="small"><span className="muted">Стремимся к:</span> <b>{x.goal}</b></div>
               <div className="small muted">{x.why}</div></div>; })}
         </div>
       </div>
       <div className="card" style={{ marginTop: 12, textAlign: "center" }}>
-        <h3 style={{ marginTop: 0 }}><Ic n="heart" />Нравится работать с ОПОРОЙ?</h3>
-        <div className="small muted" style={{ marginBottom: 10 }}>Порекомендуйте нас знакомым предпринимателям — им тоже станет понятнее с деньгами.</div>
+        <h3 style={{ marginTop: 0 }}><Ic n="heart" />Нравится, как мы вместе считаем деньги?</h3>
+        <div className="small muted" style={{ marginBottom: 10 }}>Расскажите про ОПОРУ знакомым предпринимателям — я и им помогу разобраться с цифрами 💛 — Нейла</div>
         <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700, padding: "8px 18px" }} onClick={() => { const url = location.origin + location.pathname, text = "Веду финансы бизнеса с ОПОРОЙ — понятные цифры каждый месяц. Рекомендую!";
           if (navigator.share) navigator.share({ title: "ОПОРА", text, url }).catch(() => {}); else { navigator.clipboard?.writeText(text + " " + url); alert("Ссылка скопирована — отправьте её другу 💛"); } }}><Ic n="heart" c="#fff" />Порекомендовать ОПОРУ</button>
       </div>
+      {(p.crmSheet?.exec || isOwner) && <div className="card" style={{ marginTop: 12 }}>
+        <h3 style={{ marginTop: 0 }}><Ic n="sheet" />Google-таблица</h3>
+        <div className="work-btns">
+      {p.crmSheet?.exec
+        ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={push} title="Отправить все данные в Google-таблицу"><Ic n="sheet" />Google-таблица {sync === "wait" ? "· отправляю…" : sync === "sent" ? "· ✓ отправлено" : sync === "fail" ? "· ⚠️ ошибка" : "· 🔄 обновить"}</span>
+        : isOwner ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={() => setGs(gs ? null : { url: "", exec: "" })}><Ic n="sheet" />Добавить Google-таблицу</span> : null}
+        </div>
+    {gs && <div className="card small" style={{ marginTop: 10, display: "grid", gap: 6 }}>
+      <b><Ic n="sheet" />Google-таблица для данных клиента</b>
+      <div className="muted">Все доходы, расходы, проекты и клиенты будут сами попадать в таблицу (листы «ПРИЛОЖЕНИЕ …»).</div>
+      <ol style={{ margin: 0, paddingLeft: 18 }}>
+        <li>Создай Google-таблицу и вставь ссылку на неё:</li></ol>
+      <input placeholder="https://docs.google.com/spreadsheets/d/…/edit" value={gs.url} onChange={(e) => setGs({ ...gs, url: e.target.value })} />
+      <ol start={2} style={{ margin: 0, paddingLeft: 18 }}>
+        <li>Расширения → Apps Script → вставь общий скрипт pnl.gs → Развёртывание → «Веб-приложение», доступ «Все» → скопируй ссылку …/exec:</li></ol>
+      <input placeholder="https://script.google.com/macros/s/…/exec" value={gs.exec} onChange={(e) => setGs({ ...gs, exec: e.target.value })} />
+      {(() => { const key = (gs.url.match(/\/d\/([\w-]{20,})/) || [])[1];
+        return <button disabled={!key || !gs.exec.trim()} onClick={() => { updateDoc(doc(db, "workspaces", wsId, "clients", p.id), { crmSheet: { url: gs.url.trim(), exec: gs.exec.trim().replace(/\?.*$/, ""), key } }); setGs(null); }}>💾 Привязать таблицу</button>; })()}
+    </div>}
+      </div>}
     </>;
   }
   if (view === "fin") return <>
@@ -419,24 +442,9 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     </div>
     {/* кнопки внизу: Google-таблица, таблица, Нейла, чат, поддержка */}
     <div className="work-btns" style={{ marginTop: 16 }}>
-      {p.crmSheet?.exec
-        ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={push} title="Отправить все данные в Google-таблицу"><Ic n="sheet" />Google-таблица {sync === "wait" ? "· отправляю…" : sync === "sent" ? "· ✓ отправлено" : sync === "fail" ? "· ⚠️ ошибка" : "· 🔄 обновить"}</span>
-        : isOwner ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={() => setGs(gs ? null : { url: "", exec: "" })}><Ic n="sheet" />Добавить Google-таблицу</span> : null}
       {([["sheet", "Таблица", p.crmSheet?.url || p.links?.sheet], ["spark", "Нейла", "https://t.me/dsmitovvaservbot"], ["chat", "Чат поддержки", SUPPORT_URL]] as [string, string, string | undefined][]).map(([ic, l, u]) =>
         u ? <a key={l} className="work-btn" href={u} target="_blank" rel="noopener noreferrer"><Ic n={ic} />{l}</a> : <span key={l} className="work-btn off"><Ic n={ic} c="#999" />{l}</span>)}
     </div>
-    {gs && <div className="card small" style={{ marginTop: 10, display: "grid", gap: 6 }}>
-      <b><Ic n="sheet" />Google-таблица для данных клиента</b>
-      <div className="muted">Все доходы, расходы, проекты и клиенты будут сами попадать в таблицу (листы «ПРИЛОЖЕНИЕ …»).</div>
-      <ol style={{ margin: 0, paddingLeft: 18 }}>
-        <li>Создай Google-таблицу и вставь ссылку на неё:</li></ol>
-      <input placeholder="https://docs.google.com/spreadsheets/d/…/edit" value={gs.url} onChange={(e) => setGs({ ...gs, url: e.target.value })} />
-      <ol start={2} style={{ margin: 0, paddingLeft: 18 }}>
-        <li>Расширения → Apps Script → вставь общий скрипт pnl.gs → Развёртывание → «Веб-приложение», доступ «Все» → скопируй ссылку …/exec:</li></ol>
-      <input placeholder="https://script.google.com/macros/s/…/exec" value={gs.exec} onChange={(e) => setGs({ ...gs, exec: e.target.value })} />
-      {(() => { const key = (gs.url.match(/\/d\/([\w-]{20,})/) || [])[1];
-        return <button disabled={!key || !gs.exec.trim()} onClick={() => { updateDoc(doc(db, "workspaces", wsId, "clients", p.id), { crmSheet: { url: gs.url.trim(), exec: gs.exec.trim().replace(/\?.*$/, ""), key } }); setGs(null); }}>💾 Привязать таблицу</button>; })()}
-    </div>}
   </>;
 }
 
