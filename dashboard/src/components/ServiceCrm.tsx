@@ -56,11 +56,11 @@ function Summary({ items, cur, onPick }: { items: { k: string; l: string; c: str
   </div>;
 }
 // статус — цветными кнопками
-function StatusBtns({ cur, onPick, pad = "0 14px 10px" }: { cur?: string; onPick: (k: string) => void; pad?: string }) {
+function StatusBtns({ cur, onPick, pad = "0 14px 10px", onStart }: { cur?: string; onPick: (k: string) => void; pad?: string; onStart?: () => void }) {
   return <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap", padding: pad }}>
     {CST.map(([k, c]) => <button type="button" key={k} onClick={(e) => { e.stopPropagation(); onPick(k); }}
       style={{ background: cur === k ? c : "transparent", color: cur === k ? "#fff" : c, border: `1.5px solid ${c}`, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>
-      {cur === k ? "✓ " : ""}{k}</button>)}</div>;
+      {cur === k ? "✓ " : ""}{k}</button>)}{onStart && <button type="button" onClick={(e) => { e.stopPropagation(); onStart(); }} style={{ background: "#16a34a", color: "#fff", border: "1.5px solid #16a34a", borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>▶ Начали работу</button>}</div>;
 }
 const ST: Record<Status, string> = { new: "🆕 новый", work: "🛠 в работе", done: "✓ сдан" };
 const NEXT: Record<Status, Status> = { new: "work", work: "done", done: "new" };
@@ -642,7 +642,8 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
                 <div className="small muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[x.phone, x.source, ps.length ? `${ps.length} проект.` : "", d > 0 ? `долг ${rub(d)}` : ""].filter(Boolean).join(" · ") || "—"}</div></div>
               <button onClick={() => setOpen(on ? null : x.id)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700, flexShrink: 0 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button>
             </div>
-            {pick === x.id && <StatusBtns cur={x.status || "Ждёт обработку"} onPick={(k) => { upd(x.id, { status: k }); setPick(null); }} />}
+            {pick === x.id && <StatusBtns cur={x.status || "Ждёт обработку"} onPick={(k) => { upd(x.id, { status: k }); setPick(null); }}
+              onStart={() => { add({ kind: "project", name: x.company || x.name, clientId: x.id, price: 0, status: "work", start: today(), monthly: true, payDay: Number(today().slice(8)) }); setPick(null); setSub("projects"); }} />}
             {on && <div className="small" style={{ padding: "4px 14px 14px", display: "grid", gap: 6, background: "var(--bg)" }}>
               {([["name", "Имя"], ["company", "Компания"], ["phone", "Телефон / Telegram"], ["source", "Откуда пришёл"]] as const).map(([k, l]) =>
                 <label key={k} className="row" style={{ gap: 6 }}><span className="muted" style={{ minWidth: 130 }}>{l}</span>
