@@ -247,13 +247,13 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
       <div className="card stat g-orange tile tile-link" onClick={() => onNav("fin")}><span className="tile-ico">💸</span><div className="muted">Расходы</div><b>{rub(S.out)}</b><span className="small">{S.inc ? Math.round(S.out / S.inc * 100) + "% выручки" : ""}</span></div>
       <div className={`card stat ${S.prof < 0 ? "g-red" : "g-green"} tile`}><span className="tile-ico">{S.prof < 0 ? "🔻" : "💎"}</span><div className="muted">{S.prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{rub(S.prof)}</b>{S.prof > 0 && P.prof > 0 && <Delta v={S.prof} w={P.prof} />}</div>
       <div className="card stat g-orange t-light tile"><span className="tile-ico">📈</span><div className="muted">Рентабельность</div><b>{pctS(S.rent)}</b><span className="small">маржинальность {pctS(S.marg)}</span></div>
-      <div className="card stat tile tile-link" style={{ gridColumn: "1 / -1", background: "#5b3fa0", color: "#fff", border: 0 }} onClick={() => setMargOpen(!margOpen)}>
-        <div className="row" style={{ flexWrap: "wrap", gap: 8 }}><span><span className="tile-ico" style={{ position: "static", marginRight: 6 }}>🛠</span><span className="muted">Проекты в работе</span> <b style={{ fontSize: 22 }}>{work.length}</b></span>
-          <span className="small">{unpaidM.length ? `⏳ не оплатили: ${unpaidM.length} · ${rub(unpaidM.reduce((a, x) => a + (x.monthly ? x.price - projIncome(mk, x.id) : debt(x)), 0))}` : "✓ все оплатили"} · {margOpen ? "▾ скрыть" : "▸ открыть"}</span></div></div>
     </div>
-    {margOpen && <div className="card" style={{ marginTop: 12 }}>
-      <h3 style={{ marginTop: 0 }}>🛠 Проекты в работе · {MONTHS[m - 1]}</h3>
-      <div style={{ overflowX: "auto" }}><table className="pnl-table"><tbody>
+    <div className="card" style={{ marginTop: 12 }}>
+      <div className="row" style={{ cursor: "pointer", flexWrap: "wrap", gap: 6 }} onClick={() => setMargOpen(!margOpen)}>
+        <h3 style={{ margin: 0 }}>{margOpen ? "▾" : "▸"} 🛠 Проекты в работе · {work.length}</h3>
+        <span className="small">{unpaidM.length ? <span className="neg">⏳ не оплатили: {unpaidM.length} · {rub(unpaidM.reduce((a, x) => a + (x.monthly ? x.price - projIncome(mk, x.id) : debt(x)), 0))}</span> : <span className="ok">✓ все оплатили</span>}</span></div>
+      {margOpen && <>
+      <div style={{ overflowX: "auto", marginTop: 10 }}><table className="pnl-table"><tbody>
         <tr className="muted small"><td>Проект</td><td>Оплата</td><td>Доходы</td><td>Расходы</td><td>Прибыль</td><td>Маржа</td><td>С общими</td></tr>
         {margRows.map(({ x, i, c, sh, mm, mm2 }) => { const un = unpaidM.some((y) => y.id === x.id);
           return <tr key={x.id}><td>{x.name}<div className="small muted">{cname(x.clientId)}</div></td>
@@ -266,7 +266,8 @@ export default function ServiceCrm({ wsId, p, view, onNav }: { wsId: string; p: 
         <div><b>С общими</b> — ещё минус доля общих расходов: {rub(shared(mk))} ÷ {activeIn(mk).length} проект. = {rub(shareOf(mk))} на проект.</div>
         <div><b>Рентабельность</b> = (все доходы − все расходы) ÷ все доходы.</div>
       </Info>
-    </div>}
+      </>}
+    </div>
     <div className="card" style={{ marginTop: 12 }}>
       <h3 style={{ marginTop: 0 }}>Показатели · {MONTHS[m - 1]}</h3>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0 24px" }}>
