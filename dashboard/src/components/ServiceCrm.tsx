@@ -151,7 +151,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     return out.sort((a, b) => a.date.localeCompare(b.date));
   };
   if (view === "clients") return <ClientsTab {...{ del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} />;
-  if (view === "products") return <ProductsTab {...{ products, projects, add, del, upd }} />;
+  if (view === "products") return <ProductsTab {...{ del0, products, projects, add, del, upd }} />;
   if (view === "staff") return <StaffTab {...{ del0, MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }} />;
 
   // ── Мой кабинет = финансы ──
@@ -696,10 +696,11 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
   </>;
 }
 
-function ProductsTab({ products, projects, add, del, upd }: {
-  products: CProduct[]; projects: CProject[]; add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void;
+function ProductsTab({ del0, products, projects, add, del, upd }: {
+  del0: (id: string) => void; products: CProduct[]; projects: CProject[]; add: (d: object) => void; del: (id: string) => void; upd: (id: string, d: object) => void;
 }) {
   const [f, setF] = useState({ name: "", price: "", descr: "" });
+  const [sel, setSel] = useState<string[]>([]), [np, setNp] = useState("");
   return <div className="card">
     <div className="row"><h3 style={{ margin: 0 }}>📦 Мои продукты и услуги</h3>
       <BulkPaste cols="Название · Цена · Что входит" onRows={(rows) => rows.forEach(([n, pr, d]) => add({ kind: "product", name: n, price: Number(String(pr || "").replace(/[^\d.,]/g, "").replace(",", ".")) || 0, descr: d || "" }))} /></div>
@@ -710,9 +711,17 @@ function ProductsTab({ products, projects, add, del, upd }: {
       <input placeholder="Что входит" value={f.descr} onChange={(e) => setF({ ...f, descr: e.target.value })} style={{ flex: "1 1 180px" }} />
       <button disabled={!f.name.trim()}>+ Продукт</button>
     </form>
+    <div className="row small" style={{ marginTop: 8, flexWrap: "wrap", gap: 6 }}>
+      <label style={{ cursor: "pointer" }}><input type="checkbox" checked={products.length > 0 && products.every((x) => sel.includes(x.id))} onChange={(e) => setSel(e.target.checked ? products.map((x) => x.id) : [])} /> выбрать все</label>
+      {sel.length > 0 && <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}><b>Выбрано: {sel.length}</b>
+        <input type="number" placeholder="Новая цена" value={np} onChange={(e) => setNp(e.target.value)} style={{ width: 110 }} />
+        <button disabled={np === ""} onClick={() => { sel.forEach((id) => upd(id, { price: Number(np) || 0 })); setSel([]); setNp(""); }}>✓ Поставить цену</button>
+        <button className="ghost" style={{ color: "#b02a2a" }} onClick={() => { if (confirm(`Удалить ${sel.length} продукт(ов)?`)) { sel.forEach((id) => del0(id)); setSel([]); } }}>🗑 Удалить</button>
+        <button className="ghost" onClick={() => setSel([])}>✕</button></span>}
+    </div>
     <table className="pnl-table" style={{ marginTop: 8 }}><tbody>
       {products.map((x) => { const used = projects.filter((p) => p.productId === x.id);
-        return <tr key={x.id}><td>{x.name}{x.descr && <div className="small muted">{x.descr}</div>}<div className="small muted">продано: {used.length} · на {rub(used.reduce((a, p) => a + p.price, 0))}</div></td>
+        return <tr key={x.id}><td style={{ width: 24 }}><input type="checkbox" checked={sel.includes(x.id)} onChange={(e) => setSel(e.target.checked ? [...sel, x.id] : sel.filter((i) => i !== x.id))} /></td><td>{x.name}{x.descr && <div className="small muted">{x.descr}</div>}<div className="small muted">продано: {used.length} · на {rub(used.reduce((a, p) => a + p.price, 0))}</div></td>
           <td><input type="number" style={{ width: 110 }} key={x.id + x.price} defaultValue={x.price} onBlur={(e) => Number(e.target.value) !== x.price && upd(x.id, { price: Number(e.target.value) || 0 })} /></td>
           <td><button className="ghost" onClick={() => del(x.id)}>🗑</button></td></tr>; })}
       {!products.length && <tr><td className="muted">Продуктов пока нет</td></tr>}
