@@ -579,7 +579,8 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
           <span><button onClick={() => { setAddOpen(!addOpen); setBulk(null); }}>{addOpen ? "✕ Закрыть" : "+ Добавить лида"}</button>
             <button className="ghost" title="Вставить списком из таблицы" style={{ marginLeft: 6, padding: "2px 8px", opacity: .6 }} onClick={() => { setBulk(bulk == null ? "" : null); setAddOpen(false); }}>{bulk == null ? "📋" : "✕"}</button></span></div>
         {/* Свод: статусы и источники — списком */}
-        <div className="lead-sum" style={{ display: "grid", gridTemplateColumns: "110px minmax(0, 1fr) minmax(0, 1fr)", gap: 20, margin: "10px 0", alignItems: "center" }}>
+        <div className="lead-sum" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 20, margin: "10px 0", alignItems: "stretch" }}>
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: 10, border: "1px solid var(--border, #e5e5e5)", borderRadius: 12 }}>
           {(() => { // круговая диаграмма по статусам
             const ds = CST.map(([k, c]) => ({ k, c, n: leads.filter((x) => (x.status || "Ждёт обработку") === k).length })).filter((d) => d.n);
             const tot = ds.reduce((a, d) => a + d.n, 0) || 1; let acc = 0;
@@ -587,21 +588,26 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
             const soft = (h: string) => `rgba(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)}, .55)`;
             const gap = ds.length > 1 ? 1.5 : 0;
             const grad = ds.map((d) => { const f = acc / tot * 360; acc += d.n; const t = acc / tot * 360; return `${soft(d.c)} ${f}deg ${t - gap}deg, transparent ${t - gap}deg ${t}deg`; }).join(", ") || "var(--border) 0deg 360deg";
-            return <div style={{ display: "grid", placeItems: "center" }}>
+            return <div style={{ display: "grid", placeItems: "center", flexShrink: 0 }}>
               <div style={{ width: 104, height: 104, borderRadius: "50%", background: `conic-gradient(${grad})`, display: "grid", placeItems: "center" }}>
                 <div style={{ width: 82, height: 82, borderRadius: "50%", background: "var(--surface)", display: "grid", placeItems: "center", textAlign: "center" }} className="small">
                   <div><b style={{ fontSize: 18 }}>{leads.length}</b><div className="muted">лидов</div></div></div></div></div>; })()}
-          <div className="small" style={{ alignSelf: "start" }}><div className="muted" style={{ marginBottom: 4 }}>По статусам</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="small"><div className="muted" style={{ marginBottom: 4 }}>📣 Откуда приходят</div>
+            {Object.entries(bySrc).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => <div key={k} className="row" onClick={() => setSrcF(srcF === k ? null : k)}
+              style={{ padding: "3px 6px", cursor: "pointer", borderRadius: 6, background: srcF === k ? "var(--bg)" : undefined, fontWeight: srcF === k ? 700 : 400 }}>
+              <span>{k}</span><span><b>{v.n}</b>{v.sum ? <span className="muted"> · оплатили {rub(v.sum)}</span> : null}</span></div>)}
+            {!clients.length && <div className="muted">Пока нет лидов</div>}
+          </div>
+            </div>
+          </div>
+          <div style={{ padding: 10, border: "1px solid var(--border, #e5e5e5)", borderRadius: 12 }}>
+          <div className="small"><div className="muted" style={{ marginBottom: 4 }}>По статусам</div>
             {[["all", "Всего лидов", "#16304f"] as [string, string, string], ...CST.map(([k, c]) => [k, k, c] as [string, string, string])].map(([k, l, c]) => {
               const n = k === "all" ? leads.length : leads.filter((x) => (x.status || "Ждёт обработку") === k).length;
               return <div key={k} className="row" onClick={() => setCst(cst === k ? "all" : k)} style={{ cursor: "pointer", padding: "3px 6px", borderRadius: 6, background: cst === k ? "var(--bg)" : undefined, fontWeight: k === "all" || cst === k ? 700 : 400 }}>
                 <span><span style={{ color: c, fontSize: 14 }}>●</span> {l}</span><span><b>{n}</b>{k !== "all" && leads.length ? <span className="muted"> · {Math.round(n / leads.length * 100)}%</span> : null}</span></div>; })}
           </div>
-          <div className="small" style={{ alignSelf: "start" }}><div className="muted" style={{ marginBottom: 4 }}>📣 Откуда приходят</div>
-            {Object.entries(bySrc).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => <div key={k} className="row" onClick={() => setSrcF(srcF === k ? null : k)}
-              style={{ padding: "3px 6px", cursor: "pointer", borderRadius: 6, background: srcF === k ? "var(--bg)" : undefined, fontWeight: srcF === k ? 700 : 400 }}>
-              <span>{k}</span><span><b>{v.n}</b>{v.sum ? <span className="muted"> · оплатили {rub(v.sum)}</span> : null}</span></div>)}
-            {!clients.length && <div className="muted">Пока нет лидов</div>}
           </div>
         </div>
         {addOpen && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!c.name.trim()) return;
