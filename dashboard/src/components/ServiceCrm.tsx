@@ -536,10 +536,10 @@ function ClientsTab({ staff, salPending, postSal, clients, projects, products, m
                     : <L l="Оплата до"><input type="date" value={x.payDate || ""} onChange={(e) => upd(x.id, { payDate: e.target.value })} style={{ flex: 1 }} /></L>}
                   <L l="Начало"><input type="date" value={x.start} onChange={(e) => e.target.value && upd(x.id, { start: e.target.value })} style={{ flex: 1 }} /></L>
                 </div>
-                <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 10 }}><span />
+              </details>
+                <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 0 }}><span />
                   <span>{x.status !== "done" ? <button style={{ background: "#6b7280", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => finish(x)}>⏸ Отключить проект</button>
                     : <button style={{ background: "#16a34a", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => { upd(x.id, { status: "work" }); setFilter("all"); }}>▶ Включить проект</button>} <button className="ghost" onClick={() => del(x.id)}>🗑 Удалить</button></span></div>
-              </details>
             </div>}
           </div>; })}
         {!shownP.length && <div className="muted" style={{ padding: 6 }}>Проектов нет</div>}
