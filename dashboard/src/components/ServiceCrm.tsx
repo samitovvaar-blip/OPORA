@@ -125,6 +125,9 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
   const [gs, setGs] = useState<{ url: string; exec: string } | null>(null);
   const [calc, setCalc] = useState<"inc" | "out" | "prof" | "rent" | null>(null);
   const [pwx, setPwx] = useState<{ id: string; k: "p" | "m" } | null>(null);
+  const [tour, setTour] = useState<number | null>(() => { try { return !isOwner && !localStorage.getItem("opora-tour-" + p.id) ? 0 : null; } catch { return null; } });
+  const goTour = (n: number | null) => { setTour(n); if (n == null) { try { localStorage.setItem("opora-tour-" + p.id, "1"); } catch { /* */ } return; } onNav(TOUR[n].view); scrollTo({ top: 0, behavior: "smooth" }); };
+  useEffect(() => { if (tour != null) onNav(TOUR[tour].view); }, []);
 
   const products = items.filter((x): x is CProduct => x.kind === "product").sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const clients = items.filter((x): x is CClient => x.kind === "client").sort((a, b) => a.name.localeCompare(b.name, "ru"));
@@ -201,7 +204,8 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     (() => { const n = projects.filter((x) => x.status !== "done" && x.monthly && paidOf(x.id) < expectedOf(x)).length; return n ? `${n} проект(а) ещё не оплатили — загляни в «Проекты».` : "Все проекты оплачены — красота!"; })(),
     (() => { const n = clients.filter((c) => (c.status || "Ждёт обработку") === "Ждёт обработку" && !projects.some((p) => p.clientId === c.id && p.status !== "done")).length; return n ? `${n} лид(ов) ждут обработки. Один звонок — и может быть новый проект 📞` : ""; })(),
   ].filter(Boolean);
-  const fab = <NeylaFab lines={neylaLines} />;
+  // обучение: при первом входе клиента (и по кнопке в «Рекомендациях»)
+  const fab = <>{tour == null ? <NeylaFab lines={neylaLines} /> : <TourCard n={tour} go={goTour} />}</>;
   if (view === "clients") return <>{fab}<ClientsTab {...{ del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} /></>;
   if (view === "products") return <>{fab}<ProductsTab {...{ del0, products, projects, add, del, upd }} /></>;
   if (view === "staff") return <>{fab}<StaffTab {...{ del0, MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }} /></>;
@@ -331,6 +335,10 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
         <div className="small muted" style={{ marginBottom: 10 }}>Расскажите про ОПОРУ знакомым предпринимателям — я и им помогу разобраться с цифрами 💛 — Нейла</div>
         <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700, padding: "8px 18px" }} onClick={() => { const url = location.origin + location.pathname, text = "Веду финансы бизнеса с ОПОРОЙ — понятные цифры каждый месяц. Рекомендую!";
           if (navigator.share) navigator.share({ title: "ОПОРА", text, url }).catch(() => {}); else { navigator.clipboard?.writeText(text + " " + url); alert("Ссылка скопирована — отправьте её другу 💛"); } }}><Ic n="heart" c="#fff" />Порекомендовать ОПОРУ</button>
+      </div>
+      <div className="card" style={{ marginTop: 12 }}>
+        <div className="row" style={{ flexWrap: "wrap", gap: 8 }}><span><b><Ic n="book" />Как пользоваться кабинетом</b><div className="small muted">Нейла заново покажет все вкладки по шагам</div></span>
+          <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => goTour(0)}>▶ Пройти обучение</button></div>
       </div>
       {(p.crmSheet?.exec || isOwner) && <div className="card" style={{ marginTop: 12 }}>
         <h3 style={{ marginTop: 0 }}><Ic n="sheet" />Google-таблица</h3>
@@ -1020,4 +1028,30 @@ export function NeylaFab({ lines }: { lines: string[] }) {
     <img src="neyla.jpg" alt="Нейла" title="Нейла" onClick={() => { setOpen(!open); setTaps((t) => t + 1); }}
       style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", cursor: "pointer", boxShadow: "0 4px 14px rgba(22,48,79,.25)", border: "2px solid #fff" }} />
   </div>;
+}
+
+// шаги обучения — рассказывает Нейла
+const TOUR: { view: CrmView; title: string; text: string[] }[] = [
+  { view: "home", title: "Привет! Я Нейла 👋", text: ["Покажу, как устроен ваш кабинет — это займёт пару минут.", "Нажимайте «Далее», а если захотите пройти позже — «Пропустить». Вернуться к обучению можно во вкладке «Рекомендации»."] },
+  { view: "products", title: "Продукты", text: ["Здесь ваши услуги с ценами: «+ Продукт» — добавить, цену можно поменять прямо в строке.", "Отметьте несколько галочками — и поставьте всем новую цену или удалите разом.", "Значок 📋 — вставить сразу список из таблицы."] },
+  { view: "staff", title: "Сотрудники", text: ["«+ Добавить сотрудника»: имя, контакт, проекты и способ оплаты — фикса или % от проектов.", "«✓ Провести ЗП» — зарплата сама попадёт в расходы и посчитается в марже проектов.", "Кто больше не работает — отметьте и отправьте «🗄 В архив»."] },
+  { view: "clients", title: "Клиенты: лиды и проекты", text: ["В «Базе лидов» — все, кто к вам обращался. Статус меняется цветной плашкой рядом с именем, «⚙ Настройки» — заметки и комментарии.", "Статус «▶ Начали работу» сразу создаёт проект.", "Во вкладке «Проекты» — сумма в месяц, кнопка «✓ Оплатили», доходы и расходы по проекту, прибыль и маржа."] },
+  { view: "fin", title: "Финансы", text: ["Сверху — план / факт месяца и структура расходов: куда уходят деньги.", "Ниже — общие расходы (аренда, сервисы), то, что ждёт проведения, все операции месяца и остатки на счетах.", "Оранжевая строка «Ждут проведения» — напоминание, что что-то ещё не внесено."] },
+  { view: "home", title: "Мой кабинет", text: ["Главные цифры месяца: выручка, расходы, чистая прибыль и рентабельность.", "Нажмите на любую плитку — внутри откроется расчёт, откуда взялась цифра.", "Ниже — проекты в работе (кто оплатил, прибыль и маржа), показатели и аналитика за 3–12 месяцев."] },
+  { view: "tips", title: "Рекомендации", text: ["Здесь я сравниваю ваши цифры с тем, к чему стремятся бизнесы в сфере услуг, и подсказываю, на что обратить внимание.", "Тут же можно снова пройти это обучение. А если нужен совет — нажмите на меня в правом нижнем углу 💛"] },
+];
+function TourCard({ n, go }: { n: number; go: (n: number | null) => void }) {
+  const st = TOUR[n], last = n === TOUR.length - 1;
+  return <div className="no-print" style={{ position: "fixed", right: 16, bottom: 84, zIndex: 60, width: "min(360px, calc(100vw - 32px))" }}>
+    <div className="card" style={{ margin: 0, boxShadow: "0 10px 30px rgba(22,48,79,.25)", borderRadius: 16, borderTop: "4px solid #e8873a" }}>
+      <div className="row" style={{ justifyContent: "flex-start", gap: 10, alignItems: "center" }}>
+        <img src="neyla.jpg" alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
+        <div><b>{st.title}</b><div className="small muted">шаг {n + 1} из {TOUR.length}</div></div></div>
+      <div className="small" style={{ marginTop: 8, lineHeight: 1.45 }}>{st.text.map((t, k) => <p key={k} style={{ margin: "4px 0" }}>{t}</p>)}</div>
+      <div style={{ display: "flex", gap: 4, margin: "8px 0" }}>{TOUR.map((_, k) => <span key={k} style={{ flex: 1, height: 4, borderRadius: 2, background: k <= n ? "#e8873a" : "var(--border, #e5e5e5)" }} />)}</div>
+      <div className="row" style={{ gap: 6 }}>
+        <button className="ghost" onClick={() => go(null)}>Пропустить</button>
+        <span>{n > 0 && <button className="ghost" onClick={() => go(n - 1)}>← Назад</button>}{" "}
+          <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => go(last ? null : n + 1)}>{last ? "Готово ✓" : "Далее →"}</button></span></div>
+    </div></div>;
 }
