@@ -19,7 +19,7 @@ type Item = CProduct | CClient | CProject | CMove | CRegular | CEmployee;
 export type CrmView = "home" | "fin" | "clients" | "products" | "staff" | "tips";
 
 // личный Telegram бухгалтера — кнопка «Чат и поддержка» у всех клиентов на услугах
-const SUPPORT_URL = "https://t.me/samitovva";
+export const SUPPORT_URL = "https://t.me/samitovva";
 const MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 const CATS = ["Аренда", "Реклама", "Зарплата", "Налоги", "Материалы", "Связь и сервисы", "Транспорт", "Обучение", "Банк и комиссии", "Прочее"];
 const SOURCES = ["Instagram", "Сарафан / рекомендация", "Авито", "Сайт", "Telegram", "ВКонтакте", "Повторный клиент"];
@@ -1071,7 +1071,7 @@ function TourCard({ n, go }: { n: number; go: (n: number | null) => void }) {
 }
 
 // как поставить кабинет на телефон
-function InstallHow() {
+export function InstallHow() {
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   return <div className="small" style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
     <div style={{ padding: 10, borderRadius: 10, border: `1px solid ${ios ? "#e8873a" : "var(--border, #e5e5e5)"}` }}><b>📱 iPhone</b>

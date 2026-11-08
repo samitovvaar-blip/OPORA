@@ -15,7 +15,7 @@ import { useAuth } from "../lib/auth";
 import { LINK_FIELDS } from "../components/ProjectLinks";
 import NeylaLoading from "../components/NeylaLoading";
 import GoodsReport from "../components/GoodsReport";
-import ServiceCrm, { Ic, NeylaFab } from "../components/ServiceCrm";
+import ServiceCrm, { Ic, InstallHow, NeylaFab, SUPPORT_URL } from "../components/ServiceCrm";
 import PayCalendar, { monthSum } from "../components/PayCalendar";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
@@ -48,7 +48,8 @@ export default function ClientPortal() {
   const cid = preview ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
   const [p, setP] = useState<ClientProject | null>(null);
   const [err, setErr] = useState("");
-  const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op" | "chome" | "cfin" | "ccli" | "cstaff" | "cprod" | "ctips">("dash");
+  const [neySub, setNeySub] = useState<"advice" | "help" | "sheet">("advice");
+  const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op" | "neyla" | "chome" | "cfin" | "ccli" | "cstaff" | "cprod" | "ctips">("dash");
   const [anN, setAnN] = useState(3);
   const [beOpen, setBeOpen] = useState(false);
   const [salOpen, setSalOpen] = useState(false);
@@ -57,7 +58,7 @@ export default function ClientPortal() {
   const [taps, setTaps] = useState(0);
   const [rep, setRep] = useState<"pnl" | "dds" | "an" | "goods">("pnl");
   const loc = useLocation();
-  useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op", "chome", "cfin", "ccli", "cstaff", "cprod"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
+  useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op", "neyla", "chome", "cfin", "ccli", "cstaff", "cprod"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
   // меню слева показывает разделы по виду кабинета
   useEffect(() => { if (!p) return; const b = p.bizType || "goods"; try { localStorage.setItem("opora-biz", b); } catch { /* */ } dispatchEvent(new CustomEvent("opora-biz", { detail: b })); }, [p?.bizType, !!p]);
   const [pnl, setPnl] = useState<Pnl | null>(null);
@@ -149,7 +150,7 @@ export default function ClientPortal() {
       })()}
       {preview && <h1>{p.name}</h1>}
       {preview && <div className="chips" style={{ marginTop: 12 }}>
-        {([...(svc ? [["chome", "spiral|Мой кабинет"], ["cfin", "money|Финансы"], ["ccli", "users|Клиенты"], ["cstaff", "case|Сотрудники"], ["cprod", "box|Продукты"], ["ctips", "spark|Нейла"]] as const : []), ["dash", "spiral|Мой кабинет"], ["rep", "book|Отчётность"], ["work", "case|Ход работы"], ["plan", "plan|Планирование"], ["op", "in|Данные от ОП"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => !svc || ["chome", "cfin", "ccli", "cstaff", "cprod", "ctips"].includes(k)).map(([k, l]) =>
+        {([...(svc ? [["chome", "spiral|Мой кабинет"], ["cfin", "money|Финансы"], ["ccli", "users|Клиенты"], ["cstaff", "case|Сотрудники"], ["cprod", "box|Продукты"], ["ctips", "spark|Нейла"]] as const : []), ["dash", "spiral|Мой кабинет"], ["rep", "book|Отчётность"], ["work", "case|Ход работы"], ["plan", "plan|Планирование"], ["op", "in|Данные от ОП"], ["neyla", "spark|Нейла"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => svc ? ["chome", "cfin", "ccli", "cstaff", "cprod", "ctips"].includes(k) : k !== "neyla" || true).map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{(() => { const [ic, t] = l.split("|"); return <>{ic === "spiral" ? <img src="spiral-orange.png" alt="" style={{ width: 16, height: 16, verticalAlign: "-3px", marginRight: 6 }} /> : <Ic n={ic} c="currentColor" s={16} />}{t}</>; })()}</button>)}
       </div>}
       {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
@@ -496,6 +497,47 @@ export default function ClientPortal() {
         return <NeylaFab lines={lines} />;
       })()}
 
+      {tab === "neyla" && !svc && (() => {
+        // Нейла: советы по цифрам товарного бизнеса, помощь, таблица
+        const vr = cur != null ? Math.abs(pnl?.variable[cur] || 0) : 0, fx = cur != null ? Math.abs(pnl?.fixed[cur] || 0) : 0;
+        const mkt = cur != null ? Math.abs(pnl?.metrics?.d3?.[cur] || 0) : 0, sal = cur != null ? Math.abs(pnl?.metrics?.salary?.[cur] || 0) : 0;
+        const pc = (a: number) => rev ? Math.round(a / rev * 100) : null;
+        const rows: { t: string; v: number | null; goal: string; ok: (v: number) => boolean; why: string }[] = [
+          { t: "Рентабельность бизнеса", v: pc(prof || 0), goal: "от 10%, хорошо 15–25%", ok: (v) => v >= 10, why: "Сколько прибыли остаётся с каждого рубля выручки после всех расходов." },
+          { t: "Маржинальность (после переменных расходов)", v: rev ? Math.round((rev - vr) / rev * 100) : null, goal: "от 40%, хорошо 50%+", ok: (v) => v >= 40, why: "Сколько остаётся после закупки, упаковки, логистики — из этого платятся аренда, зарплаты и прибыль." },
+          { t: "Постоянные расходы от выручки", v: pc(fx), goal: "не больше 20–25%", ok: (v) => v <= 25, why: "Аренда, зарплаты, налоги. Если растут быстрее выручки — я бы пересмотрела." },
+          { t: "Маркетинг от выручки", v: mkt ? pc(mkt) : null, goal: "10–15%", ok: (v) => v <= 15, why: "Реклама и продвижение. Больше 15% — стоит проверить, какие каналы окупаются." },
+          { t: "Зарплаты (ФОТ) от выручки", v: sal ? pc(sal) : null, goal: "не больше 15–20%", ok: (v) => v <= 20, why: "В торговле ФОТ обычно небольшой — основная нагрузка на закупку." },
+        ];
+        const sheet = p.links?.sheet;
+        return <>
+          <div className="card row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ display: "flex", gap: 12, alignItems: "center" }}><img src="neyla.jpg" alt="" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+              <span><b style={{ fontSize: 17 }}>Нейла — ваш помощник</b><div className="small muted">Советы по вашим цифрам, помощь и связь с бухгалтером</div></span></span>
+            <a className="work-btn" href={NEYLA_URL} target="_blank" rel="noopener noreferrer"><Ic n="spark" />Написать Нейле</a>
+          </div>
+          <div className="chips" style={{ margin: "12px 0" }}>
+            {([["advice", "spark", "Нейла советует"], ["help", "book", "Помощь"], ["sheet", "sheet", "Google-таблица"]] as const).map(([k, ic, l]) =>
+              <button key={k} className={`chipbtn ${neySub === k ? "on" : ""}`} onClick={() => setNeySub(k)}><Ic n={ic} c="currentColor" s={16} />{l}</button>)}
+          </div>
+          {neySub === "advice" && <div className="card">
+            <div className="small muted" style={{ marginBottom: 8 }}>Я сравнила ваши цифры{pnl && cur != null ? ` за ${pnl.months[cur].label.toLowerCase()}` : ""} с тем, к чему стремятся хорошие товарные бизнесы:</div>
+            <div style={{ display: "grid", gap: 8 }}>{rows.map((x) => { const has = x.v != null, good = has && x.ok(x.v!);
+              return <div key={x.t} style={{ padding: "10px 12px", border: "1px solid var(--border, #e5e5e5)", borderRadius: 12, borderLeft: `4px solid ${!has ? "#ccc" : good ? "#16a34a" : "#e8873a"}` }}>
+                <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b>{x.t}</b><span><b style={{ fontSize: 18 }}>{has ? x.v + "%" : "—"}</b> <span className="small" style={{ color: !has ? "#999" : good ? "#16a34a" : "#c2661c" }}>{!has ? "нет данных" : good ? "в норме" : "есть куда расти"}</span></span></div>
+                <div className="small"><span className="muted">Стремимся к:</span> <b>{x.goal}</b></div><div className="small muted">{x.why}</div></div>; })}</div>
+          </div>}
+          {neySub === "help" && <div className="card">
+            <b>📱 Установить кабинет на телефон</b><InstallHow />
+            <div className="row" style={{ marginTop: 16, flexWrap: "wrap", gap: 8, paddingTop: 12, borderTop: "1px solid var(--border, #e5e5e5)" }}>
+              <span><b><Ic n="chat" />Остались вопросы?</b><div className="small muted">Напишите бухгалтеру — ответим в рабочее время</div></span>
+              <a className="work-btn" href={p.links?.chat || SUPPORT_URL} target="_blank" rel="noopener noreferrer"><Ic n="chat" />Чат поддержки</a></div>
+          </div>}
+          {neySub === "sheet" && <div className="card"><h3 style={{ marginTop: 0 }}><Ic n="sheet" />Google-таблица</h3>
+            <div className="work-btns">{sheet ? <a className="work-btn" href={sheet} target="_blank" rel="noopener noreferrer"><Ic n="sheet" />Открыть таблицу</a> : <span className="work-btn off"><Ic n="sheet" c="#999" />Таблица не подключена</span>}
+              <button className="work-btn" onClick={() => setReload((x) => x + 1)}>🔄 Обновить цифры из таблицы</button></div></div>}
+        </>;
+      })()}
       {tab === "op" && (() => {
         const canEdit = canEditClient;
         const ref = doc(db, "workspaces", wsId!, "clients", p.id);
