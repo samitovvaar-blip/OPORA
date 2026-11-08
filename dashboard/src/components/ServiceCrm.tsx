@@ -125,6 +125,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
   const [gs, setGs] = useState<{ url: string; exec: string } | null>(null);
   const [calc, setCalc] = useState<"inc" | "out" | "prof" | "rent" | null>(null);
   const [pwx, setPwx] = useState<{ id: string; k: "p" | "m" } | null>(null);
+  const [tipSub, setTipSub] = useState<"advice" | "help" | "sheet">("advice");
   const [tour, setTour] = useState<number | null>(() => { try { return !isOwner && !localStorage.getItem("opora-tour-" + p.id) ? 0 : null; } catch { return null; } });
   const goTour = (n: number | null) => { setTour(n); if (n == null) { try { localStorage.setItem("opora-tour-" + p.id, "1"); } catch { /* */ } return; } onNav(TOUR[n].view); scrollTo({ top: 0, behavior: "smooth" }); };
   useEffect(() => { if (tour != null) onNav(TOUR[tour].view); }, []);
@@ -336,9 +337,31 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
         <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700, padding: "8px 18px" }} onClick={() => { const url = location.origin + location.pathname, text = "Веду финансы бизнеса с ОПОРОЙ — понятные цифры каждый месяц. Рекомендую!";
           if (navigator.share) navigator.share({ title: "ОПОРА", text, url }).catch(() => {}); else { navigator.clipboard?.writeText(text + " " + url); alert("Ссылка скопирована — отправьте её другу 💛"); } }}><Ic n="heart" c="#fff" />Порекомендовать ОПОРУ</button>
       </div>
-      {(p.crmSheet?.exec || isOwner) && <div className="card" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}><Ic n="sheet" />Google-таблица</h3>
-        <div className="work-btns">
+    </>;
+  };
+  if (view === "tips") return <>{fab}
+    <div className="card row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <span style={{ display: "flex", gap: 12, alignItems: "center" }}><img src="neyla.jpg" alt="" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+        <span><b style={{ fontSize: 17 }}>Нейла — ваш помощник</b><div className="small muted">Советы по вашим цифрам, обучение и связь с бухгалтером</div></span></span>
+      <a className="work-btn" href="https://t.me/dsmitovvaservbot" target="_blank" rel="noopener noreferrer"><Ic n="spark" />Написать Нейле</a>
+    </div>
+    <div className="chips" style={{ margin: "12px 0" }}>
+      {([["advice", "spark", "Нейла советует"], ["help", "book", "Помощь"], ["sheet", "sheet", "Google-таблица"]] as const).map(([k, ic, l]) =>
+        <button key={k} className={`chipbtn ${tipSub === k ? "on" : ""}`} onClick={() => setTipSub(k)}><Ic n={ic} c="currentColor" s={16} />{l}</button>)}
+    </div>
+    {tipSub === "advice" && renderTips()}
+    {tipSub === "help" && <div className="card">
+      <div className="row" style={{ flexWrap: "wrap", gap: 8 }}><span><b><Ic n="book" />Обучение</b><div className="small muted">Нейла по шагам покажет все вкладки кабинета</div></span>
+        <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => goTour(0)}>▶ Пройти обучение</button></div>
+      <div style={{ marginTop: 14 }}><b>📱 Установить кабинет на телефон</b><InstallHow /></div>
+      <div className="row" style={{ marginTop: 16, flexWrap: "wrap", gap: 8, paddingTop: 12, borderTop: "1px solid var(--border, #e5e5e5)" }}>
+        <span><b><Ic n="chat" />Остались вопросы?</b><div className="small muted">Напишите бухгалтеру — ответим в рабочее время</div></span>
+        <a className="work-btn" href={p.links?.chat || SUPPORT_URL} target="_blank" rel="noopener noreferrer"><Ic n="chat" />Чат поддержки</a></div>
+    </div>}
+    {tipSub === "sheet" && <div className="card">
+      <h3 style={{ marginTop: 0 }}><Ic n="sheet" />Google-таблица</h3>
+      <div className="work-btns">
+        {(p.crmSheet?.url || p.links?.sheet) ? <a className="work-btn" href={p.crmSheet?.url || p.links?.sheet} target="_blank" rel="noopener noreferrer"><Ic n="sheet" />Открыть таблицу</a> : <span className="work-btn off"><Ic n="sheet" c="#999" />Таблица не подключена</span>}
       {p.crmSheet?.exec
         ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={push} title="Отправить все данные в Google-таблицу"><Ic n="sheet" />Google-таблица {sync === "wait" ? "· отправляю…" : sync === "sent" ? "· ✓ отправлено" : sync === "fail" ? "· ⚠️ ошибка" : "· 🔄 обновить"}</span>
         : isOwner ? <span className="work-btn" style={{ cursor: "pointer" }} onClick={() => setGs(gs ? null : { url: "", exec: "" })}><Ic n="sheet" />Добавить Google-таблицу</span> : null}
@@ -355,29 +378,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
       {(() => { const key = (gs.url.match(/\/d\/([\w-]{20,})/) || [])[1];
         return <button disabled={!key || !gs.exec.trim()} onClick={() => { updateDoc(doc(db, "workspaces", wsId, "clients", p.id), { crmSheet: { url: gs.url.trim(), exec: gs.exec.trim().replace(/\?.*$/, ""), key } }); setGs(null); }}>💾 Привязать таблицу</button>; })()}
     </div>}
-      </div>}
-    </>;
-  };
-  if (view === "tips") return <>{fab}
-    <div className="card" style={{ display: "flex", gap: 12, alignItems: "center" }}>
-      <img src="neyla.jpg" alt="" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-      <div><b style={{ fontSize: 17 }}>Нейла — ваш помощник</b><div className="small muted">Советы по вашим цифрам, обучение, таблица и связь с бухгалтером — всё здесь.</div></div>
-    </div>
-    {/* помощь: обучение, установка на телефон, советы Нейлы */}
-    <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
-      <Fold icon="spark" title="Нейла советует" extra="ваши цифры и ориентиры">{renderTips()}</Fold>
-      <Fold icon="book" title="Помощь" extra="обучение · установка на телефон">
-        <div className="row" style={{ justifyContent: "flex-start", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => goTour(0)}>▶ Пройти обучение</button>
-        </div>
-        <InstallHow />
-      </Fold>
-    </div>
-    {/* кнопки внизу: Google-таблица, таблица, Нейла, чат, поддержка */}
-    <div className="work-btns" style={{ marginTop: 16 }}>
-      {([["sheet", "Таблица", p.crmSheet?.url || p.links?.sheet], ["spark", "Нейла", "https://t.me/dsmitovvaservbot"], ["chat", "Чат поддержки", p.links?.chat || SUPPORT_URL]] as [string, string, string | undefined][]).map(([ic, l, u]) =>
-        u ? <a key={l} className="work-btn" href={u} target="_blank" rel="noopener noreferrer"><Ic n={ic} />{l}</a> : <span key={l} className="work-btn off"><Ic n={ic} c="#999" />{l}</span>)}
-    </div>
+    </div>}
   </>;
   if (view === "fin") return <>
     {fab}
