@@ -127,7 +127,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
   const [pwx, setPwx] = useState<{ id: string; k: "p" | "m" } | null>(null);
   const [tipSub, setTipSub] = useState<"advice" | "help" | "sheet">("advice");
   const [tour, setTour] = useState<number | null>(() => { try { return !isOwner && !localStorage.getItem("opora-tour-" + p.id) ? 0 : null; } catch { return null; } });
-  const goTour = (n: number | null) => { setTour(n); if (n == null) { try { localStorage.setItem("opora-tour-" + p.id, "1"); } catch { /* */ } return; } onNav(TOUR[n].view); scrollTo({ top: 0, behavior: "smooth" }); };
+  const goTour = (n: number | null) => { setTour(n); if (n == null) { try { localStorage.setItem("opora-tour-" + p.id, "1"); } catch { /* */ } return; } onNav(TOUR[n].view); if (!TOUR[n].sel) scrollTo({ top: 0, behavior: "smooth" }); };
   useEffect(() => { if (tour != null) onNav(TOUR[tour].view); }, []);
 
   const products = items.filter((x): x is CProduct => x.kind === "product").sort((a, b) => a.name.localeCompare(b.name, "ru"));
@@ -256,7 +256,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
       return <td>{v == null ? "—" : v === 0 ? "0%" : `${v > 0 ? "▲" : "▼"} ${Math.abs(v)}%`}</td>; };
     const Sub = ({ l, pl, fa, warn }: { l: string; pl: number | null; fa: number; warn?: boolean }) => <tr className="small"><td style={{ paddingLeft: 22 }}>{l}</td><td>{pl != null ? rub(pl) : "—"}</td><td className={warn ? "error" : ""}>{fa ? rub(fa) : "—"}</td><td /></tr>;
     const tog = (k: string) => setPfOpen({ ...pfOpen, [k]: !pfOpen[k] });
-    return <div className="card" style={{ margin: 0 }}>
+    return <div data-tour="fin-pf" className="card" style={{ margin: 0 }}>
       <h3 style={{ marginTop: 0 }}><Ic n="plan" />План / факт · {MONTHS[Number(K.slice(5)) - 1]} {K.slice(0, 4)}</h3>
       <div style={{ overflowX: "auto" }}><table className="pnl-table crm-t">
         <thead><tr><th /><th className="small">План</th><th className="small">Факт</th><th className="small">Отклонение</th></tr></thead>
@@ -287,7 +287,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
       if (!ds.length) return null;
       const tot = ds.reduce((x, d) => x + d.v, 0); let acc = 0;
       const grad = ds.map((d) => { const from = acc / tot * 360; acc += d.v; return `${d.c} ${from}deg ${acc / tot * 360}deg`; }).join(", ");
-      return <div className="card" style={{ marginTop: 12 }}>
+      return <div data-tour="fin-struct" className="card" style={{ marginTop: 12 }}>
         <h3 style={{ marginTop: 0 }}>Структура расходов · {MONTHS[m - 1]}</h3>
         <div className="row small" style={{ marginBottom: 6 }}><b>Расходы итого</b><b>{rub(tot)} <span className="muted">· {S.inc ? (tot / S.inc * 100).toFixed(1) + "% выручки" : ""}</span></b></div>
         <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
@@ -345,7 +345,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
         <span><b style={{ fontSize: 17 }}>Нейла — ваш помощник</b><div className="small muted">Советы по вашим цифрам, обучение и связь с бухгалтером</div></span></span>
       <a className="work-btn" href="https://t.me/dsmitovvaservbot" target="_blank" rel="noopener noreferrer"><Ic n="spark" />Написать Нейле</a>
     </div>
-    <div className="chips" style={{ margin: "12px 0" }}>
+    <div data-tour="tips-chips" className="chips" style={{ margin: "12px 0" }}>
       {([["advice", "spark", "Нейла советует"], ["help", "book", "Помощь"], ["sheet", "sheet", "Google-таблица"]] as const).map(([k, ic, l]) =>
         <button key={k} className={`chipbtn ${tipSub === k ? "on" : ""}`} onClick={() => setTipSub(k)}><Ic n={ic} c="currentColor" s={16} />{l}</button>)}
     </div>
@@ -404,13 +404,13 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
   return <>
     {fab}
     {MonthPick}
-    <div className="crm-tiles">
+    <div data-tour="home-tiles" className="crm-tiles">
       <div className={`card stat g-blue tile tile-link ${calc === "inc" ? "on" : ""}`} onClick={() => setCalc(calc === "inc" ? null : "inc")}><span className="tile-ico"><Ic n="money" c="#fff" s={26} /></span><div className="muted">Выручка</div><b>{rub(S.inc)}</b><Delta v={S.inc} w={P.inc} />{calc === "inc" && calcBody("inc")}</div>
       <div className="card stat g-orange tile tile-link" onClick={() => setCalc(calc === "out" ? null : "out")}><span className="tile-ico"><Ic n="out" c="#fff" s={26} /></span><div className="muted">Расходы</div><b>{rub(S.out)}</b><span className="small">{S.inc ? Math.round(S.out / S.inc * 100) + "% выручки" : ""}</span>{calc === "out" && calcBody("out")}</div>
       <div className={`card stat ${S.prof < 0 ? "g-red" : "g-green"} tile tile-link`} onClick={() => setCalc(calc === "prof" ? null : "prof")}><span className="tile-ico"><Ic n="trend" c="#fff" s={26} /></span><div className="muted">{S.prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{rub(S.prof)}</b>{S.prof > 0 && P.prof > 0 && <Delta v={S.prof} w={P.prof} />}{calc === "prof" && calcBody("prof")}</div>
       <div className="card stat g-orange t-light tile tile-link" onClick={() => setCalc(calc === "rent" ? null : "rent")}><span className="tile-ico"><Ic n="chart" c="#fff" s={26} /></span><div className="muted">Рентабельность бизнеса</div><b>{pctS(S.rent)}</b>{calc === "rent" && calcBody("rent")}</div>
     </div>
-    <div className="card" style={{ marginTop: 12 }}>
+    <div data-tour="home-proj" className="card" style={{ marginTop: 12 }}>
       <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
         <h3 style={{ margin: 0 }}><Ic n="case" />Проекты в работе · {work.length}</h3>
         <span className="small">{unpaidM.length ? <span className="neg">⏳ не оплатили: {unpaidM.length} · {rub(unpaidM.reduce((a, x) => a + (x.monthly ? x.price - projIncome(mk, x.id) : debt(x)), 0))}</span> : <span className="ok">✓ все оплатили</span>}</span></div>
@@ -495,7 +495,7 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
     prevOut.forEach((m) => add({ kind: "move", type: "out", amount: m.amount, date: `${mk}-${String(Math.min(Number(m.date.slice(8)), lastDay)).padStart(2, "0")}`, note: m.note, category: m.category || "Прочее", account: m.account || ACCOUNTS[0] })); };
   return <>
     {MonthPick}
-    <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
+    <div data-tour="fin-folds" className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
     <Fold icon="layers" title="Общие расходы" extra={rub(moves.filter((m) => m.type === "out" && !m.projectId && mkOf(m.date) === mk).reduce((a, m) => a + m.amount, 0)) + " за месяц"}>
     <Regulars {...{ mk, regulars: regulars.filter((x) => !x.projectId), moves, projects, pname, add, del, upd, nActive, projectId: undefined, flat: true }} extra={<>
       <div className="row small" style={{ justifyContent: "flex-start", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
@@ -595,7 +595,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
 
   return <>
     <div className="chips" style={{ marginBottom: 10 }}>
-      <button className={`chipbtn ${sub === "projects" ? "on" : ""}`} onClick={() => setSub("projects")}><Ic n="case" />Проекты</button>
+      <button data-tour="proj-chip" className={`chipbtn ${sub === "projects" ? "on" : ""}`} onClick={() => setSub("projects")}><Ic n="case" />Проекты</button>
       <button className={`chipbtn ${sub === "base" ? "on" : ""}`} onClick={() => setSub("base")}><Ic n="users" />База лидов</button>
     </div>
     <input placeholder="🔍 Поиск" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 10 }} />
@@ -739,10 +739,10 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
       {/* Добавить лида — отдельная форма */}
       <div className="card">
         <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b><Ic n="pie" />Свод по лидам · {leads.length}</b>
-          <span><button onClick={() => { setAddOpen(!addOpen); setBulk(null); }}>{addOpen ? "✕ Закрыть" : "+ Добавить лида"}</button>
+          <span><button data-tour="lead-add" onClick={() => { setAddOpen(!addOpen); setBulk(null); }}>{addOpen ? "✕ Закрыть" : "+ Добавить лида"}</button>
             <button className="ghost" title="Вставить списком из таблицы" style={{ marginLeft: 6, padding: "2px 8px", opacity: .6 }} onClick={() => { setBulk(bulk == null ? "" : null); setAddOpen(false); }}>{bulk == null ? "📋" : "✕"}</button></span></div>
         {/* Свод: статусы и источники — списком */}
-        <div className="lead-sum" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 20, margin: "10px 0", alignItems: "stretch" }}>
+        <div data-tour="lead-sum" className="lead-sum" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 20, margin: "10px 0", alignItems: "stretch" }}>
           <div style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: 10, background: "#eef4fb", border: "1px solid #cfe0f5", borderRadius: 12 }}>
           {(() => { // круговая диаграмма по источникам — голубые оттенки
             const ds = srcList.map(([k, v], n) => ({ k, n: v.n, c: BLUES[n % BLUES.length] }));
@@ -794,7 +794,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
         </div>}
       </div>
       {/* База лидов: имя слева, статус справа; нажал — карточка с правкой и комментариями */}
-      <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
+      <div data-tour="lead-list" className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
         <div className="row" style={{ padding: "10px 14px", borderBottom: "1px solid var(--border, #e5e5e5)" }}><b>📋 База лидов{cst !== "all" ? ` · ${cst}` : ""}{srcF ? ` · ${srcF}` : ""} · {shownC.length}</b>
           <span>{(cst !== "all" || srcF) && <button className="ghost small" onClick={() => { setCst("all"); setSrcF(null); }}>показать всех</button>}
             <label className="small" style={{ marginLeft: 8, cursor: "pointer" }}><input type="checkbox" checked={shownC.length > 0 && shownC.every((x) => sel.includes(x.id))}
@@ -865,14 +865,14 @@ function ProductsTab({ del0, products, projects, add, del, upd }: {
   return <div className="card">
     <div className="row"><h3 style={{ margin: 0 }}><Ic n="box" />Мои продукты и услуги</h3>
       <BulkPaste cols="Название · Цена · Что входит" onRows={(rows) => rows.forEach(([n, pr, d]) => add({ kind: "product", name: n, price: Number(String(pr || "").replace(/[^\d.,]/g, "").replace(",", ".")) || 0, descr: d || "" }))} /></div>
-    <form className="row small" style={{ flexWrap: "wrap", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!f.name.trim()) return;
+    <form data-tour="prod-add" className="row small" style={{ flexWrap: "wrap", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!f.name.trim()) return;
       add({ kind: "product", name: f.name.trim(), price: Number(f.price) || 0, descr: f.descr.trim() }); setF({ name: "", price: "", descr: "" }); }}>
       <input placeholder="Название (например: Дизайн логотипа)" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} style={{ flex: "1 1 180px" }} />
       <input type="number" placeholder="Цена" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} style={{ width: 110 }} />
       <input placeholder="Что входит" value={f.descr} onChange={(e) => setF({ ...f, descr: e.target.value })} style={{ flex: "1 1 180px" }} />
       <button disabled={!f.name.trim()}>+ Продукт</button>
     </form>
-    <div className="row small" style={{ marginTop: 8, flexWrap: "wrap", gap: 6 }}>
+    <div data-tour="prod-select" className="row small" style={{ marginTop: 8, flexWrap: "wrap", gap: 6 }}>
       <label style={{ cursor: "pointer" }}><input type="checkbox" checked={products.length > 0 && products.every((x) => sel.includes(x.id))} onChange={(e) => setSel(e.target.checked ? products.map((x) => x.id) : [])} /> выбрать все</label>
       {sel.length > 0 && <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}><b>Выбрано: {sel.length}</b>
         <input type="number" placeholder="Новая цена" value={np} onChange={(e) => setNp(e.target.value)} style={{ width: 110 }} />
@@ -880,7 +880,7 @@ function ProductsTab({ del0, products, projects, add, del, upd }: {
         <button className="ghost" style={{ color: "#b02a2a" }} onClick={() => { if (confirm(`Удалить ${sel.length} продукт(ов)?`)) { sel.forEach((id) => del0(id)); setSel([]); } }}>🗑 Удалить</button>
         <button className="ghost" onClick={() => setSel([])}>✕</button></span>}
     </div>
-    <table className="pnl-table crm-t" style={{ marginTop: 8 }}><tbody>
+    <table data-tour="prod-list" className="pnl-table crm-t" style={{ marginTop: 8 }}><tbody>
       {products.map((x) => { const used = projects.filter((p) => pids(p).includes(x.id));
         return <tr key={x.id}><td style={{ width: 24 }}><input type="checkbox" checked={sel.includes(x.id)} onChange={(e) => setSel(e.target.checked ? [...sel, x.id] : sel.filter((i) => i !== x.id))} /></td><td>{x.name}{x.descr && <div className="small muted">{x.descr}</div>}<div className="small muted">продано: {used.length} · на {rub(used.reduce((a, p) => a + p.price, 0))}</div></td>
           <td><input type="number" style={{ width: 110 }} key={x.id + x.price} defaultValue={x.price} onBlur={(e) => Number(e.target.value) !== x.price && upd(x.id, { price: Number(e.target.value) || 0 })} /></td>
@@ -969,7 +969,7 @@ function StaffTab({ del0, MonthPick, mk, staff, projects, moves, cname, add, del
     {MonthPick}
     <div className="card">
       <div className="row" style={{ flexWrap: "wrap", gap: 6 }}><b><Ic n="users" />Сотрудники · {staff.length}</b>
-        <button onClick={() => setAddOpen(!addOpen)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addOpen ? "✕ Закрыть" : "+ Добавить сотрудника"}</button>
+        <button data-tour="staff-add" onClick={() => setAddOpen(!addOpen)} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{addOpen ? "✕ Закрыть" : "+ Добавить сотрудника"}</button>
         <BulkPaste cols="Имя · Контакт · Сумма в месяц (фикса, общий расход)" onRows={(rows) => rows.forEach(([n, c, a]) => add({ kind: "employee", name: n, contact: c || "", projectIds: [], payType: "fixed", amount: Number(String(a || "").replace(/[^\d.,]/g, "").replace(",", ".")) || 0, day: 10 }))} /></div>
       <div className="small" style={{ marginTop: 6 }}>Зарплаты за месяц: <b>{rub(total)}</b></div>
       {addOpen && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!f.name.trim()) return;
@@ -987,7 +987,7 @@ function StaffTab({ del0, MonthPick, mk, staff, projects, moves, cname, add, del
         <button disabled={!f.name.trim()}>✓ Добавить</button>
       </form>}
     </div>
-    <div className="row small" style={{ marginTop: 12, flexWrap: "wrap", gap: 6 }}>
+    <div data-tour="staff-arch" className="row small" style={{ marginTop: 12, flexWrap: "wrap", gap: 6 }}>
       <span><button className={!arch ? "" : "ghost"} style={{ padding: "2px 10px" }} onClick={() => { setArch(false); setSelS([]); }}>Работают · {staff.filter((e) => !e.off).length}</button>
         <button className={arch ? "" : "ghost"} style={{ padding: "2px 10px", marginLeft: 4 }} onClick={() => { setArch(true); setSelS([]); }}>🗄 Архив · {staff.filter((e) => e.off).length}</button></span>
       <label style={{ cursor: "pointer" }}><input type="checkbox" checked={shownS.length > 0 && shownS.every((e) => selS.includes(e.id))} onChange={(ev) => setSelS(ev.target.checked ? shownS.map((e) => e.id) : [])} /> выбрать всех</label>
@@ -1044,31 +1044,58 @@ export function NeylaFab({ lines }: { lines: string[] }) {
   </div>;
 }
 
-// шаги обучения — рассказывает Нейла
-const TOUR: { view: CrmView; title: string; text: string[] }[] = [
-  { view: "home", title: "Привет! Я Нейла 👋", text: ["Покажу, как устроен ваш кабинет — это займёт пару минут.", "Нажимайте «Далее», а если захотите пройти позже — «Пропустить». Вернуться к обучению можно во вкладке «Рекомендации»."] },
-  { view: "products", title: "Продукты", text: ["Здесь ваши услуги с ценами: «+ Продукт» — добавить, цену можно поменять прямо в строке.", "Отметьте несколько галочками — и поставьте всем новую цену или удалите разом.", "Значок 📋 — вставить сразу список из таблицы."] },
-  { view: "staff", title: "Сотрудники", text: ["«+ Добавить сотрудника»: имя, контакт, проекты и способ оплаты — фикса или % от проектов.", "«✓ Провести ЗП» — зарплата сама попадёт в расходы и посчитается в марже проектов.", "Кто больше не работает — отметьте и отправьте «🗄 В архив»."] },
-  { view: "clients", title: "Клиенты: лиды и проекты", text: ["В «Базе лидов» — все, кто к вам обращался. Статус меняется цветной плашкой рядом с именем, «⚙ Настройки» — заметки и комментарии.", "Статус «▶ Начали работу» сразу создаёт проект.", "Во вкладке «Проекты» — сумма в месяц, кнопка «✓ Оплатили», доходы и расходы по проекту, прибыль и маржа."] },
-  { view: "fin", title: "Финансы", text: ["Сверху — план / факт месяца и структура расходов: куда уходят деньги.", "Ниже — общие расходы (аренда, сервисы), то, что ждёт проведения, все операции месяца и остатки на счетах.", "Оранжевая строка «Ждут проведения» — напоминание, что что-то ещё не внесено."] },
-  { view: "home", title: "Мой кабинет", text: ["Главные цифры месяца: выручка, расходы, чистая прибыль и рентабельность.", "Нажмите на любую плитку — внутри откроется расчёт, откуда взялась цифра.", "Ниже — проекты в работе (кто оплатил, прибыль и маржа), показатели и аналитика за 3–12 месяцев."] },
-  { view: "tips", title: "Вкладка «Нейла»", text: ["Здесь мои советы: сравниваю ваши цифры с ориентирами для сферы услуг.", "Тут же «Помощь» (повторить обучение, установить на телефон), таблица и чат поддержки."] },
-  { view: "tips", title: "Установите кабинет на телефон 📱", text: ["iPhone: откройте кабинет в Safari → «Поделиться» ⬆ → «На экран „Домой“».", "Android: в Chrome нажмите ⋮ → «Установить приложение» (или «Добавить на главный экран»).", "Иконка появится рядом с другими приложениями. А если нужен совет — нажмите на меня справа внизу 💛"] },
+// шаги обучения: Нейла подсвечивает элемент (data-tour) и объясняет именно его
+const TOUR: { view: CrmView; sel?: string; title: string; text: string }[] = [
+  { view: "home", title: "Привет! Я Нейла 👋", text: "Покажу кабинет по шагам — я буду подсвечивать кнопки и объяснять, что они делают. Пока идёт обучение, нажимать ничего не нужно: просто листайте «Далее»." },
+  { view: "products", sel: "prod-add", title: "Добавить продукт", text: "Впишите название услуги, цену и что входит — и нажмите «+ Продукт». Значок 📋 справа от заголовка — вставить сразу список из таблицы." },
+  { view: "products", sel: "prod-list", title: "Изменить или удалить", text: "Цену меняете прямо в строке — она сохранится сама. 🗑 справа — удалить продукт." },
+  { view: "products", sel: "prod-select", title: "Сразу несколько", text: "Отметьте продукты галочками (или «выбрать все») — появятся кнопки «Поставить цену» и «Удалить» для всех выбранных." },
+  { view: "staff", sel: "staff-add", title: "Добавить сотрудника", text: "Имя, контакт, проекты, на которых он работает, и способ оплаты: фикса или % от проектов. Потом «✓ Провести ЗП» — и зарплата попадёт в расходы." },
+  { view: "staff", sel: "staff-arch", title: "Архив", text: "Кто больше не работает — отметьте галочкой и нажмите «В архив». Вкладка «Архив» хранит всех бывших сотрудников." },
+  { view: "clients", sel: "lead-sum", title: "Свод по лидам", text: "Сколько всего лидов, откуда они приходят и в каких статусах. Нажмите на источник или статус — список ниже отфильтруется." },
+  { view: "clients", sel: "lead-add", title: "Добавить лида", text: "«+ Добавить лида» — новый человек сразу получит статус «Ждёт обработку». 📋 — добавить списком из таблицы." },
+  { view: "clients", sel: "lead-list", title: "База лидов", text: "Цветная плашка рядом с именем — статус, нажмите и выберите новый. «▶ Начали работу» сразу создаёт проект. «⚙ Настройки» — заметки и комментарии." },
+  { view: "clients", sel: "proj-chip", title: "Проекты", text: "Здесь ваши клиенты в работе: сумма в месяц, кнопка «✓ Оплатили», доходы и расходы по проекту, прибыль и маржа." },
+  { view: "fin", sel: "fin-pf", title: "План / факт", text: "Сколько должно прийти и уйти в этом месяце — и сколько реально. Нажмите «Доходы» или «Расходы» — раскроется по каждому проекту." },
+  { view: "fin", sel: "fin-struct", title: "Структура расходов", text: "Куда уходят деньги: каждая статья и её доля." },
+  { view: "fin", sel: "fin-folds", title: "Общие расходы и операции", text: "Аренда и сервисы, то, что ждёт проведения (оранжевая строка), все операции месяца и остатки на счетах. Нажмите на строку — она раскроется." },
+  { view: "home", sel: "home-tiles", title: "Главные цифры", text: "Выручка, расходы, чистая прибыль и рентабельность. Нажмите на любую плитку — увидите расчёт, откуда взялась цифра." },
+  { view: "home", sel: "home-proj", title: "Проекты в работе", text: "Кто оплатил, чистая прибыль и маржа каждого проекта. Нажмите на цифру — покажу расчёт." },
+  { view: "tips", sel: "tips-chips", title: "Вкладка «Нейла»", text: "Мои советы по вашим цифрам, помощь (обучение, установка на телефон, чат поддержки) и Google-таблица." },
+  { view: "tips", title: "Установите кабинет на телефон 📱", text: "iPhone: Safari → «Поделиться» ⬆ → «На экран „Домой“». Android: Chrome → ⋮ → «Установить приложение». А если нужен совет — нажмите на меня справа внизу 💛" },
 ];
 function TourCard({ n, go }: { n: number; go: (n: number | null) => void }) {
   const st = TOUR[n], last = n === TOUR.length - 1;
-  return <div className="no-print" style={{ position: "fixed", right: 16, bottom: 84, zIndex: 60, width: "min(360px, calc(100vw - 32px))" }}>
-    <div className="card" style={{ margin: 0, boxShadow: "0 10px 30px rgba(22,48,79,.25)", borderRadius: 16, borderTop: "4px solid #e8873a" }}>
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  useEffect(() => {
+    setRect(null); if (!st.sel) return;
+    let tries = 0, scrolled = false;
+    const t = setInterval(() => { const el = document.querySelector(`[data-tour="${st.sel}"]`) as HTMLElement | null; tries++;
+      if (el) { if (!scrolled) { el.scrollIntoView({ block: "center", behavior: "smooth" }); scrolled = true; } setRect(el.getBoundingClientRect()); }
+      if (tries > 40) clearInterval(t); }, 150);
+    return () => clearInterval(t);
+  }, [n]);
+  const pad = 6, vh = window.innerHeight, w = Math.min(340, window.innerWidth - 32);
+  const below = rect ? rect.bottom + 180 < vh : true;
+  const top = rect ? (below ? rect.bottom + pad + 10 : Math.max(10, rect.top - pad - 10 - 200)) : vh / 2 - 120;
+  const left = rect ? Math.min(Math.max(16, rect.left), window.innerWidth - w - 16) : (window.innerWidth - w) / 2;
+  return <div className="no-print" style={{ position: "fixed", inset: 0, zIndex: 1000 }} onClick={(e) => e.stopPropagation()}>
+    {/* затемнение и «окно» вокруг подсвеченного элемента; клики по кабинету заблокированы */}
+    {rect ? <div style={{ position: "fixed", left: rect.left - pad, top: rect.top - pad, width: rect.width + pad * 2, height: rect.height + pad * 2, borderRadius: 14,
+      boxShadow: "0 0 0 9999px rgba(15,25,45,.6)", border: "2px solid #e8873a", transition: "all .25s", pointerEvents: "none" }} />
+      : <div style={{ position: "fixed", inset: 0, background: "rgba(15,25,45,.6)" }} />}
+    <div className="card" style={{ position: "fixed", top, left, width: w, margin: 0, boxShadow: "0 10px 30px rgba(0,0,0,.35)", borderRadius: 16, borderTop: "4px solid #e8873a", transition: "all .25s" }}>
       <div className="row" style={{ justifyContent: "flex-start", gap: 10, alignItems: "center" }}>
         <img src="neyla.jpg" alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
         <div><b>{st.title}</b><div className="small muted">шаг {n + 1} из {TOUR.length}</div></div></div>
-      <div className="small" style={{ marginTop: 8, lineHeight: 1.45 }}>{st.text.map((t, k) => <p key={k} style={{ margin: "4px 0" }}>{t}</p>)}</div>
-      <div style={{ display: "flex", gap: 4, margin: "8px 0" }}>{TOUR.map((_, k) => <span key={k} style={{ flex: 1, height: 4, borderRadius: 2, background: k <= n ? "#e8873a" : "var(--border, #e5e5e5)" }} />)}</div>
+      <div className="small" style={{ marginTop: 8, lineHeight: 1.45 }}>{st.text}</div>
+      <div style={{ display: "flex", gap: 3, margin: "10px 0" }}>{TOUR.map((_, k) => <span key={k} style={{ flex: 1, height: 4, borderRadius: 2, background: k <= n ? "#e8873a" : "var(--border, #e5e5e5)" }} />)}</div>
       <div className="row" style={{ gap: 6 }}>
         <button className="ghost" onClick={() => go(null)}>Пропустить</button>
         <span>{n > 0 && <button className="ghost" onClick={() => go(n - 1)}>← Назад</button>}{" "}
           <button style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }} onClick={() => go(last ? null : n + 1)}>{last ? "Готово ✓" : "Далее →"}</button></span></div>
-    </div></div>;
+    </div>
+  </div>;
 }
 
 // как поставить кабинет на телефон
