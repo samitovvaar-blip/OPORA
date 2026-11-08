@@ -123,6 +123,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
   const [margOpen, setMargOpen] = useState(false);
   const [pfOpen, setPfOpen] = useState<Record<string, boolean>>({});
   const [gs, setGs] = useState<{ url: string; exec: string } | null>(null);
+  const [calc, setCalc] = useState<"inc" | "out" | "prof" | "rent" | null>(null);
 
   const products = items.filter((x): x is CProduct => x.kind === "product").sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const clients = items.filter((x): x is CClient => x.kind === "client").sort((a, b) => a.name.localeCompare(b.name, "ru"));
@@ -305,23 +306,42 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
   return <>
     {fab}
     {MonthPick}
-    <div className="crm-tiles" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, alignItems: "stretch" }}>
-      <div className="card stat g-blue tile"><span className="tile-ico"><Ic n="money" c="#fff" s={26} /></span><div className="muted">Выручка</div><b>{rub(S.inc)}</b><Delta v={S.inc} w={P.inc} /></div>
-      <div className="card stat g-orange tile tile-link" onClick={() => onNav("fin")}><span className="tile-ico"><Ic n="out" c="#fff" s={26} /></span><div className="muted">Расходы</div><b>{rub(S.out)}</b><span className="small">{S.inc ? Math.round(S.out / S.inc * 100) + "% выручки" : ""}</span></div>
-      <div className={`card stat ${S.prof < 0 ? "g-red" : "g-green"} tile`}><span className="tile-ico"><Ic n="trend" c="#fff" s={26} /></span><div className="muted">{S.prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{rub(S.prof)}</b>{S.prof > 0 && P.prof > 0 && <Delta v={S.prof} w={P.prof} />}</div>
-      <div className="card stat g-orange t-light tile"><span className="tile-ico"><Ic n="chart" c="#fff" s={26} /></span><div className="muted">Рентабельность</div><b>{pctS(S.rent)}</b><span className="small">маржинальность {pctS(S.marg)}</span></div>
+    <div className="crm-tiles">
+      <div className={`card stat g-blue tile tile-link ${calc === "inc" ? "on" : ""}`} onClick={() => setCalc(calc === "inc" ? null : "inc")}><span className="tile-ico"><Ic n="money" c="#fff" s={26} /></span><div className="muted">Выручка</div><b>{rub(S.inc)}</b><Delta v={S.inc} w={P.inc} /></div>
+      <div className="card stat g-orange tile tile-link" onClick={() => setCalc(calc === "out" ? null : "out")}><span className="tile-ico"><Ic n="out" c="#fff" s={26} /></span><div className="muted">Расходы</div><b>{rub(S.out)}</b><span className="small">{S.inc ? Math.round(S.out / S.inc * 100) + "% выручки" : ""}</span></div>
+      <div className={`card stat ${S.prof < 0 ? "g-red" : "g-green"} tile tile-link`} onClick={() => setCalc(calc === "prof" ? null : "prof")}><span className="tile-ico"><Ic n="trend" c="#fff" s={26} /></span><div className="muted">{S.prof < 0 ? "Убыток" : "Чистая прибыль"}</div><b>{rub(S.prof)}</b>{S.prof > 0 && P.prof > 0 && <Delta v={S.prof} w={P.prof} />}</div>
+      <div className="card stat g-orange t-light tile tile-link" onClick={() => setCalc(calc === "rent" ? null : "rent")}><span className="tile-ico"><Ic n="chart" c="#fff" s={26} /></span><div className="muted">Рентабельность бизнеса</div><b>{pctS(S.rent)}</b></div>
     </div>
+    {calc && (() => {
+      const ins = moves.filter((x) => x.type === "in" && mkOf(x.date) === mk), outs = moves.filter((x) => x.type === "out" && mkOf(x.date) === mk);
+      const group = (list: CMove[], key: (x: CMove) => string) => { const g: Record<string, number> = {}; list.forEach((x) => { const k = key(x); g[k] = (g[k] || 0) + x.amount; }); return Object.entries(g).sort((a, b) => b[1] - a[1]); };
+      const Line = ({ l, v, b, c }: { l: string; v: string; b?: boolean; c?: string }) => <div className="row" style={{ padding: "3px 0", borderBottom: "1px dashed var(--border, #ddd)", fontWeight: b ? 700 : 400 }}><span>{l}</span><span className={c}>{v}</span></div>;
+      return <div className="card small" style={{ marginTop: 12 }}>
+        <div className="row"><b>{calc === "inc" ? "Как считается выручка" : calc === "out" ? "Как считаются расходы" : calc === "prof" ? "Как считается чистая прибыль" : "Как считается рентабельность бизнеса"} · {MONTHS[m - 1]}</b>
+          <button className="ghost" style={{ padding: "0 8px" }} onClick={() => setCalc(null)}>✕</button></div>
+        <div style={{ maxWidth: 520, marginTop: 6 }}>
+          {calc === "inc" && <>{group(ins, (x) => x.projectId ? pname(x.projectId) || "Проект" : x.category || "Прочий доход").map(([k, v]) => <Line key={k} l={k} v={rub(v)} />)}
+            <Line l="Выручка = сумма всех поступлений за месяц" v={rub(S.inc)} b c="ok" /></>}
+          {calc === "out" && <>{group(outs, (x) => (x.category || "Прочее") + (x.projectId ? " · проект" : " · общий")).map(([k, v]) => <Line key={k} l={k} v={rub(v)} />)}
+            <Line l="Расходы = все проведённые расходы за месяц" v={rub(S.out)} b c="neg" /></>}
+          {calc === "prof" && <><Line l="Выручка" v={rub(S.inc)} c="ok" /><Line l="− Расходы" v={rub(S.out)} c="neg" />
+            <Line l={S.prof < 0 ? "= Убыток" : "= Чистая прибыль"} v={rub(S.prof)} b c={S.prof < 0 ? "error" : "ok"} /></>}
+          {calc === "rent" && <><Line l="Чистая прибыль" v={rub(S.prof)} /><Line l="÷ Выручка" v={rub(S.inc)} />
+            <Line l="× 100% = Рентабельность бизнеса" v={pctS(S.rent)} b />
+            <div className="muted" style={{ marginTop: 6 }}>Показывает, сколько копеек прибыли остаётся с каждого рубля выручки.</div></>}
+        </div></div>; })()}
     <div className="card" style={{ marginTop: 12 }}>
-      <div className="row" style={{ cursor: "pointer", flexWrap: "wrap", gap: 6 }} onClick={() => setMargOpen(!margOpen)}>
-        <h3 style={{ margin: 0 }}>{margOpen ? "▾" : "▸"} <Ic n="case" />Проекты в работе · {work.length}</h3>
+      <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
+        <h3 style={{ margin: 0 }}><Ic n="case" />Проекты в работе · {work.length}</h3>
         <span className="small">{unpaidM.length ? <span className="neg">⏳ не оплатили: {unpaidM.length} · {rub(unpaidM.reduce((a, x) => a + (x.monthly ? x.price - projIncome(mk, x.id) : debt(x)), 0))}</span> : <span className="ok">✓ все оплатили</span>}</span></div>
-      {margOpen && <>
+      {<>
       <div style={{ overflowX: "auto", marginTop: 10 }}><table className="pnl-table crm-t"><tbody>
-        <tr className="muted small"><td>Проект</td><td>Оплата</td><td>Доходы</td><td>Расходы</td><td>Прибыль</td><td>Маржа</td><td>С общими</td></tr>
+        <tr className="muted small"><td>Проект</td><td>Оплата</td><td>Доходы</td><td>Расходы</td><td>Прибыль</td><td>Маржинальность</td><td>С общими расходами</td></tr>
         {margRows.map(({ x, i, c, sh, mm, mm2 }) => { const un = unpaidM.some((y) => y.id === x.id);
           return <tr key={x.id}><td>{x.name}<div className="small muted">{cname(x.clientId)}</div></td>
             <td className={un ? "error" : "ok"}>{un ? `⏳ не оплатил ${rub(x.monthly ? x.price - i : debt(x))}` : i ? "✓ оплатил" : "—"}</td>
-            <td>{rub(i)}</td><td className="neg">{c ? rub(c) : "—"}</td><td className={i - c < 0 ? "error" : "ok"}>{rub(i - c)}</td><td><b>{pctS(mm)}</b></td><td className={mm2 != null && mm2 < 0 ? "error" : "muted"}>{pctS(mm2)}</td></tr>; })}
+            <td>{rub(i)}</td><td className="neg">{c ? rub(c) : "—"}</td><td className={i - c < 0 ? "error" : "ok"}>{rub(i - c)}</td><td>{mm != null && mm < 0 ? <span className="error" title="Расходы проекта больше дохода — проект в минусе">невыгодный</span> : <b>{pctS(mm)}</b>}</td>
+            <td>{mm2 != null && mm2 < 0 ? <span className="error" title="С учётом доли общих расходов проект в минусе">невыгодный</span> : <span className="muted">{pctS(mm2)}</span>}</td></tr>; })}
         {!margRows.length && <tr><td className="muted">Нет проектов</td></tr>}
       </tbody></table></div>
       </>}
