@@ -11,7 +11,8 @@ export default function GoodsReport({ g, mk, label, p, wsId, isOwner }: { g: Goo
   // инвентаризация: из таблицы (лист «Товары Инвентаризация»), а если там нет — введённая в кабинете
   const sheetInv = g.inventory || {};
   const inv: Record<string, Record<string, number>> = {};
-  [...new Set([...Object.keys(p.inventory || {}), ...Object.keys(sheetInv)])].forEach((m) => { inv[m] = { ...(p.inventory?.[m] || {}), ...(sheetInv[m] || {}) }; });
+  // факт инвентаризации — только из листа «Товары Инвентаризация» таблицы
+  Object.keys(sheetInv).forEach((m) => { inv[m] = { ...sheetInv[m] }; });
   const invSum = g.inventorySum || {};
   const names = [...new Set([...Object.keys(g.groups), ...Object.keys(g.items)])];
   // Количество и сумма. Сумма остатка — по себестоимости (средняя цена закупки):
@@ -52,7 +53,7 @@ export default function GoodsReport({ g, mk, label, p, wsId, isOwner }: { g: Goo
           <td><Q q={r.inQ} s={r.inS} sign="+" cls="ok" /></td>
           <td><Q q={r.outQ} s={r.outCost} sign="−" cls="neg" />{r.outS ? <div className="small muted">продано на {rub(r.outS)}</div> : null}</td>
           <td><b><Q q={r.calc} s={r.calcS} /></b></td>
-          <td>{sheetInv[mk]?.[r.n] != null ? <b title="из таблицы"><Q q={r.fact} s={r.factS} /></b> : isOwner ? <><input type="number" style={{ width: 90 }} key={mk + r.n + (r.fact ?? "")} defaultValue={r.fact ?? ""} onBlur={(e) => e.target.value !== String(r.fact ?? "") && save(r.n, e.target.value)} />{r.factS ? <div className="small muted">{rub(Math.round(r.factS))}</div> : null}</> : <Q q={r.fact} s={r.factS} />}</td>
+          <td>{r.fact != null ? <b title="из листа «Товары Инвентаризация»"><Q q={r.fact} s={r.factS} /></b> : <span className="muted">—</span>}</td>
           <td className={r.diff ? "error" : r.diff === 0 ? "ok" : "muted"}>{r.diff == null ? "—" : r.diff === 0 ? "✓ 0" : <>{(r.diff > 0 ? "+" : "") + r.diff} шт{r.diffS ? <div className="small">{(r.diffS > 0 ? "+" : "−") + rub(Math.round(Math.abs(r.diffS)))}</div> : null}</>}</td>
         </tr>)}
       </Fragment>)}
