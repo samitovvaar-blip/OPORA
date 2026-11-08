@@ -10,7 +10,7 @@ import { ClientProject } from "../lib/catalog";
 type CProduct = { id: string; kind: "product"; name: string; price: number; descr?: string };
 type CClient = { id: string; kind: "client"; name: string; status?: string; comments?: { at: string; text: string }[]; company?: string; phone?: string; note?: string; source?: string; created?: string };
 type Status = "new" | "work" | "done";
-type CProject = { id: string; kind: "project"; name: string; clientId: string; productId?: string; price: number; status: Status; start: string; deadline?: string; payDate?: string; monthly?: boolean; payDay?: number; end?: string };
+type CProject = { id: string; kind: "project"; name: string; clientId: string; productId?: string; productIds?: string[]; price: number; status: Status; start: string; deadline?: string; payDate?: string; monthly?: boolean; payDay?: number; end?: string };
 type CMove = { id: string; kind: "move"; type: "in" | "out"; amount: number; date: string; note: string; projectId?: string; category?: string; account?: string; regularId?: string; employeeId?: string };
 type CRegular = { id: string; kind: "regular"; name: string; amount: number; day: number; category?: string; account?: string; projectId?: string; off?: boolean };
 type PayType = "fixed" | "fixedProj" | "percent";
@@ -92,6 +92,8 @@ function StatusBtns({ cur, onPick, pad = "0 14px 10px", onStart }: { cur?: strin
       style={{ background: cur === k ? c : "transparent", color: cur === k ? "#fff" : c, border: `1.5px solid ${c}`, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>
       {cur === k ? "✓ " : ""}{k}</button>)}{onStart && <button type="button" onClick={(e) => { e.stopPropagation(); onStart(); }} style={{ background: "#16a34a", color: "#fff", border: "1.5px solid #16a34a", borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>▶ Начали работу</button>}</div>;
 }
+// продукты проекта: несколько (productIds) или старое одно поле productId
+const pids = (x: { productId?: string; productIds?: string[] }) => x.productIds || (x.productId ? [x.productId] : []);
 const ST: Record<Status, string> = { new: "🆕 новый", work: "🛠 в работе", done: "✓ сдан" };
 const NEXT: Record<Status, Status> = { new: "work", work: "done", done: "new" };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -144,7 +146,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     const body = JSON.stringify({ key: s.key,
       moves: [...moves].reverse().map((m) => { const pr = projects.find((x) => x.id === m.projectId);
         return [dmy(m.date), MONTHS[Number(m.date.slice(5, 7)) - 1] + " " + m.date.slice(0, 4), m.type === "in" ? "Приход" : "Расход", m.amount, m.account || "", m.type === "in" ? (pr ? "Оплата проекта" : "Доход") : m.category || "Прочее", pr?.name || "", pr ? cname(pr.clientId) : "", m.note]; }),
-      projects: projects.map((x) => [dmy(x.start), x.name, products.find((y) => y.id === x.productId)?.name || "", cname(x.clientId), x.price, paidOf(x.id), debt(x), ST[x.status], dmy(x.deadline), dmy(x.payDate), costOf(x.id), x.price - costOf(x.id), x.price ? Math.round((x.price - costOf(x.id)) / x.price * 100) + "%" : ""]),
+      projects: projects.map((x) => [dmy(x.start), x.name, pids(x).map((id) => products.find((y) => y.id === id)?.name).filter(Boolean).join(", "), cname(x.clientId), x.price, paidOf(x.id), debt(x), ST[x.status], dmy(x.deadline), dmy(x.payDate), costOf(x.id), x.price - costOf(x.id), x.price ? Math.round((x.price - costOf(x.id)) / x.price * 100) + "%" : ""]),
       clients: clients.map((x) => [x.name, x.company || "", x.phone || "", x.source || "", x.note || "", dmy(x.created), x.status || ""]) });
     // no-cors: Apps Script не отдаёт CORS-заголовки, ответ не читаем — запись в таблицу всё равно происходит
     fetch(s.exec, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body })
@@ -467,7 +469,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
   const [pAdd, setPAdd] = useState(false);
   const [costF, setCostF] = useState<{ id: string; amount: string; category: string; note: string; date: string; account: string } | null>(null);
   const [cmt, setCmt] = useState<Record<string, string>>({});
-  const blankP = { name: "", clientId: "", productId: "", price: "", deadline: "", payDate: "", monthly: true, payDay: "" };
+  const blankP = { name: "", clientId: "", productIds: [] as string[], price: "", deadline: "", payDate: "", monthly: true, payDay: "" };
   const [pr, setPr] = useState(blankP);
   const [pay, setPay] = useState<{ id: string; amount: string; date: string; account: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -487,7 +489,11 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
     upd(x.id, { status: "done", end: today() }); upd(x.clientId, { status: "Закончили работу" }); setOpen(null); };
   const srcList = Object.entries(bySrc).sort((a, b) => b[1].n - a[1].n);
   const toProject = (x: CClient) => { setPr({ ...blankP, clientId: x.id }); setSub("projects"); setPAdd(true); setOpen(null); };
-  const pickProduct = (id: string) => { const pd = products.find((x) => x.id === id); setPr({ ...pr, productId: id, name: pr.name || pd?.name || "", price: pd ? String(pd.price) : pr.price }); };
+  const sumOf = (ids: string[]) => ids.reduce((a, id) => a + (products.find((y) => y.id === id)?.price || 0), 0);
+  const ProdChips = ({ ids, onChange }: { ids: string[]; onChange: (v: string[]) => void }) => <div className="row" style={{ justifyContent: "flex-start", gap: 4, flexWrap: "wrap" }}>
+    {products.map((y) => { const on = ids.includes(y.id); return <button type="button" key={y.id} className={on ? "" : "ghost"} style={{ padding: "2px 10px" }}
+      onClick={() => onChange(on ? ids.filter((i) => i !== y.id) : [...ids, y.id])}>{on ? "✓ " : ""}{y.name} · {rub(y.price)}</button>; })}
+    {!products.length && <span className="muted">Продуктов нет</span>}</div>;
 
   return <>
     <div className="chips" style={{ marginBottom: 10 }}>
@@ -509,11 +515,12 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
             } }} /></span></div>
         {pAdd && <form className="card soft-card" style={{ marginTop: 10, display: "grid", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (!pr.name.trim() || !pr.clientId) return;
           add({ kind: "project", name: pr.name.trim(), clientId: pr.clientId, price: Number(pr.price) || 0, status: "new", start: today(),
-            ...(pr.productId ? { productId: pr.productId } : {}), ...(pr.deadline ? { deadline: pr.deadline } : {}), ...(!pr.monthly && pr.payDate ? { payDate: pr.payDate } : {}), monthly: pr.monthly, ...(pr.monthly ? { payDay: Math.min(31, Math.max(1, Number(pr.payDay) || Number(today().slice(8)))) } : {}) });
+            ...(pr.productIds.length ? { productIds: pr.productIds } : {}), ...(pr.deadline ? { deadline: pr.deadline } : {}), ...(!pr.monthly && pr.payDate ? { payDate: pr.payDate } : {}), monthly: pr.monthly, ...(pr.monthly ? { payDay: Math.min(31, Math.max(1, Number(pr.payDay) || Number(today().slice(8)))) } : {}) });
           setPr(blankP); setPAdd(false); }}>
           <b>Новый проект</b>
           <select value={pr.clientId} onChange={(e) => setPr({ ...pr, clientId: e.target.value })}><option value="">— клиент * —</option>{clients.map((x) => <option key={x.id} value={x.id}>{x.name}{x.company ? ` (${x.company})` : ""}</option>)}</select>
-          <select value={pr.productId} onChange={(e) => pickProduct(e.target.value)}><option value="">— продукт —</option>{products.map((x) => <option key={x.id} value={x.id}>{x.name} · {rub(x.price)}</option>)}</select>
+          <div className="small"><span className="muted">Продукты (сумма посчитается сама, её можно поправить)</span>
+            <ProdChips ids={pr.productIds} onChange={(v) => setPr({ ...pr, productIds: v, price: String(sumOf(v)), name: pr.name || (v[0] ? products.find((y) => y.id === v[0])?.name || "" : "") })} /></div>
           <input placeholder="Название проекта / услуга *" value={pr.name} onChange={(e) => setPr({ ...pr, name: e.target.value })} />
           <div className="row small" style={{ justifyContent: "flex-start", gap: 6 }}><span className="muted">Оплата:</span>
             <button type="button" className={pr.monthly ? "" : "ghost"} onClick={() => setPr({ ...pr, monthly: true })}>каждый месяц</button>
@@ -612,7 +619,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
                 <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
                   <L l="Название"><input key={x.id + "n" + x.name} defaultValue={x.name} style={{ flex: 1 }} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== x.name && upd(x.id, { name: e.target.value.trim() })} /></L>
                   <L l="Клиент"><select value={x.clientId} onChange={(e) => upd(x.id, { clientId: e.target.value })} style={{ flex: 1 }}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></L>
-                  <L l="Продукт"><select value={x.productId || ""} onChange={(e) => upd(x.id, { productId: e.target.value })} style={{ flex: 1 }}><option value="">—</option>{products.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}</select></L>
+                  <div><span className="muted">Продукты</span><ProdChips ids={pids(x)} onChange={(v) => upd(x.id, { productIds: v, productId: "", price: sumOf(v) })} /></div>
                   <L l={x.monthly ? "Сумма в месяц" : "Сумма"}><input type="number" key={x.id + "p" + x.price} defaultValue={x.price} style={{ flex: 1 }} onBlur={(e) => Number(e.target.value) !== x.price && upd(x.id, { price: Number(e.target.value) || 0 })} /></L>
                   <L l="Периодичность"><select value={x.monthly ? "m" : "o"} onChange={(e) => upd(x.id, { monthly: e.target.value === "m" })} style={{ flex: 1 }}><option value="m">каждый месяц</option><option value="o">разово</option></select></L>
                   {x.monthly
@@ -776,7 +783,7 @@ function ProductsTab({ del0, products, projects, add, del, upd }: {
         <button className="ghost" onClick={() => setSel([])}>✕</button></span>}
     </div>
     <table className="pnl-table crm-t" style={{ marginTop: 8 }}><tbody>
-      {products.map((x) => { const used = projects.filter((p) => p.productId === x.id);
+      {products.map((x) => { const used = projects.filter((p) => pids(p).includes(x.id));
         return <tr key={x.id}><td style={{ width: 24 }}><input type="checkbox" checked={sel.includes(x.id)} onChange={(e) => setSel(e.target.checked ? [...sel, x.id] : sel.filter((i) => i !== x.id))} /></td><td>{x.name}{x.descr && <div className="small muted">{x.descr}</div>}<div className="small muted">продано: {used.length} · на {rub(used.reduce((a, p) => a + p.price, 0))}</div></td>
           <td><input type="number" style={{ width: 110 }} key={x.id + x.price} defaultValue={x.price} onBlur={(e) => Number(e.target.value) !== x.price && upd(x.id, { price: Number(e.target.value) || 0 })} /></td>
           <td><button className="ghost" onClick={() => del(x.id)}>🗑</button></td></tr>; })}
