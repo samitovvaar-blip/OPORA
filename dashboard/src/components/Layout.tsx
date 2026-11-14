@@ -41,13 +41,13 @@ const ownerGroups = (): Group[] => [
     { to: "/tasks", label: "Задания", icon: "tasks" },
     { to: "/projects", label: "Клиенты", icon: "users" },
     { to: "/leads", label: "Заявки с сайта", icon: "mail" },
+    { to: "/admin", label: "Сотрудники", icon: "case" },
   ] },
   { id: "other", title: "Прочее", items: [
     { to: "/pnl", label: "Финансы", icon: "money" },
     ...modules.filter((m) => m.path !== "leads").map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })),
     { to: "/products", label: "Продукты", icon: "box" },
     { to: "/kb", label: "База знаний", icon: "cap" },
-    { to: "/admin", label: "Админка", icon: "gear" },
   ] },
 ];
 // Нижняя панель на телефоне
