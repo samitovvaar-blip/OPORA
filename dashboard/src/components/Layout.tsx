@@ -40,10 +40,10 @@ const ownerGroups = (): Group[] => [
     { to: "/", label: "Главная", icon: "home" },
     { to: "/tasks", label: "Задания", icon: "tasks" },
     { to: "/projects", label: "Клиенты", icon: "users" },
-    { to: "/leads", label: "Заявки с сайта", icon: "mail" },
     { to: "/admin", label: "Сотрудники", icon: "case" },
   ] },
   { id: "other", title: "Прочее", items: [
+    { to: "/leads", label: "Заявки с сайта", icon: "mail" },
     { to: "/pnl", label: "Финансы", icon: "money" },
     ...modules.filter((m) => m.path !== "leads").map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })),
     { to: "/products", label: "Продукты", icon: "box" },
@@ -51,7 +51,7 @@ const ownerGroups = (): Group[] => [
   ] },
 ];
 // Нижняя панель на телефоне
-const MOBILE = ["/", "/tasks", "/projects", "/leads"];
+const MOBILE = ["/", "/tasks", "/projects", "/admin"];
 
 
 export default function Layout() {
