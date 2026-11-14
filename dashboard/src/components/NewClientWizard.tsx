@@ -43,20 +43,19 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
     getDocs(collection(db, "users", u.uid, "products")).then((q) => setProducts(q.docs.map((d) => d.data() as Product).sort((a, b) => (a.order || 0) - (b.order || 0)))).catch(() => {}); }, []);
 
   const base = exec.trim().replace(/\?.*$/, "");
-  const pnlUrl = base && key ? `${base}?key=${encodeURIComponent(key)}&dir=${encodeURIComponent(dir.trim())}` : "";
+  const pnlUrl = base && key ? `${base}?key=${encodeURIComponent(key)}` : "";
   const items = STAGES.flatMap((s) => s.items).filter((it) => shown(it, flags)).length;
 
   // «Проверить подключение»: открываем скрипт и объясняем, что не так
   async function runCheck() {
     if (!base) return setCheck({ ok: false, lines: ["Вставь ссылку на скрипт (заканчивается на /exec)"] });
-    if (!dir.trim()) return setCheck({ ok: false, lines: ["Укажи направление — как в колонке «Направление» базы"] });
     setChecking(true); setCheck(null);
     try {
       const j = await (await fetch(pnlUrl + "&fresh=1")).json();
       if (j.error) setCheck({ ok: false, lines: ["❌ " + j.error, /ключ/i.test(j.error) ? "→ ссылка на таблицу должна быть той же, где стоит скрипт" : ""].filter(Boolean) });
       else setCheck({ ok: true, lines: [
         `✅ Таблица «${j.title || ""}» отвечает`,
-        `✅ Найдено операций по направлению «${dir}»: ${j.matched ?? "—"} из ${j.scanned ?? "—"}`,
+        `✅ Найдено операций: ${j.matched ?? "—"}`,
         `✅ Месяцев в отчёте: ${(j.months || []).length}`,
         j.balances ? `✅ Лист «БАЛАНСЫ СЕЙЧАС»: ${j.balances.accounts.length} счетов` : "⚠ Нет листа «БАЛАНСЫ СЕЙЧАС» — остатков в ДДС не будет",
         j.directory ? `✅ Справочник: ${j.directory} статей` : "⚠ Справочник пуст или не найден",
@@ -74,7 +73,7 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
     const data: any = { name: name.trim(), flags, links, monthlyOpen: false, calendarOpen: false, createdAt: serverTimestamp(),
       clientEmails: list, clientOpen: open && list.length > 0, staffEmails: staff, bizType: biz };
     if (birthday) data.birthday = birthday;
-    if (biz === "goods" && pnlUrl && dir.trim()) data.pnlUrl = pnlUrl;
+    if (biz === "goods" && pnlUrl) data.pnlUrl = pnlUrl;
     if (pr) data.tariff = { name: pr.title, price: Number(price) || pr.price, period: pr.period || "в месяц", payDay: payDay ? Number(payDay) : null,
       items: (pr.sections?.length ? pr.sections.flatMap((x) => x.items) : pr.includes) || [] };
     const r = await addDoc(collection(db, "workspaces", wsId, "clients"), data);
@@ -121,7 +120,6 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
         <li>Развёртывание → Новое развёртывание → «Веб-приложение», доступ «Все» → скопируй ссылку <code>…/exec</code>.</li>
       </ol>
       <input placeholder="Ссылка на скрипт: https://script.google.com/macros/s/…/exec" value={exec} onChange={(e) => setExec(e.target.value)} style={{ width: "100%" }} />
-      <input placeholder="Направление (как в колонке «Направление» базы, например: Кубики)" value={dir} onChange={(e) => setDir(e.target.value)} style={{ width: "100%", marginTop: 6 }} />
       <div className="inline" style={{ marginTop: 8 }}>
         <button type="button" onClick={runCheck} disabled={checking}>{checking ? "Проверяю…" : "🔍 Проверить подключение"}</button>
         <span className="muted small">Можно пропустить и подключить позже в настройках клиента</span></div>

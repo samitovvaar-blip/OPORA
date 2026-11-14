@@ -24,7 +24,7 @@ export default function ReportConnect({ p, wsId }: { p: ClientProject; wsId: str
   const [msg, setMsg] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
   const ref = doc(db, "workspaces", wsId, "clients", p.id);
-  const url = base && key && dir ? `${base.trim().replace(/\?.*$/, "")}?key=${encodeURIComponent(key)}&dir=${encodeURIComponent(dir.trim())}` : "";
+  const url = base && key ? `${base.trim().replace(/\?.*$/, "")}?key=${encodeURIComponent(key)}` : "";
   const line = `var KEY = '${key}';`;
 
   async function saveCheck() {
@@ -33,7 +33,7 @@ export default function ReportConnect({ p, wsId }: { p: ClientProject; wsId: str
     try {
       const j = await (await fetch(url + "&fresh=1")).json();
       setMsg(j.error ? ["❌ " + j.error, /ключ/i.test(j.error) ? "→ проверь, что ссылка на таблицу — именно та, где стоит скрипт, и скрипт обновлён с GitHub" : ""].filter(Boolean)
-        : [`✅ Подключено: «${j.title}», операций по «${dir}»: ${j.matched ?? 0}, месяцев: ${(j.months || []).length}`]);
+        : [`✅ Подключено: «${j.title}», операций: ${j.matched ?? 0}, месяцев: ${(j.months || []).length}`]);
     } catch { setMsg(["❌ Скрипт не ответил. Проверь: «Веб-приложение», доступ «Все», ссылка /exec"]); }
     setBusy(false);
   }
@@ -48,7 +48,6 @@ export default function ReportConnect({ p, wsId }: { p: ClientProject; wsId: str
     {key && <>
       <div className="small">3. Развёртывание → «Веб-приложение», доступ «Все» → вставь ссылку /exec:</div>
       <input value={base} onChange={(e) => setBase(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" style={{ width: "100%", marginTop: 4 }} />
-      <input value={dir} onChange={(e) => setDir(e.target.value)} placeholder="Направление, как в колонке «Направление» (например: Кубики)" style={{ width: "100%", marginTop: 4 }} />
       <div className="inline" style={{ marginTop: 6 }}><button disabled={busy} onClick={saveCheck}>{busy ? "Проверяю…" : "💾 Сохранить и проверить"}</button></div>
       {msg && <div className="small" style={{ marginTop: 4 }}>{msg.map((m, k) => <div key={k}>{m}</div>)}</div>}
       {p.pnlUrl && <div className="small muted" style={{ marginTop: 4, wordBreak: "break-all" }}>Ссылка на P&L: {p.pnlUrl}</div>}

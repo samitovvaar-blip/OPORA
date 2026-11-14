@@ -29,7 +29,7 @@ function buildReport(e) {
   var p = (e && e.parameter) || {};
   if (!okKey(p.key)) return out({ error: 'Неверный ключ' });
   var dirs = String(p.dir || '').split(',').map(norm).filter(String);
-  if (!dirs.length) return out({ error: 'Не указано направление: добавь &dir=Кубики' });
+  // направление больше не обязательно: без &dir берём все строки базы
   var ss = getSS();
   var names = p.sheet ? String(p.sheet).split(',') : DEFAULT_SHEETS;
 
@@ -47,12 +47,13 @@ function buildReport(e) {
     var cDirs = []; for (var i = 0; i < h.length; i++) if (/^направлен/.test(h[i])) cDirs.push(i);
     var cDir = cDirs.length ? cDirs[0] : -1, cProc = col(/^процесс/), cArt = col(/^стать/), cSum = col(/^сумма/),
         cType = col(/приход/), cDate = col(/дата для отч/), cDate2 = col(/дата оп/), cAcc = col(/^сч[её]т/);
-    if (cDir < 0 || cArt < 0 || cSum < 0) return out({ error: 'Не нашёл колонки «Направление», «Статьи», «Сумма» на листе ' + names[s] });
+    if (cArt < 0 || cSum < 0) return out({ error: 'Не нашёл колонки «Статьи», «Сумма» на листе ' + names[s] });
     total += v.length - 1;
     for (var r = 1; r < v.length; r++) {
       var row = v[r];
       var hit = false;
-      for (var c = 0; c < cDirs.length; c++) { var dv = String(row[cDirs[c]] || '').trim(); if (dv) foundDirs[dv] = 1; if (dirs.indexOf(norm(dv)) >= 0) { hit = true; break; } }
+      for (var c = 0; c < cDirs.length; c++) { var dv = String(row[cDirs[c]] || '').trim(); if (dv) foundDirs[dv] = 1; if (!dirs.length || dirs.indexOf(norm(dv)) >= 0) { hit = true; break; } }
+      if (!cDirs.length) hit = true;
       if (!hit) continue;
       seen++;
       var proc = String(row[cProc] || '').trim(), art = String(row[cArt] || '').trim();
@@ -90,7 +91,7 @@ function buildReport(e) {
   }
   var rows = Object.keys(sums).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], values: sums[k] }; });
   var ddsRows = Object.keys(dds).map(function (k) { var x = k.split('\u0001'); return { process: x[0], article: x[1], account: x[2], fund: x[3] === '1' || undefined, values: dds[k] }; });
-  if (!seen && total) return out({ error: 'В базе нет строк с направлением «' + dirs.join(', ') + '». В колонке «Направление» есть: ' + Object.keys(foundDirs).join(', ') + '. Впиши в кабинете одно из них.' });
+  if (dirs.length && !seen && total) return out({ error: 'В базе нет строк с направлением «' + dirs.join(', ') + '». В колонке «Направление» есть: ' + Object.keys(foundDirs).join(', ') + '. Впиши в кабинете одно из них.' });
   return out({ mode: 'db', goods: readGoods(ss), dirMeta: readDirMeta(ss), balances: readBalances(ss), typos: typos, directory: Object.keys(groupsOf).length, dds: { months: Object.keys(ddsMonths).sort(), rows: ddsRows }, title: ss.getName(), dirs: dirs, scanned: total, matched: seen, months: Object.keys(months).sort(), rows: rows, at: new Date().toISOString() });
 }
 

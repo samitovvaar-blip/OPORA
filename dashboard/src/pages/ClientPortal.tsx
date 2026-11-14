@@ -165,7 +165,7 @@ export default function ClientPortal() {
       {!svc && (view === "dash" || view === "pnl" || view === "dds") && !p.pnlUrl && <div className="card muted">Отчётность скоро появится здесь.</div>}
       {(view === "dash" || view === "pnl" || view === "dds") && pnl?.stale && <div className="card small muted">⚠️ Таблица сейчас не отвечает — показан последний загруженный отчёт{pnl.at ? " от " + new Date(pnl.at).toLocaleString("ru-RU") : ""}.</div>}
       {(view === "dash" || view === "pnl" || view === "dds") && pnlErr && <div className="card error">Не удалось загрузить отчёт: {pnlErr}</div>}
-      {(view === "dash" || view === "pnl" || view === "dds" || view === "an") && pnl && cur == null && !pnlErr && <div className="card muted">{isOwner ? "В таблице пока нет операций за месяцы" : "Отчётность готовится и скоро появится здесь"}{isOwner ? <>. Проверь в ⚙ подключении поле «Направление»: оно должно совпадать с колонкой «Направление» в базе (например: Одежда). Затем нажми 🌀.</> : "."}</div>}
+      {(view === "dash" || view === "pnl" || view === "dds" || view === "an") && pnl && cur == null && !pnlErr && <div className="card muted">{isOwner ? "В таблице пока нет операций за месяцы" : "Отчётность готовится и скоро появится здесь"}{isOwner ? <>. Проверь подключение таблицы в ⚙ проекта и нажми 🌀.</> : "."}</div>}
       {p.pnlUrl && !pnl && !pnlErr && <NeylaLoading text="Загружаю отчёт из таблицы" />}
 
 
