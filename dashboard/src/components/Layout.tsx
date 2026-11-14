@@ -34,8 +34,24 @@ const groups = (): Group[] => [
     { to: "/admin", label: "Админка", icon: "gear" },
   ] },
 ];
+// Меню владельца (админка): главное сверху, остальное — в «Прочем»
+const ownerGroups = (): Group[] => [
+  { id: "mgmt", title: "Управление", items: [
+    { to: "/", label: "Главная", icon: "home" },
+    { to: "/tasks", label: "Задания", icon: "tasks" },
+    { to: "/projects", label: "Клиенты", icon: "users" },
+    { to: "/leads", label: "Заявки с сайта", icon: "mail" },
+  ] },
+  { id: "other", title: "Прочее", items: [
+    { to: "/pnl", label: "Финансы", icon: "money" },
+    ...modules.filter((m) => m.path !== "leads").map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })),
+    { to: "/products", label: "Продукты", icon: "box" },
+    { to: "/kb", label: "База знаний", icon: "cap" },
+    { to: "/admin", label: "Админка", icon: "gear" },
+  ] },
+];
 // Нижняя панель на телефоне
-const MOBILE = ["/projects", "/tasks", "/pnl"];
+const MOBILE = ["/", "/tasks", "/projects", "/leads"];
 
 
 export default function Layout() {
@@ -60,7 +76,7 @@ export default function Layout() {
     ? [{ to: "/?t=chome", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=cfin", label: "Финансы", icon: "money" }, { to: "/?t=ccli", label: "Клиенты", icon: "users" },
       { to: "/?t=cstaff", label: "Сотрудники", icon: "case" }, { to: "/?t=cprod", label: "Продукты", icon: "box" }, { to: "/?t=ctips", label: "Нейла", icon: "neyla" }]
     : [{ to: "/?t=dash", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=rep", label: "Отчётность", icon: "book" },
-    { to: "/?t=work", label: "Ход работы", icon: "case" }, { to: "/?t=plan", label: "Планирование", icon: "plan" }, { to: "/?t=neyla", label: "Нейла", icon: "neyla" }] }] : groups().map((g) => ({ ...g, items: g.items.filter((i) => isOwner ? !i.staffOnly && i.to !== "/" : i.staff) })).filter((g) => g.items.length);
+    { to: "/?t=work", label: "Ход работы", icon: "case" }, { to: "/?t=plan", label: "Планирование", icon: "plan" }, { to: "/?t=neyla", label: "Нейла", icon: "neyla" }] }] : isOwner ? ownerGroups() : groups().map((g) => ({ ...g, items: g.items.filter((i) => i.staff) })).filter((g) => g.items.length);
   const flat = visible.flatMap((g) => g.items);
   const mobile = isOwner ? flat.filter((i) => MOBILE.includes(i.to)) : flat;
   const link = (n: Item) => (

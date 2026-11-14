@@ -45,6 +45,7 @@ function BulkPaste({ cols, onRows }: { cols: string; onRows: (rows: string[][]) 
 }
 // фирменные линейные значки ОПОРЫ (вместо стандартных смайликов)
 export const ICONS: Record<string, string> = {
+  mail: "M3 6h18v12H3zM3 7l9 6 9-6",
   home: "M3 11l9-8 9 8M5 9v11h14V9",
   tasks: "M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2",
   cap: "M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5",
