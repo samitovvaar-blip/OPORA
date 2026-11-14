@@ -48,7 +48,7 @@ function HomeSwitch() {
   if (!ready) return <NeylaLoading />;
   if (clientOf) return <ClientPortal />;
   if (student) return <StudentHome />;
-  return isOwner ? <Home /> : <MemberGate><StaffHome /></MemberGate>;
+  return isOwner ? <Navigate to="/projects" replace /> : <MemberGate><StaffHome /></MemberGate>;
 }
 
 // Кабинет клиента: клиенту — свой, владельцу — предпросмотр
