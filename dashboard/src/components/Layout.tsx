@@ -48,6 +48,7 @@ const ownerGroups = (): Group[] => [
     ...modules.filter((m) => m.path !== "leads").map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })),
     { to: "/products", label: "Продукты", icon: "box" },
     { to: "/kb", label: "База знаний", icon: "cap" },
+    { to: "/demo", label: "Демонстрация", icon: "spark" },
   ] },
 ];
 // Нижняя панель на телефоне

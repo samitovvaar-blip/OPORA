@@ -10,6 +10,7 @@ import Home from "./pages/Home";
 import PnL from "./pages/PnL";
 import Wallet from "./pages/Wallet";
 import Products from "./pages/Products";
+import Demo from "./pages/Demo";
 import Knowledge from "./pages/Knowledge";
 import StaffHome from "./pages/StaffHome";
 import ClientPortal from "./pages/ClientPortal";
@@ -98,6 +99,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="kb" element={<MemberGate><Knowledge /></MemberGate>} />
             <Route path="monthly" element={<MemberGate><Monthly /></MemberGate>} />
             <Route path="products" element={<OwnerOnly><Products /></OwnerOnly>} />
+            <Route path="demo" element={<OwnerOnly><Demo /></OwnerOnly>} />
             <Route path="wallet" element={<OwnerOnly><Hub tabs={FIN} /></OwnerOnly>} />
             <Route path="pnl" element={<OwnerOnly><Hub tabs={FIN} /></OwnerOnly>} />
             <Route path="clients" element={<OwnerOnly><Hub tabs={CLI} /></OwnerOnly>} />
