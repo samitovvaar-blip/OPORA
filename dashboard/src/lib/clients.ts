@@ -23,7 +23,7 @@ export function useClientProjects() {
   const [parts, setParts] = useState<Record<string, ClientProject[]>>({});
   useEffect(() => {
     const m = new Map<string, ClientProject>();
-    Object.values(parts).flat().forEach((p) => m.set(p.id, p));
+    Object.values(parts).flat().forEach((p) => { if (!(p as { demo?: boolean }).demo) m.set(p.id, p); });   // демо-кабинеты живут только в «Демонстрации»
     setList([...m.values()].sort((a, b) => a.name.localeCompare(b.name, "ru")));
   }, [parts]);
   return { list, error };
