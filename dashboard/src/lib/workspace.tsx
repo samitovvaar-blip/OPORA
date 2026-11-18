@@ -50,10 +50,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         try {
           const [legacy, grants] = await Promise.all([
             getDoc(doc(db, "clientIndex", email)),
-            getDocs(collection(db, "clientIndex", email, "cabinetGrants")),
+            getDocs(collection(db, "clientIndex", email, "cabinetGrants")).catch((error) => {
+              if (error?.code === "permission-denied") return null;
+              throw error;
+            }),
           ]);
           const refs = new Map<string, { ws: string; cid: string }>();
-          for (const entry of [legacy, ...grants.docs]) {
+          for (const entry of [legacy, ...(grants?.docs ?? [])]) {
             const grant = entry.data();
             if (typeof grant?.ws === "string" && typeof grant.cid === "string") {
               refs.set(cabinetKey(grant.ws, grant.cid), { ws: grant.ws, cid: grant.cid });
