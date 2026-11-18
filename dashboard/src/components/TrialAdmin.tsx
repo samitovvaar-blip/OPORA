@@ -37,7 +37,7 @@ export default function TrialAdmin({ ws }: { ws: string }) {
 
   return <section className="card trial-admin">
     <h2>Пробный доступ на 3 дня</h2>
-    <p>Приглашение открывает «Товары», «Услуги» и «Сотрудник». Повторная выдача продлевает доступ на три дня.</p>
+    <p>Приглашение открывает «Товары» и «Услуги». Повторная выдача продлевает доступ на три дня.</p>
     {readError && <p role="alert">Не удалось загрузить приглашения. Проверь правила Firestore.</p>}
     <form className="neila-feedback-form" onSubmit={submit}>
       <label>Почта <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>

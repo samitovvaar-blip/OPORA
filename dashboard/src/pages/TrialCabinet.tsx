@@ -13,12 +13,10 @@ const money = (value: number) => value.toLocaleString("ru-RU", { style: "currenc
 const help = {
   goods: ["Открой «Главная», чтобы увидеть выручку и прибыль.", "В отчёте можно посмотреть статьи доходов и расходов.", "В «Плане» попробуй ввести свой план продаж."],
   services: ["На главной видна стоимость проектов.", "Во вкладке «Клиенты» можно добавить пробную запись.", "Открой «Финансы», чтобы посмотреть примеры услуг и их стоимости."],
-  staff: ["В «Заданиях» можно отметить выполнение.", "В «Клиентах» видны примеры назначенных проектов.", "Во вкладке «База знаний» есть пример инструкции для сотрудника."],
 };
 const tabs = {
   goods: ["Главная", "Отчёт", "План"],
   services: ["Главная", "Клиенты", "Финансы"],
-  staff: ["Задания", "Клиенты", "База знаний"],
 };
 
 function readLocal<T>(key: string, initial: T): T {
@@ -74,7 +72,6 @@ function TrialContent({ kind, issuedAt, now, uid, offers }: { kind: TrialKind; i
   const [tour, setTour] = useState<number | null>(() => readLocal(tourKey, false) ? null : 0);
   const [plan, setPlan] = useState(() => readLocal<number>(key + "/plan", 1200000));
   const [clients, setClients] = useState(() => readLocal<string[]>(key + "/clients", []));
-  const [done, setDone] = useState(() => readLocal<string[]>(key + "/tasks", []));
   const [newClient, setNewClient] = useState("");
   const [muted, setMuted] = useState<{ stage: number; until: number } | null>(null);
   const [goods] = useState(demoGoodsJson);
@@ -83,8 +80,6 @@ function TrialContent({ kind, issuedAt, now, uid, offers }: { kind: TrialKind; i
   const revenue = goods.rows.filter((row) => row.process === "Выручка").reduce((sum, row) => sum + row.values[month], 0);
   const profit = goods.rows.reduce((sum, row) => sum + row.values[month], 0);
   const canEdit = () => Date.now() < issuedAt + 2 * DAY;
-  const projects = ["Магазин одежды «Хлопок»", "Студия «Линия»"];
-  const work = ["Сверить операции по выписке", "Подготовить данные для отчёта", "Проверить сроки по проектам"];
 
   function go(step: number | null) {
     setTour(step);
@@ -136,15 +131,6 @@ function TrialContent({ kind, issuedAt, now, uid, offers }: { kind: TrialKind; i
             <button disabled={locked}>Добавить клиента</button>
           </form>
         </> : <ul>{services.products.map((item) => <li key={item.ref}>{item.name} · {money(item.price)}</li>)}</ul>)}
-      {kind === "staff" && (tab === 0 ? <ul>{work.map((task) => <li key={task}><label>
-          <input type="checkbox" checked={done.includes(task)} disabled={locked} onChange={() => {
-            if (!canEdit()) return;
-            const next = done.includes(task) ? done.filter((value) => value !== task) : [...done, task];
-            setDone(next); saveLocal(key + "/tasks", next);
-          }} /> {task}
-        </label></li>)}</ul>
-        : tab === 1 ? <ul>{projects.map((project) => <li key={project}>{project}</li>)}</ul>
-        : <details><summary>Как закрыть месяц по клиенту</summary><p>Сверь операции, проверь документы и отметь готовые пункты чек-листа.</p></details>)}
     </section>
     {(muted?.stage !== stage || now >= muted.until) && (locked || !readLocal(noticeKey, false)) && <aside className="feedback-reminder trial-offer">
       <img src="neyla.jpg" alt="" />

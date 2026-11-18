@@ -1,9 +1,9 @@
 import { doc, getDocFromServer, runTransaction } from "firebase/firestore";
 import { db } from "./firebase";
 
-export const trialKinds = ["goods", "services", "staff"] as const;
+export const trialKinds = ["goods", "services"] as const;
 export type TrialKind = typeof trialKinds[number];
-export const trialNames = { goods: "Демо · Товары", services: "Демо · Услуги", staff: "Демо · Сотрудник" };
+export const trialNames = { goods: "Демо · Товары", services: "Демо · Услуги" };
 export const DAY = 86_400_000;
 export const TRIAL_DURATION = 3 * DAY;
 export interface TrialInvite {
