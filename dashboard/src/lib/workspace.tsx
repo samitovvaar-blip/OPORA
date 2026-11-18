@@ -10,15 +10,29 @@ import { useAuth } from "./auth";
 // все остальные — максимум «Задания» (если приглашены и доступ открыт).
 const OWNER = ((import.meta.env.VITE_OWNER_EMAIL as string) || "").toLowerCase();
 
+const TEST_ACCOUNT_HASH = (import.meta.env.VITE_TEST_ACCOUNT_HASH || "").trim().toLowerCase();
+async function isTestAccount(email: string) {
+  if (!TEST_ACCOUNT_HASH || !globalThis.crypto?.subtle) return false;
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(email));
+  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("") === TEST_ACCOUNT_HASH;
+}
+export type Role = "client" | "staff" | "student";
+export const ROLE_LABELS: Record<Role, string> = { client: "Клиент", staff: "Сотрудник", student: "Ученик" };
+
 export interface Workspace { members: string[]; open: boolean; courses?: { id: string; name: string; icon: string }[]; }
-export interface Cabinet { ws: string; cid: string; name: string }
-interface Ctx { cabinets?: Cabinet[]; chooseCabinet?: (cabinet: Cabinet | null) => void; accessError?: boolean; wsId: string | null; isOwner: boolean; ws: Workspace | null; ready: boolean; clientOf?: string; student?: boolean; demo?: boolean; }
+export interface Cabinet { ws: string; cid: string; name: string; detail: string }
+interface Ctx { roles?: Role[]; role?: Role; chooseRole?: (role: Role | null) => void; cabinets?: Cabinet[]; chooseCabinet?: (cabinet: Cabinet | null) => void; accessError?: boolean; wsId: string | null; isOwner: boolean; ws: Workspace | null; ready: boolean; clientOf?: string; student?: boolean; demo?: boolean; }
 const NONE: Ctx = { wsId: null, isOwner: false, ws: null, ready: true };
 const C = createContext<Ctx>({ ...NONE, ready: false });
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [state, setState] = useState<Ctx>({ wsId: null, isOwner: false, ws: null, ready: false });
+
+  const [role, setRole] = useState<Role | null>(null);
+  const [selected, setSelected] = useState<Cabinet | null>(null);
+  const [testAccess, setTestAccess] = useState<{ cabinets: Cabinet[]; student?: string; staff?: string } | null>(null);
+  const [roleWorkspace, setRoleWorkspace] = useState<{ id: string; ws: Workspace | null } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -50,7 +64,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
               const project = await getDoc(doc(db, "workspaces", ws, "clients", cid));
               const data = project.data();
               return data?.clientOpen && data.clientEmails?.includes(email)
-                ? { ws, cid, name: typeof data.name === "string" && data.name ? data.name : "Кабинет клиента" }
+                ? { ws, cid, name: typeof data.name === "string" && data.name ? data.name : "Кабинет клиента", detail: data.bizType === "services" ? "Услуги" : "Товары" }
                 : null;
             } catch (error) {
               if (typeof error === "object" && error !== null
@@ -61,6 +75,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           if (cancelled) return;
           const cabinets = available.filter((item): item is Cabinet => item !== null)
             .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+          if (await isTestAccount(email)) {
+            const [student, staff] = await Promise.all([
+              getDoc(doc(db, "studentIndex", email)),
+              getDocs(query(collection(db, "workspaces"), where("members", "array-contains", email))),
+            ]);
+            const studentWs = student.data()?.ws;
+            const studentCard = typeof studentWs === "string"
+              ? await getDoc(doc(db, "workspaces", studentWs, "students", email))
+              : null;
+            if (cancelled) return;
+            const staffWs = staff.docs.find((item) => item.id !== user.uid && item.data().open === true);
+            setTestAccess({ cabinets, student: studentCard?.exists() ? studentWs : undefined, staff: staffWs?.id });
+            setState(NONE);
+            return;
+          }
+          if (cancelled) return;
           if (cabinets.length) {
             setState({
               ...NONE, cabinets,
@@ -108,9 +138,40 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; unsub(); };
   }, [user?.uid, user?.emailVerified]);
 
+  const roleWs = role === "student" ? testAccess?.student : role === "staff" ? testAccess?.staff : undefined;
+  useEffect(() => {
+    if (!roleWs) return;
+    return onSnapshot(doc(db, "workspaces", roleWs), (snapshot) => {
+      setRoleWorkspace({ id: roleWs, ws: snapshot.exists() ? snapshot.data() as Workspace : null });
+    }, () => setRoleWorkspace({ id: roleWs, ws: null }));
+  }, [roleWs]);
+
   // Демо-режим: владелец «входит» в демо-кабинет и видит его ровно как клиент
   const demoCid = (() => { try { return sessionStorage.getItem("opora-demo") || ""; } catch { return ""; } })();
-  const value = state.isOwner && demoCid ? { ...state, isOwner: false, clientOf: demoCid, demo: true } : state;
+  let value = state.isOwner && demoCid ? { ...state, isOwner: false, clientOf: demoCid, demo: true } : state;
+  if (testAccess) {
+    const { cabinets, student, staff } = testAccess;
+    const roles: Role[] = [];
+    if (cabinets.length) roles.push("client");
+    if (staff) roles.push("staff");
+    if (student) roles.push("student");
+    const cabinet = role === "client" ? selected : null;
+    const ws = roleWorkspace?.id === roleWs ? roleWorkspace?.ws ?? null : null;
+    value = {
+      ...NONE, roles, role: role ?? undefined,
+      chooseRole: (next) => {
+        setSelected(next === "client" && cabinets.length === 1 ? cabinets[0] : null);
+        setRole(next);
+      },
+      cabinets: role === "client" ? cabinets : undefined,
+      chooseCabinet: setSelected,
+      clientOf: cabinet?.cid,
+      student: role === "student",
+      wsId: cabinet?.ws ?? roleWs ?? null,
+      ws,
+      ready: !roleWs || roleWorkspace?.id === roleWs,
+    };
+  }
   return <C.Provider value={value}>{children}</C.Provider>;
 }
 export const useWorkspace = () => useContext(C);

@@ -20,7 +20,7 @@ import Tasks from "./pages/Tasks";
 import Monthly from "./pages/Monthly";
 import Report from "./pages/Report";
 import VerifyEmail from "./pages/VerifyEmail";
-import { WorkspaceProvider, useWorkspace } from "./lib/workspace";
+import { ROLE_LABELS, WorkspaceProvider, useWorkspace } from "./lib/workspace";
 import Clients from "./pages/Clients";
 import Projects from "./pages/Projects";
 import { AdminClients, AdminStaff } from "./pages/Admin";
@@ -33,19 +33,41 @@ const ADM = [{ to: "/admin", label: "👥 Сотрудники", el: <AdminStaff
 import "./styles.css";
 
 function WorkspaceScreen() {
-  const { cabinets, chooseCabinet, clientOf, accessError } = useWorkspace();
+  const { cabinets, chooseCabinet, clientOf, accessError, roles, role, chooseRole } = useWorkspace();
   const navigate = useNavigate();
-  if (accessError || (cabinets && !clientOf)) {
-    return <main className="card" style={{ maxWidth: 480, margin: "40px auto", padding: 24 }}>
-      <h2>{accessError ? "Не удалось загрузить кабинеты" : "Выберите кабинет"}</h2>
-      {accessError
-        ? <button onClick={() => location.reload()}>Повторить</button>
-        : <div style={{ display: "grid", gap: 8 }}>
-            {cabinets?.map((cabinet) => <button className="ghost" key={cabinet.ws + "/" + cabinet.cid} onClick={() => { chooseCabinet?.(cabinet); navigate("/", { replace: true }); }}>
-              {cabinet.name}
-            </button>)}
-          </div>}
-      <button className="ghost small" style={{ marginTop: 16 }} onClick={() => signOut(auth)}>Выйти</button>
+  const pickingRole = !!roles?.length && !role;
+  const pickingCabinet = !!cabinets?.length && !clientOf;
+  const openHome = () => navigate("/", { replace: true });
+  if (accessError || pickingRole || pickingCabinet) {
+    const details = { client: "Отчётность и ход работы", staff: "Задания и база знаний", student: "Курсы и домашние задания" };
+    return <main className="entry-picker">
+      <div className="entry-brand"><img src="logo.png" alt="" />ОПОРА</div>
+      <section className="card">
+        <h1>{accessError ? "Не удалось загрузить кабинеты" : pickingRole ? "Как войти?" : "Выбери кабинет"}</h1>
+        {accessError ? <button onClick={() => location.reload()}>Повторить</button>
+          : <>
+            <p className="muted">{pickingRole ? "Выбери роль для входа с тестового аккаунта." : "Выбери клиентский кабинет, который хочешь открыть."}</p>
+            <div className="entry-options">
+              {pickingRole ? roles?.map((item) => (
+                <button className="ghost entry-option" key={item} onClick={() => { chooseRole?.(item); openHome(); }}>
+                  <span className="entry-icon" aria-hidden="true">{ROLE_LABELS[item][0]}</span>
+                  <span><b>{ROLE_LABELS[item]}</b><small>{details[item]}</small></span>
+                  <span aria-hidden="true">›</span>
+                </button>
+              )) : cabinets?.map((cabinet) => (
+                <button className="ghost entry-option" key={cabinet.ws + "/" + cabinet.cid} onClick={() => { chooseCabinet?.(cabinet); openHome(); }}>
+                  <span className="entry-icon" aria-hidden="true">{cabinet.name[0]}</span>
+                  <span><b>{cabinet.name}</b>{cabinet.detail && <small>{cabinet.detail}</small>}</span>
+                  <span aria-hidden="true">›</span>
+                </button>
+              ))}
+            </div>
+          </>}
+        <div className="entry-actions">
+          {pickingCabinet && chooseRole && <button className="ghost" onClick={() => chooseRole(null)}>← К выбору роли</button>}
+          <button className="ghost" onClick={() => signOut(auth)}>Выйти</button>
+        </div>
+      </section>
     </main>;
   }
   return <Layout />;
