@@ -231,7 +231,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       trial: current?.role === "trial" ? current : undefined,
       ws: current?.role === "owner" ? state.ws : workspaceLoaded ? selectedWorkspace?.ws ?? null : null,
       ready: state.ready && (!workspaceId || workspaceLoaded),
-      clientOf: current?.role === "client" ? current.cid : undefined,
+      clientOf: current?.role === "client" ? current.cid : current?.role === "trial" ? "preview-" + current.cid : undefined,
       clientProject: current?.role === "client" ? current.project : undefined,
       student: current?.role === "student",
     };

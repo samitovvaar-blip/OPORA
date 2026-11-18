@@ -597,12 +597,8 @@ input,select,textarea{border-radius:12px}
   .feedback-reminder { right: 16px; bottom: calc(96px + env(safe-area-inset-bottom)); }
 }
 
-.trial-main { width: min(920px, calc(100% - 32px)); margin: 24px auto 110px; }
-.trial-top { flex-wrap: wrap; gap: 8px; }
-.trial-top h1 { margin: 0; }
-.trial-tabs, .trial-tour, .trial-admin { margin: 14px 0; }
-.trial-tour { border-left: 4px solid var(--brand-orange); }
 .trial-invite { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; flex-wrap: wrap; gap: 8px; }
 .trial-offer ul { padding-left: 18px; margin: 6px 0; }
 .trial-offer { bottom: 18px; }
-.trial-report .row span { min-width: 0; }
+
+.trial-admin { margin: 14px 0; }

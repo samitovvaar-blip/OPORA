@@ -1,3 +1,4 @@
+import { useTrialData } from "../lib/trialData";
 import NeylaHeader from "./NeylaHeader";
 // Кабинет «Услуги»: мини-CRM клиента — продукты, база клиентов, проекты, доходы и расходы.
 // Хранится в workspaces/{ws}/clients/{cid}/crm (kind: product | client | project | move). Ведёт сам клиент, владелец видит.
@@ -119,12 +120,14 @@ const dmy = (d?: string) => d ? d.split("-").reverse().join(".") : "";
 const pct = (a: number, b: number) => b ? Math.round((a - b) / Math.abs(b) * 100) : null;
 
 export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: string; p: ClientProject; view: CrmView; onNav: (v: CrmView) => void; isOwner?: boolean }) {
-  const col = collection(db, "workspaces", wsId, "clients", p.id, "crm");
-  const [items, setItems] = useState<Item[]>([]);
+  const trialData = useTrialData();
+  const col = trialData ? null : collection(db, "workspaces", wsId, "clients", p.id, "crm");
+  const [liveItems, setItems] = useState<Item[]>([]);
+  const items = trialData ? trialData.crm as unknown as Item[] : liveItems;
   const [err, setErr] = useState("");
   const [sync, setSync] = useState<"" | "wait" | "sent" | "fail">("");
   const dirty = useRef(false);
-  useEffect(() => onSnapshot(col, (s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() } as Item))), (e) => setErr(e.message)), [wsId, p.id]);
+  useEffect(() => col ? onSnapshot(col, (s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() } as Item))), (e) => setErr(e.message)) : undefined, [wsId, p.id]);
   const [mk, setMk] = useState(today().slice(0, 7));
   const [anN, setAnN] = useState(6);
   const [margOpen, setMargOpen] = useState(false);
@@ -156,13 +159,23 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
   const pname = (id?: string) => { const x = projects.find((y) => y.id === id); return x ? cname(x.clientId) + " · " + x.name : ""; };
   const sumM = (k: string, t: "in" | "out") => moves.filter((m) => mkOf(m.date) === k && m.type === t).reduce((a, m) => a + m.amount, 0);
   const touch = () => { dirty.current = true; };
-  const add = (data: object) => { touch(); return addDoc(col, data).catch((e) => alert("Не сохранилось: " + e.message)); };
-  const del = (id: string) => { if (confirm("Удалить?")) { touch(); deleteDoc(doc(col, id)); } };
-  const del0 = (id: string) => { touch(); deleteDoc(doc(col, id)); };
-  const upd = (id: string, data: object) => { touch(); return updateDoc(doc(col, id), data).catch((e) => alert("Не сохранилось: " + e.message)); };
+  const add = (data: object) => {
+    if (trialData) return trialData.addCrm(data);
+    touch(); return addDoc(col!, data).catch((e) => alert("Не сохранилось: " + e.message));
+  };
+  const del0 = (id: string) => {
+    if (trialData) { trialData.deleteCrm(id); return; }
+    touch(); deleteDoc(doc(col!, id));
+  };
+  const del = (id: string) => { if (!trialData?.locked && confirm("Удалить?")) del0(id); };
+  const upd = (id: string, data: object) => {
+    if (trialData) return trialData.updateCrm(id, data);
+    touch(); return updateDoc(doc(col!, id), data).catch((e) => alert("Не сохранилось: " + e.message));
+  };
 
   // ── выгрузка в Google-таблицу клиента (скрипт pnl.gs, doPost) ──
   const push = () => {
+    if (trialData) return;
     const s = p.crmSheet; if (!s?.exec) return;
     setSync("wait");
     // те же операции — в формате базы ДДС (как «ДДС БОТ ОСНОВНЫЕ»), отдельным листом «ДДС ИЗ КАБИНЕТА»

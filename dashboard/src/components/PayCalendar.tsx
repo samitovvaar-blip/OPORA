@@ -1,3 +1,4 @@
+import { useTrialData } from "../lib/trialData";
 // Платёжный календарь клиента: приход — план выручки равномерно по дням,
 // расход — плановые платежи (разово / каждый день / раз в неделю / равномерно за месяц).
 // Остаток копится день за днём; минус — кассовый разрыв.
@@ -24,8 +25,11 @@ export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, is
 }) {
   const cal = p.payCal?.[mk] || {}, items = cal.items || [];
   const [y, m] = mk.split("-").map(Number), days = new Date(y, m, 0).getDate();
-  const ref = doc(db, "workspaces", wsId, "clients", p.id);
-  const save = (patch: object) => updateDoc(ref, { [`payCal.${mk}`]: { ...cal, ...patch } });
+  const trialData = useTrialData();
+  const save = (patch: object) => {
+    const data = { [`payCal.${mk}`]: { ...cal, ...patch } };
+    return trialData ? trialData.patchProject(data) : updateDoc(doc(db, "workspaces", wsId, "clients", p.id), data);
+  };
   const [draft, setDraft] = useState<PayItem>({ id: "", name: "", dept: "4", amount: 0, kind: "once", day: 1 });
   const [openDay, setOpenDay] = useState<number | null>(null);
 

@@ -1,3 +1,4 @@
+import { useTrialData } from "../lib/trialData";
 import NeylaHeader from "../components/NeylaHeader";
 // Кабинет клиента: ход работы, ОПиУ из таблицы, дашборд показателей, план.
 // Клиент видит только свой проект. Владелец открывает предпросмотр: #/client?p=<id>
@@ -44,11 +45,13 @@ const DEPT_NAMES = ["1. Производственный отдел", "2. Отд
 export default function ClientPortal() {
   const { wsId, clientOf, isOwner, clientProject, demo } = useWorkspace();
   const { user } = useAuth();
+  const trialData = useTrialData();
   // staffView — сотрудник смотрит кабинет своего клиента (только чтение)
   const staffView = !isOwner && !clientOf;
   const preview = isOwner || staffView;
   const cid = preview ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
-  const [p, setP] = useState<ClientProject | null>(clientProject ?? null);
+  const [liveProject, setP] = useState<ClientProject | null>(clientProject ?? null);
+  const p = trialData?.project ?? liveProject;
   const [err, setErr] = useState("");
   const [neySub, setNeySub] = useState<"advice" | "help" | "sheet">("advice");
   const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op" | "neyla" | "chome" | "cfin" | "ccli" | "cstaff" | "cprod" | "ctips">("dash");
@@ -60,7 +63,7 @@ export default function ClientPortal() {
   const [taps, setTaps] = useState(0);
   const [rep, setRep] = useState<"pnl" | "dds" | "an" | "goods">("pnl");
   const loc = useLocation();
-  useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op", "neyla", "chome", "cfin", "ccli", "cstaff", "cprod"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
+  useEffect(() => { const t = new URLSearchParams(loc.search).get("t"); if (t && ["dash", "rep", "work", "plan", "op", "neyla", "chome", "cfin", "ccli", "cstaff", "cprod", "ctips"].includes(t)) setTab(t as typeof tab); }, [loc.search]);
   // «Товары»: данные из кабинета (ОП, планирование, ход работы) уходят в таблицу клиента — через 2 сек после изменения
   const expKey = p ? JSON.stringify([p.sales, p.prepay, p.kpi, p.planSales, p.plans, p.payCal, p.workStatus, p.calls]) : "";
   useEffect(() => { if (!p || p.bizType === "services" || !p.pnlUrl) return; const t = setTimeout(() => { exportCabinet(p); }, 2000); return () => clearTimeout(t); }, [expKey]);
@@ -89,11 +92,18 @@ export default function ClientPortal() {
   const [accSel, setAccSel] = useState<string[] | null>(null);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const mk = monthKey(month);
-  const { marks } = useMarks(cid ? [cid] : [], mk);
+  const { marks: liveMarks } = useMarks(!trialData && cid ? [cid] : [], mk);
+  const marks = trialData ? { [trialData.project.id]: trialData.marks } : liveMarks;
+  const writeProject = (patch: Record<string, unknown>) => {
+    if (trialData) return trialData.patchProject(patch);
+    if (!wsId || !cid) return Promise.resolve();
+    return updateDoc(doc(db, "workspaces", wsId, "clients", cid),
+      Object.fromEntries(Object.entries(patch).map(([field, value]) => [field, value === undefined ? deleteField() : value])));
+  };
 
-  useEffect(() => wsId && cid ? onSnapshot(collection(db, "workspaces", wsId, "clients", cid, "snapshots"),
+  useEffect(() => !trialData && wsId && cid ? onSnapshot(collection(db, "workspaces", wsId, "clients", cid, "snapshots"),
     (q) => setSnaps(Object.fromEntries(q.docs.map((d) => [d.id, d.data() as MonthSnap]))), () => {}) : undefined, [wsId, cid]);
-  useEffect(() => wsId && cid ? onSnapshot(doc(db, "workspaces", wsId, "clients", cid),
+  useEffect(() => !trialData && wsId && cid ? onSnapshot(doc(db, "workspaces", wsId, "clients", cid),
     (s) => setP(s.exists() ? ({ id: s.id, ...s.data() } as ClientProject) : null),
     (e) => setErr(e.code === "permission-denied" ? "Доступ к кабинету закрыт" : e.message)) : undefined, [wsId, cid]);
   useEffect(() => {
@@ -114,7 +124,7 @@ export default function ClientPortal() {
 
   const svc = p.bizType === "services";   // вид кабинета: товарный бизнес (по умолчанию) или услуги
   if (svc && !["chome", "cfin", "ccli", "cstaff", "cprod", "ctips"].includes(tab)) setTimeout(() => setTab("chome"));
-  const canEditClient = isOwner || (!staffView && !!p.opEdit);   // правка ОП и планирования — по доступу от владельца
+  const canEditClient = trialData ? !trialData.locked : isOwner || (!staffView && !!p.opEdit);   // правка ОП и планирования — по доступу от владельца
   const v = (arr: (number | null)[], i?: number) => (i == null ? null : arr[i]);
   const rev = v(pnl?.revenue || [], cur ?? undefined), prof = v(pnl?.profit || [], cur ?? undefined);
   const exp = prof != null ? (rev || 0) - prof : null;
@@ -135,7 +145,7 @@ export default function ClientPortal() {
             {filled.map(({ m, i }) => <option key={i} value={i}>{p.hiddenMonths?.includes(m.mk || "") ? "🙈 " : ""}{m.label} {m.year}{m.closed ? " ✓" : ""}</option>)}</select>
           {isOwner && (() => { const mk = pnl.months[cur].mk || "", h = (p.hiddenMonths || []).includes(mk);
             return <button className="ghost small" title={h ? "Клиент этот месяц не видит" : "Скрыть этот месяц от клиента"} style={{ padding: "2px 8px" }}
-              onClick={() => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { hiddenMonths: h ? arrayRemove(mk) : arrayUnion(mk) })}>{h ? "🙈 Скрыт · показать" : "👁 Скрыть"}</button>; })()}
+              onClick={() => writeProject({ hiddenMonths: h ? arrayRemove(mk) : arrayUnion(mk) })}>{h ? "🙈 Скрыт · показать" : "👁 Скрыть"}</button>; })()}
           <span className="m-sub"><span className={`m-pill ${pnl.months[cur].closed ? "m-ok" : "m-pre"}`}>{pnl.months[cur].closed ? "✓ Сдано" : "Предварительно"}</span>
           {/* PDF — только по сданной отчётности (в аналитике — все месяцы периода сданы) */}
           {(view === "pnl" || view === "dds" || view === "an") && (view === "an"
@@ -153,7 +163,7 @@ export default function ClientPortal() {
           {!preview && tariffEl && <div className="tariff-mobile">{tariffEl}</div>}
           {!svc && (preview || view === "dash" || view === "pnl" || view === "dds" || view === "an" || view === "goods") && <div className="month-top">{ctl}</div>}</>;
       })()}
-      {preview && <h1>{p.name}</h1>}
+      {(preview || trialData) && <h1>{p.name}</h1>}
       {preview && <div className="chips" style={{ marginTop: 12 }}>
         {([...(svc ? [["chome", "spiral|Мой кабинет"], ["cfin", "money|Финансы"], ["ccli", "users|Клиенты"], ["cstaff", "case|Сотрудники"], ["cprod", "box|Продукты"], ["ctips", "spark|Нейла"]] as const : []), ["dash", "spiral|Мой кабинет"], ["rep", "book|Отчётность"], ["work", "case|Ход работы"], ["plan", "plan|Планирование"], ["op", "in|Данные от ОП"], ["neyla", "spark|Нейла"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => svc ? ["chome", "cfin", "ccli", "cstaff", "cprod", "ctips"].includes(k) : k !== "neyla" || true).map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{(() => { const [ic, t] = l.split("|"); return <>{ic === "spiral" ? <img src="spiral-orange.png" alt="" style={{ width: 16, height: 16, verticalAlign: "-3px", marginRight: 6 }} /> : <Ic n={ic} c="currentColor" s={16} />}{t}</>; })()}</button>)}
@@ -332,7 +342,7 @@ export default function ClientPortal() {
         const op = p.ddsOpening || {}, prevOp = Object.keys(op).filter((k) => k < mk).sort().pop();
         const autoStart = prevOp ? D.months.filter((m) => m.mk! >= prevOp && m.mk! < mk).reduce((x, m) => x + netOf(m), op[prevOp]) : baseStart;
         const startBal = op[mk] != null ? op[mk] : autoStart;
-        const saveOp = (v: number | null) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`ddsOpening.${mk}`]: v == null ? deleteField() : v });
+        const saveOp = (v: number | null) => writeProject({ [`ddsOpening.${mk}`]: v == null ? undefined : v });
         const c = ddsM?.col, inflow = c != null ? D.inflow[c] || 0 : 0, outflow = c != null ? D.outflow[c] || 0 : 0, other = c != null ? D.other?.[c] || 0 : 0;
         const endBal = startBal != null ? startBal + inflow + outflow + other : null;
         // приходы/расходы: процесс → статьи
@@ -383,7 +393,7 @@ export default function ClientPortal() {
             const startOf = (a: { account: string; start: number }) => fs && fs.mk <= mk
               ? (fs.amounts[a.account] || 0) + flows(a.account, (m) => m >= fs.mk && m < mk, 0)
               : a.start + flows(a.account, (m) => m > bMk && m < mk, 0);
-            const saveFs = (patch: Partial<{ mk: string; amounts: Record<string, number> }>) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { fundStart: { mk: fs?.mk || D.months[0]?.mk || mk, amounts: fs?.amounts || {}, ...patch } });
+            const saveFs = (patch: Partial<{ mk: string; amounts: Record<string, number> }>) => writeProject({ fundStart: { mk: fs?.mk || D.months[0]?.mk || mk, amounts: fs?.amounts || {}, ...patch } });
             const list = funds.map((a) => {
               const start = startOf(a);
               const inc = flows(a.account, (m) => m === mk, 1), out = flows(a.account, (m) => m === mk, -1);
@@ -405,7 +415,7 @@ export default function ClientPortal() {
                 <summary className="small" style={{ cursor: "pointer" }}>✏️ Остатки фондов на начало {fs ? `(введены с ${MONTHS[Number(fs.mk.split("-")[1]) - 1].toLowerCase()} ${fs.mk.split("-")[0]})` : B ? "(сейчас — из «БАЛАНСЫ СЕЙЧАС»)" : ""}</summary>
                 <div className="row small" style={{ flexWrap: "wrap", gap: 8, marginTop: 6 }}>
                   <span>На начало месяца <select value={fs?.mk || D.months[0]?.mk || mk} onChange={(e) => saveFs({ mk: e.target.value })}>{D.months.map((m) => <option key={m.mk} value={m.mk}>{m.label} {m.year}</option>)}</select></span>
-                  {fs && <button className="ghost" onClick={() => confirm("Убрать введённые остатки фондов?") && updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { fundStart: deleteField() })}>↩ сбросить</button>}
+                  {fs && <button className="ghost" onClick={() => confirm("Убрать введённые остатки фондов?") && writeProject({ fundStart: undefined })}>↩ сбросить</button>}
                 </div>
                 {funds.map((a) => <div key={a.account} className="row small" style={{ marginTop: 4 }}><span>{a.account.replace(/\s*\d{20}.*$/, "")}</span>
                   <input type="number" step="0.01" style={{ width: 140 }} key={a.account + (fs?.amounts[a.account] ?? "")} defaultValue={fs?.amounts[a.account] ?? ""} placeholder="0"
@@ -548,7 +558,6 @@ export default function ClientPortal() {
       {!svc && !isOwner && !staffView && <RecommendPopup id={p.id} from={p.name} />}
       {tab === "op" && (() => {
         const canEdit = canEditClient;
-        const ref = doc(db, "workspaces", wsId!, "clients", p.id);
         const mks = [...new Set([...(pnl?.months.map((m) => m.mk!).filter(Boolean) || []), ...[1, 0, -1, -2].map((k) => monthKey(new Date(new Date().getFullYear(), new Date().getMonth() + k, 1)))])].sort().reverse();
         const cols: [string, string, (mk: string) => number | undefined][] = [
           ["sales", "Выручка (факт продаж ОП), ₽", (mk) => p.sales?.[mk]], ["prepay", "Факт предоплат, ₽", (mk) => p.prepay?.[mk]],
@@ -556,11 +565,11 @@ export default function ClientPortal() {
           ["kpi.orders", "Заказов всего (доставлено)", (mk) => p.kpi?.[mk]?.orders]];
         const save = (path: string, mk: string, v: string) => {
           const field = path.startsWith("kpi.") ? `kpi.${mk}.${path.slice(4)}` : `${path}.${mk}`;
-          updateDoc(ref, { [field]: v === "" ? deleteField() : Number(v) });
+          writeProject({ [field]: v === "" ? undefined : Number(v) });
         };
         return <div className="card" style={{ overflowX: "auto" }}>
           <div className="row" style={{ alignItems: "center", flexWrap: "wrap", gap: 8 }}><h3 style={{ marginTop: 0, marginBottom: 0 }}>📥 Данные от отдела продаж</h3>
-            {isOwner && <button className={p.opEdit ? "" : "ghost"} onClick={() => updateDoc(ref, { opEdit: !p.opEdit })}>{p.opEdit ? "🔓 Клиент правит ОП и планирование · закрыть" : "🔒 Клиент только смотрит · открыть правку"}</button>}</div>
+            {isOwner && <button className={p.opEdit ? "" : "ghost"} onClick={() => writeProject({ opEdit: !p.opEdit })}>{p.opEdit ? "🔓 Клиент правит ОП и планирование · закрыть" : "🔒 Клиент только смотрит · открыть правку"}</button>}</div>
           <div className="muted small" style={{ marginBottom: 8 }}>{isOwner ? "Вписываешь цифры от ОП по месяцам — из них считаются выручка в ОПиУ, проверка предоплат, средний чек, CAC и себестоимость на единицу. Клиент видит вкладку; править может, только если ты открыла доступ." : canEdit ? "Можно внести или поправить цифры — они сохраняются сразу." : "Цифры отдела продаж по месяцам. Чтобы что-то поправить, напишите своему бухгалтеру."}</div>
           <table className="pnl-table">
             <thead><tr><th>Месяц</th>{cols.map(([k, l]) => <th key={k} className="small">{l}</th>)}</tr></thead>
@@ -602,8 +611,8 @@ export default function ClientPortal() {
         </div>
         {(() => {
           const ms = marks[p.id] || {}, all = visibleItems(p), done = all.filter((it) => ms[it.id]?.done).length;
-          const ws = p.workStatus?.[mk] || {}, ref = doc(db, "workspaces", wsId!, "clients", p.id), calls = p.calls || [];
-          const save = (patch: object) => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { [`workStatus.${mk}`]: { ...ws, ...patch } });
+          const ws = p.workStatus?.[mk] || {}, calls = p.calls || [];
+          const save = (patch: object) => writeProject({ [`workStatus.${mk}`]: { ...ws, ...patch } });
           // за какой месяц сдана отчётность / оплачены налоги (по умолчанию — прошлый)
           const opts = [-1, -2, -3, 0].map((k) => { const d = new Date(month.getFullYear(), month.getMonth() + k, 1); return monthKey(d); });
           const mName = (k?: string) => { if (!k) return ""; const [y, m] = k.split("-").map(Number); return `${MONTHS[m - 1].toLowerCase()} ${y}`; };
@@ -625,15 +634,15 @@ export default function ClientPortal() {
             <h3 className="work-calls"><Ic n="chat" />Итоги созвонов</h3>
             {isOwner && <div style={{ marginBottom: 10 }}>
               <textarea rows={4} placeholder="Что обсудили, какие вопросы открыты, что ждём от клиента" value={note} onChange={(e) => setNote(e.target.value)} />
-              <button disabled={!note.trim()} onClick={() => { updateDoc(ref, { calls: [{ id: String(Date.now()), at: new Date().toISOString(), text: note.trim() }, ...calls] }); setNote(""); }}>💾 Сохранить итог</button>
+              <button disabled={!note.trim()} onClick={() => { writeProject({ calls: [{ id: String(Date.now()), at: new Date().toISOString(), text: note.trim() }, ...calls] }); setNote(""); }}>💾 Сохранить итог</button>
             </div>}
             {calls.filter((c) => !c.archived).length === 0 && <div className="muted small">Пока нет записей</div>}
             {calls.filter((c) => showArch || !c.archived).filter((c) => isOwner || !c.archived).map((c) => (
               <div key={c.id} className="comment" style={{ whiteSpace: "pre-wrap", marginBottom: 8, opacity: c.archived ? .55 : 1 }}>
                 <div className="row small muted"><span>🗓 {new Date(c.at).toLocaleDateString("ru-RU")}{c.archived ? " · в архиве" : ""}</span>
                   {isOwner && <span>
-                    <button className="ghost" title={c.archived ? "Вернуть" : "В архив"} onClick={() => updateDoc(ref, { calls: calls.map((x) => x.id === c.id ? { ...x, archived: !x.archived } : x) })}>{c.archived ? "↩" : "🗄"}</button>
-                    <button className="ghost" title="Удалить" onClick={() => confirm("Удалить запись?") && updateDoc(ref, { calls: calls.filter((x) => x.id !== c.id) })}>🗑</button>
+                    <button className="ghost" title={c.archived ? "Вернуть" : "В архив"} onClick={() => writeProject({ calls: calls.map((x) => x.id === c.id ? { ...x, archived: !x.archived } : x) })}>{c.archived ? "↩" : "🗄"}</button>
+                    <button className="ghost" title="Удалить" onClick={() => confirm("Удалить запись?") && writeProject({ calls: calls.filter((x) => x.id !== c.id) })}>🗑</button>
                   </span>}</div>
                 {c.text}
               </div>))}
@@ -643,7 +652,7 @@ export default function ClientPortal() {
       </div>}
 
       {tab === "plan" && (() => {
-        const pmk = monthKey(planMonth), pl = p.plans?.[pmk] || {}, ref = doc(db, "workspaces", wsId!, "clients", p.id);
+        const pmk = monthKey(planMonth), pl = p.plans?.[pmk] || {};
         const i = pnl?.months.findIndex((m) => m.mk === pmk) ?? -1;
         const fRev = i >= 0 ? pnl!.revenue[i] : null, fProf = i >= 0 ? pnl!.profit[i] : null;
         const fExp = fRev != null && fProf != null ? Math.abs(fRev - fProf) : null;
@@ -655,7 +664,7 @@ export default function ClientPortal() {
         const pDepts = DK.map((_, n) => calDept(n)), anyP = pDepts.some((x) => x != null);
         const pRev = p.planSales?.[pmk] ?? null, pExp = anyP ? pDepts.reduce((a: number, x) => a + (x || 0), 0) : null;
         const pProf = pRev != null && pExp != null ? pRev - pExp : null;
-        const save = (k: string, v: string) => updateDoc(ref, { [`plans.${pmk}.${k}`]: v === "" ? deleteField() : k === "note" ? v : Number(v) });
+        const save = (k: string, v: string) => writeProject({ [`plans.${pmk}.${k}`]: v === "" ? undefined : k === "note" ? v : Number(v) });
         // строка таблицы план/факт; inverse — для расходов (хорошо, когда факт не больше плана)
         const Line = ({ l, plan, fact, k, inverse, sub, bold }: { l: string; plan: number | null; fact: number | null; k?: string; inverse?: boolean; sub?: boolean; bold?: boolean }) => {
           const pc = plan && fact != null ? Math.round(fact / plan * 100) : null, good = pc != null && (inverse ? pc <= 100 : pc >= 100);
@@ -672,7 +681,7 @@ export default function ClientPortal() {
             <button className="ghost" onClick={() => setPlanMonth(new Date(planMonth.getFullYear(), planMonth.getMonth() - 1, 1))}>‹</button>
             <b>🎯 План на {MONTHS[planMonth.getMonth()].toLowerCase()} {planMonth.getFullYear()}</b>
             <button className="ghost" onClick={() => setPlanMonth(new Date(planMonth.getFullYear(), planMonth.getMonth() + 1, 1))}>›</button>
-            {isOwner && <button className={p.opEdit ? "" : "ghost"} style={{ marginLeft: "auto" }} onClick={() => updateDoc(ref, { opEdit: !p.opEdit })}>{p.opEdit ? "🔓 Клиент правит · закрыть" : "🔒 Клиент только смотрит · открыть правку"}</button>}
+            {isOwner && <button className={p.opEdit ? "" : "ghost"} style={{ marginLeft: "auto" }} onClick={() => writeProject({ opEdit: !p.opEdit })}>{p.opEdit ? "🔓 Клиент правит · закрыть" : "🔒 Клиент только смотрит · открыть правку"}</button>}
           </div>
           <table className="pnl-table" style={{ marginTop: 10 }}>
             <thead><tr><th /><th className="small">План</th><th className="small">Факт</th><th className="small">%</th></tr></thead>
