@@ -22,10 +22,19 @@ const studentSteps: Step[] = [
   { to: "/neila", sel: "neyla-panel", title: "Нейла", text: "Здесь можно заполнить опрос об обучении, задать вопрос в Telegram или снова пройти этот обзор." },
 ];
 
-export default function CabinetTour({ storageKey, student }: { storageKey: string; student: boolean }) {
+const goodsSteps: Step[] = [
+  intro,
+  { to: "/?t=dash", title: "Мой кабинет", text: "На главной можно посмотреть финансовые показатели и выбрать месяц." },
+  { to: "/?t=rep", sel: "goods-reports", title: "Отчётность", text: "Здесь отчёты о прибыли и движении денег, аналитика и товарные показатели." },
+  { to: "/?t=work", title: "Ход работы", text: "Здесь видно, какие задачи уже выполнены и что ещё в работе." },
+  { to: "/?t=plan", title: "Планирование", text: "Здесь собраны планы и задачи следующего месяца." },
+  { to: "/?t=neyla", sel: "neyla-panel", title: "Нейла", text: "Открой «Помощь», чтобы связаться с поддержкой или повторить обучение." },
+];
+
+export default function CabinetTour({ storageKey, role }: { storageKey: string; role: "staff" | "student" | "goods" }) {
   const { search } = useLocation();
   const navigate = useNavigate();
-  const steps = student ? studentSteps : staffSteps;
+  const steps = role === "goods" ? goodsSteps : role === "student" ? studentSteps : staffSteps;
   const [step, setStep] = useState<number | null>(() => {
     try { return localStorage.getItem(storageKey) ? null : 0; } catch { return 0; }
   });

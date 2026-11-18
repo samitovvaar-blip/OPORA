@@ -185,6 +185,29 @@ service cloud.firestore {
       }
     }
 
+    // Приглашение открывает только отдельный интерфейс с вымышленными данными.
+    match /demoInvites/{email} {
+      function validInvite() {
+        let data = request.resource.data;
+        return data.keys().hasOnly(["owner", "issuedAt", "offers"])
+          && isOwner(data.owner)
+          && exists(/databases/$(database)/documents/workspaces/$(data.owner))
+          && data.issuedAt == request.time
+          && data.offers is list && data.offers.size() >= 1 && data.offers.size() <= 3
+          && data.offers[0] is string && data.offers[0].size() > 0 && data.offers[0].size() <= 180
+          && (data.offers.size() < 2 || (data.offers[1] is string && data.offers[1].size() <= 180))
+          && (data.offers.size() < 3 || (data.offers[2] is string && data.offers[2].size() <= 180));
+      }
+      allow get: if request.auth != null && (
+        resource == null || isOwner(resource.data.owner)
+        || (verified() && request.auth.token.email.lower() == email
+          && request.time < resource.data.issuedAt + duration.value(3, "d")));
+      allow list: if isOwner(resource.data.owner);
+      allow create: if request.auth != null && validInvite();
+      allow update: if isOwner(resource.data.owner) && validInvite();
+      allow delete: if isOwner(resource.data.owner);
+    }
+
     // Всё остальное закрыто
     match /{document=**} {
       allow read, write: if false;

@@ -1,10 +1,11 @@
 type AccessIdentity =
+  | { role: "trial"; ws: string; cid: string }
   | { role: "client"; ws: string; cid: string }
   | { role: "staff" | "student"; ws: string };
 
 const key = (uid: string) => "opora-active-access:" + uid;
 const identity = (access: AccessIdentity) => JSON.stringify([
-  access.role, access.ws, access.role === "client" ? access.cid : null,
+  access.role, access.ws, "cid" in access ? access.cid : null,
 ]);
 
 export function rememberAccess(uid: string, access: AccessIdentity | null) {

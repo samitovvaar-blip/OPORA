@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { arrayRemove, arrayUnion, collection, deleteField, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useMarks } from "../lib/clients";
 import { ClientProject, monthKey, stamp } from "../lib/catalog";
 import { rub } from "../lib/money";
@@ -42,7 +42,7 @@ const JOKES = ["Деньги любят счёт. А я люблю ваши от
 const DEPT_NAMES = ["1. Производственный отдел", "2. Отдел продаж", "3. Отдел маркетинга", "4. Админ-хоз отдел и Руководство", "5. Финансовый отдел"];
 
 export default function ClientPortal() {
-  const { wsId, clientOf, isOwner, clientProject } = useWorkspace();
+  const { wsId, clientOf, isOwner, clientProject, demo } = useWorkspace();
   const { user } = useAuth();
   // staffView — сотрудник смотрит кабинет своего клиента (только чтение)
   const staffView = !isOwner && !clientOf;
@@ -158,7 +158,7 @@ export default function ClientPortal() {
         {([...(svc ? [["chome", "spiral|Мой кабинет"], ["cfin", "money|Финансы"], ["ccli", "users|Клиенты"], ["cstaff", "case|Сотрудники"], ["cprod", "box|Продукты"], ["ctips", "spark|Нейла"]] as const : []), ["dash", "spiral|Мой кабинет"], ["rep", "book|Отчётность"], ["work", "case|Ход работы"], ["plan", "plan|Планирование"], ["op", "in|Данные от ОП"], ["neyla", "spark|Нейла"]] as const).filter(([k]) => isOwner || !staffView || k !== "op").filter(([k]) => svc ? ["chome", "cfin", "ccli", "cstaff", "cprod", "ctips"].includes(k) : k !== "neyla" || true).map(([k, l]) =>
           <button key={k} className={`chipbtn ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{(() => { const [ic, t] = l.split("|"); return <>{ic === "spiral" ? <img src="spiral-orange.png" alt="" style={{ width: 16, height: 16, verticalAlign: "-3px", marginRight: 6 }} /> : <Ic n={ic} c="currentColor" s={16} />}{t}</>; })()}</button>)}
       </div>}
-      {tab === "rep" && <div className="chips" style={{ marginTop: 10 }}>
+      {tab === "rep" && <div data-tour="goods-reports" className="chips" style={{ marginTop: 10 }}>
         {([["pnl", "Отчёт ОПиУ"], ["dds", "Отчёт ДДС"], ["an", "Аналитика"], ...(pnl?.goods && !svc ? [["goods", "Товары"]] as const : [])] as const).map(([k, l]) =>
           <button key={k} className={`chipbtn ${rep === k ? "on" : ""}`} onClick={() => setRep(k)}>{l}</button>)}
       </div>}
@@ -516,8 +516,10 @@ export default function ClientPortal() {
         ];
         const sheet = p.links?.sheet;
         return <>
+          <div data-tour="neyla-panel">
           <NeylaHeader description="Советы по вашим цифрам, помощь и связь с бухгалтером"
             action={<a className="work-btn" href={NEYLA_URL} target="_blank" rel="noopener noreferrer"><Ic n="spark" />Написать Нейле</a>} />
+          </div>
           <div className="chips" style={{ margin: "12px 0" }}>
             {([["advice", "spark", "Нейла советует"], ["help", "book", "Помощь"], ["sheet", "sheet", "Google-таблица"]] as const).map(([k, ic, l]) =>
               <button key={k} className={`chipbtn ${neySub === k ? "on" : ""}`} onClick={() => setNeySub(k)}><Ic n={ic} c="currentColor" s={16} />{l}</button>)}
@@ -531,6 +533,7 @@ export default function ClientPortal() {
           </div>}
           {neySub === "advice" && <div style={{ marginTop: 12 }}><RecommendCard from={p.name} id={p.id} /></div>}
           {neySub === "help" && <div className="card">
+            {!preview && !demo && <p><Link className="work-btn" to="/?tour=1"><Ic n="book" />Пройти обучение</Link></p>}
             <b>📱 Установить кабинет на телефон</b><InstallHow />
             <div className="row" style={{ marginTop: 16, flexWrap: "wrap", gap: 8, paddingTop: 12, borderTop: "1px solid var(--border, #e5e5e5)" }}>
               <span><b><Ic n="chat" />Остались вопросы?</b><div className="small muted">Напишите бухгалтеру — ответим в рабочее время</div></span>

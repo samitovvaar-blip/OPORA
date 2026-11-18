@@ -1,3 +1,4 @@
+import { endTrial } from "../lib/trial";
 // Мастер подключения нового клиента: всё о клиенте собирается в одну карточку за 5 шагов.
 // 1 Клиент → 2 Ссылки → 3 Отчётность (таблица + скрипт + проверка) → 4 Доступ и тариф → 5 Готово
 import { useEffect, useState } from "react";
@@ -87,6 +88,7 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
         batch.set(cabinetGrant(email, wsId, clientRef.id), { ws: wsId, cid: clientRef.id });
       }
       await batch.commit();
+      if (data.clientOpen) await Promise.all([...new Set(list)].map((email) => endTrial(wsId, email)));
       setCreated(clientRef.id);
       setStep(4);
     } catch (error) {

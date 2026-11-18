@@ -72,9 +72,11 @@ export default function Layout() {
   useEffect(() => setMore(false), [loc.pathname]);
   // сотрудник: отмечаем онлайн и рабочее время
   const { wsId, demo } = useWorkspace();
-  const tourKey = !isOwner && !clientOf && wsId && user && (student || ws?.open === true)
-    ? `opora-tour:${user.uid}:${wsId}:${student ? "student" : "staff"}`
+  const tourRole = !isOwner && !demo && wsId && user
+    ? clientOf ? clientProject?.bizType === "services" ? null : "goods"
+      : student ? "student" : ws?.open === true ? "staff" : null
     : null;
+  const tourKey = tourRole && user ? `opora-tour:${user.uid}:${wsId}:${tourRole}` + (clientOf ? ":" + clientOf : "") : null;
   // вид кабинета клиента (товары / услуги) — сообщает кабинет, чтобы меню показывало нужные разделы
   const [biz, setBiz] = useState<string>(() => { try { return localStorage.getItem("opora-biz") || ""; } catch { return ""; } });
   useEffect(() => { const f = (e: Event) => setBiz((e as CustomEvent).detail || ""); addEventListener("opora-biz", f); return () => removeEventListener("opora-biz", f); }, []);
@@ -139,7 +141,7 @@ export default function Layout() {
         <div className="msheet" onClick={(e) => e.stopPropagation()}>{menu}{foot}</div></div>}
       <main className="main"><PullToRefresh /><InstallHint /><Outlet /></main>
       {(student || (!isOwner && !clientOf)) && <FeedbackReminder />}
-      {tourKey && <CabinetTour key={tourKey} storageKey={tourKey} student={!!student} />}
+      {tourKey && tourRole && <CabinetTour key={tourKey} storageKey={tourKey} role={tourRole} />}
     </div>
   );
 }

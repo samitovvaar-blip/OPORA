@@ -1,4 +1,4 @@
-import { changeClientAccess } from "../lib/clientAccess";
+import { changeClientAccess, setClientOpen } from "../lib/clientAccess";
 // Владелец: доступ клиента к кабинету, ссылка на P&L из таблицы, план на следующий месяц
 import { FormEvent, useEffect, useState } from "react";
 import { arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
@@ -61,7 +61,7 @@ export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: stri
     <div className="card" style={{ background: "var(--bg)", marginTop: 8 }}>
       <div className="row"><b>👤 Кабинет клиента</b>
         <span><a className="small" href={"#/client?p=" + p.id}>👁 Как видит клиент</a>
-          <button className={p.clientOpen ? "" : "ghost"} style={{ marginLeft: 8 }} onClick={() => updateDoc(ref, { clientOpen: !p.clientOpen })}>
+          <button className={p.clientOpen ? "" : "ghost"} style={{ marginLeft: 8 }} onClick={() => setClientOpen(wsId, p.id, !p.clientOpen).catch(() => alert("Не удалось изменить доступ."))}>
             {p.clientOpen ? "🔓 Открыт" : "🔒 Закрыт"}</button></span></div>
       <div className="row small" style={{ margin: "6px 0", justifyContent: "flex-start", gap: 8 }}><b>Вид кабинета:</b>
         <span>{p.bizType === "services" ? "🛠 Услуги" : "📦 Товарный бизнес"}</span>

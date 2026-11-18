@@ -13,6 +13,7 @@ import PnL from "./pages/PnL";
 import Wallet from "./pages/Wallet";
 import Products from "./pages/Products";
 import Demo from "./pages/Demo";
+import TrialCabinet from "./pages/TrialCabinet";
 import Knowledge from "./pages/Knowledge";
 import NeilaFeedback from "./pages/NeilaFeedback";
 import StaffHome from "./pages/StaffHome";
@@ -34,9 +35,10 @@ const ADM = [{ to: "/admin", label: "👥 Сотрудники", el: <AdminStaff
 import "./styles.css";
 
 function WorkspaceScreen() {
-  const { choices, picking, selectAccess, accessError, ready } = useWorkspace();
+  const { choices, picking, selectAccess, accessError, ready, trial } = useWorkspace();
   const navigate = useNavigate();
   if (!ready) return <NeylaLoading text="Проверяю доступы" />;
+  if (trial) return <TrialCabinet key={trial.email + "/" + trial.cid} kind={trial.cid} email={trial.email} />;
   if (accessError || picking) {
     return <main className="entry-picker">
       <div className="entry-brand"><img src="logo.png" alt="" />ОПОРА</div>
@@ -46,9 +48,9 @@ function WorkspaceScreen() {
           : <div className="entry-options">
             {choices?.map((choice) => {
               const label = ROLE_LABELS[choice.role];
-              const title = choice.role === "client" ? choice.name : label;
-              const detail = choice.role === "client" ? `${label} · ${choice.detail}` : choice.name;
-              const key = choice.role === "client" ? choice.cid : "";
+              const title = choice.role === "client" || choice.role === "trial" ? choice.name : label;
+              const detail = choice.role === "client" ? `${label} · ${choice.detail}` : choice.role === "trial" ? "Пробный доступ" : choice.name;
+              const key = "cid" in choice ? choice.cid : "";
               return <button className="ghost entry-option" key={choice.role + "/" + choice.ws + "/" + key}
                 onClick={() => { selectAccess?.(choice); navigate("/", { replace: true }); }}>
                 <span className="entry-icon" aria-hidden="true">{label[0]}</span>

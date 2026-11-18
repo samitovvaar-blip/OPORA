@@ -1,3 +1,4 @@
+import TrialAdmin from "../components/TrialAdmin";
 // Демонстрация: демо-кабинеты «Товары» и «Услуги» для показа при продаже. Вход — как клиент.
 import { useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
@@ -51,6 +52,7 @@ export default function Demo() {
   return (
     <>
       <h1>Демонстрация</h1>
+      {wsId && <TrialAdmin ws={wsId} />}
       <div className="inline">{dGoods && dSvc
         ? <><button disabled={demoBusy} onClick={() => openDemo(dGoods)}>📦 Демо · Товары</button><button disabled={demoBusy} onClick={() => openDemo(dSvc)}>🛠 Демо · Услуги</button></>
         : <button disabled={demoBusy} onClick={createDemo}>{demoBusy ? "Создаю…" : "Создать демо-кабинеты"}</button>}</div>

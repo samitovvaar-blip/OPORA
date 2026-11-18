@@ -1,4 +1,4 @@
-import { changeClientAccess, restoreClientGrants } from "../lib/clientAccess";
+import { changeClientAccess, restoreClientGrants, setClientOpen } from "../lib/clientAccess";
 // Админка: клиенты с доступом к кабинету — почты, доступ, тариф и ближайшая оплата
 import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
@@ -49,7 +49,7 @@ export default function ClientsAccessCard() {
         <div key={p.id} className="adm-client">
           <div className="row" style={{ padding: 0 }}>
             <b>{p.name}</b>
-            <button className={p.clientOpen ? "" : "ghost"} onClick={() => updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { clientOpen: !p.clientOpen })}>
+            <button className={p.clientOpen ? "" : "ghost"} onClick={() => setClientOpen(wsId!, p.id, !p.clientOpen).catch(() => alert("Не удалось изменить доступ."))}>
               {p.clientOpen ? "🔓 Доступ открыт" : "🔒 Доступ закрыт"}</button>
           </div>
           <form className="inline" style={{ margin: "4px 0" }} onSubmit={async (e) => { e.preventDefault(); const inp = e.currentTarget.elements.namedItem("em") as HTMLInputElement;

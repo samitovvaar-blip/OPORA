@@ -1,3 +1,4 @@
+import { findTrial, trialKinds, trialNames, type TrialInvite, type TrialKind } from "./trial";
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { collection, doc, getDoc, getDocs, onSnapshot, query, setDoc, where } from "firebase/firestore";
 import type { ClientProject } from "./catalog";
@@ -7,8 +8,9 @@ import { rememberAccess, restoredAccess } from "./activeAccess";
 import { useAuth } from "./auth";
 
 const OWNER = ((import.meta.env.VITE_OWNER_EMAIL as string) || "").trim().toLowerCase();
-export const ROLE_LABELS = { client: "Клиент", staff: "Сотрудник", student: "Ученик" };
+export const ROLE_LABELS = { client: "Клиент", staff: "Сотрудник", student: "Ученик", trial: "Демо" };
 type Access =
+  | { role: "trial"; ws: string; cid: TrialKind; name: string; invite: TrialInvite; email: string }
   | { role: "client"; ws: string; cid: string; name: string; detail: string; project: ClientProject }
   | { role: "staff" | "student"; ws: string; name?: string };
 
@@ -24,6 +26,7 @@ interface Ctx {
   student?: boolean;
   demo?: boolean;
   choices?: Access[];
+  trial?: Extract<Access, { role: "trial" }>;
   picking?: boolean;
   selectAccess?: (access: Access | null) => void;
 }
@@ -99,6 +102,12 @@ async function findAccess(email: string, uid: string) {
       name: typeof name === "string" && name ? name : openStaff.length > 1 ? `Рабочее пространство ${index + 1}` : undefined });
   });
   if (typeof studentWs === "string" && studentCard?.exists()) choices.push({ role: "student", ws: studentWs });
+  if (!choices.some((choice) => choice.role === "client")) {
+    const invite = await findTrial(email);
+    if (invite) for (const cid of trialKinds) {
+      choices.push({ role: "trial", ws: invite.owner, cid, name: trialNames[cid], invite, email });
+    }
+  }
   return { choices, invitedStaff: otherWorkspaces.length > 0 };
 }
 
@@ -107,7 +116,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<Ctx>(LOADING);
   const [choices, setChoices] = useState<Access[]>([]);
   const [selected, setSelected] = useState<Access | null>(null);
-  const workspaceId = selected && selected.role !== "client" ? selected.ws : null;
+  const workspaceId = selected && (selected.role === "staff" || selected.role === "student") ? selected.ws : null;
   const [selectedWorkspace, setSelectedWorkspace] = useState<{ id: string; ws: Workspace | null } | null>(null);
 
   useEffect(() => {
@@ -179,7 +188,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         if (user) rememberAccess(user.uid, choice);
         setSelected(choice);
       },
-      wsId: selected?.ws ?? null,
+      wsId: selected?.role === "trial" ? null : selected?.ws ?? null,
+      trial: selected?.role === "trial" ? selected : undefined,
       ws: workspaceLoaded ? selectedWorkspace?.ws ?? null : null,
       ready: state.ready && (!workspaceId || workspaceLoaded),
       clientOf: selected?.role === "client" ? selected.cid : undefined,
