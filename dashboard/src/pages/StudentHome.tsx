@@ -22,7 +22,7 @@ export default function StudentHome() {
   return <>
     <h1>Привет! 👋</h1>
     <div className="card" style={{ maxWidth: 820 }}>
-      <h3 style={{ marginTop: 0 }}>📝 Домашние задания</h3>
+      <h3 data-tour="student-homework" style={{ marginTop: 0 }}>📝 Домашние задания</h3>
       {hw.map((h) => { const late = !done[h.id] && h.due < d;
         return <div key={h.id} className={`row task ${done[h.id] ? "done" : ""}`} style={{ borderBottom: "1px solid var(--border)" }}>
           <label style={{ display: "flex", gap: 10, alignItems: "flex-start", flex: 1, cursor: "pointer" }}>

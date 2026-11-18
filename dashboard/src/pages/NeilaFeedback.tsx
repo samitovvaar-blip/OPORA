@@ -5,7 +5,9 @@ import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import NeylaLoading from "../components/NeylaLoading";
 import { FeedbackRole as Role, feedbackPeriod, feedbackResponses, useFeedbackPeriod } from "../lib/feedback";
-import { SUPPORT_URL } from "../components/ServiceCrm";
+import { Link } from "react-router-dom";
+import NeylaHeader from "../components/NeylaHeader";
+import { Ic, InstallHow, SUPPORT_URL } from "../components/ServiceCrm";
 
 const prompts: Record<Role, string[]> = {
   staff: [
@@ -48,17 +50,35 @@ export default function NeilaFeedback() {
   const { wsId, isOwner, student, ws } = useWorkspace();
   const { user } = useAuth();
   const { week } = useFeedbackPeriod();
+  const [tab, setTab] = useState<"survey" | "help">("survey");
   if (!wsId || !user?.email) return null;
   if (!isOwner && !student && ws?.open !== true) return <div className="card">Доступ закрыт владельцем.</div>;
   const role = student ? "student" : "staff";
   return (
     <>
-      <h1><img className="neila-feedback-avatar" src="neyla.jpg" alt="" />Нейла</h1>
-      {!isOwner && <p><a className="neila-telegram" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">Задать вопрос</a></p>}
-      {isOwner
-        ? <FeedbackResults key={wsId} wsId={wsId} current={week} />
-        : <WeeklySurvey key={wsId + "/" + role + "/" + week} wsId={wsId} role={role}
-            week={week} email={user.email.toLowerCase()} />}
+      <div data-tour="neyla-panel"><NeylaHeader
+        description={isOwner ? "Обратная связь сотрудников и учеников" : "Опрос недели, обучение и помощь в кабинете"}
+        action={!isOwner && <a className="neila-telegram" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">Задать вопрос</a>}
+      /></div>
+      {isOwner ? <FeedbackResults key={wsId} wsId={wsId} current={week} /> : <>
+        <div className="chips" style={{ margin: "12px 0" }}>
+          <button className={`chipbtn ${tab === "survey" ? "on" : ""}`} aria-pressed={tab === "survey"}
+            onClick={() => setTab("survey")}><Ic n="spark" c="currentColor" s={16} />Опрос недели</button>
+          <button className={`chipbtn ${tab === "help" ? "on" : ""}`} aria-pressed={tab === "help"}
+            onClick={() => setTab("help")}><Ic n="book" c="currentColor" s={16} />Помощь</button>
+        </div>
+        <div hidden={tab !== "survey"}>
+          <WeeklySurvey key={wsId + "/" + role + "/" + week} wsId={wsId} role={role}
+            week={week} email={user.email.toLowerCase()} />
+        </div>
+        {tab === "help" && <section className="card neila-feedback">
+          <div className="row neyla-help">
+            <span><b>Обучение</b><span className="small muted neyla-header-description">Нейла покажет разделы кабинета по шагам.</span></span>
+            <Link className="work-btn" to="/?tour=1"><Ic n="book" />Пройти обучение</Link>
+          </div>
+          <div className="neyla-install"><b>Установить кабинет на телефон</b><InstallHow /></div>
+        </section>}
+      </>}
     </>
   );
 }

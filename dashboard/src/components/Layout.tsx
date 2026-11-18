@@ -10,6 +10,7 @@ import { useWorkspace } from "../lib/workspace";
 import PullToRefresh from "./PullToRefresh";
 import { startPresence } from "../lib/presence";
 import InstallHint from "./InstallHint";
+import CabinetTour from "./CabinetTour";
 import FeedbackReminder from "./FeedbackReminder";
 
 interface Item { to: string; label: string; icon: string; staff?: boolean; staffOnly?: boolean; }
@@ -60,7 +61,7 @@ const MOBILE = ["/", "/tasks", "/projects", "/admin"];
 
 export default function Layout() {
   const { user } = useAuth();
-  const { isOwner, clientOf, clientProject, student, choices, selectAccess } = useWorkspace();
+  const { isOwner, clientOf, clientProject, student, ws, choices, selectAccess } = useWorkspace();
   const loc = useLocation();
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem("theme") || "light"; } catch { return "light"; } });
   const [more, setMore] = useState(false);
@@ -71,6 +72,9 @@ export default function Layout() {
   useEffect(() => setMore(false), [loc.pathname]);
   // сотрудник: отмечаем онлайн и рабочее время
   const { wsId, demo } = useWorkspace();
+  const tourKey = !isOwner && !clientOf && wsId && user && (student || ws?.open === true)
+    ? `opora-tour:${user.uid}:${wsId}:${student ? "student" : "staff"}`
+    : null;
   // вид кабинета клиента (товары / услуги) — сообщает кабинет, чтобы меню показывало нужные разделы
   const [biz, setBiz] = useState<string>(() => { try { return localStorage.getItem("opora-biz") || ""; } catch { return ""; } });
   useEffect(() => { const f = (e: Event) => setBiz((e as CustomEvent).detail || ""); addEventListener("opora-biz", f); return () => removeEventListener("opora-biz", f); }, []);
@@ -135,6 +139,7 @@ export default function Layout() {
         <div className="msheet" onClick={(e) => e.stopPropagation()}>{menu}{foot}</div></div>}
       <main className="main"><PullToRefresh /><InstallHint /><Outlet /></main>
       {(student || (!isOwner && !clientOf)) && <FeedbackReminder />}
+      {tourKey && <CabinetTour key={tourKey} storageKey={tourKey} student={!!student} />}
     </div>
   );
 }

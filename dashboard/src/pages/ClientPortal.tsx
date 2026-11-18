@@ -1,3 +1,4 @@
+import NeylaHeader from "../components/NeylaHeader";
 // Кабинет клиента: ход работы, ОПиУ из таблицы, дашборд показателей, план.
 // Клиент видит только свой проект. Владелец открывает предпросмотр: #/client?p=<id>
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -515,11 +516,8 @@ export default function ClientPortal() {
         ];
         const sheet = p.links?.sheet;
         return <>
-          <div className="card row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ display: "flex", gap: 12, alignItems: "center" }}><img src="neyla.jpg" alt="" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-              <span><b style={{ fontSize: 17 }}>Нейла — ваш помощник</b><div className="small muted">Советы по вашим цифрам, помощь и связь с бухгалтером</div></span></span>
-            <a className="work-btn" href={NEYLA_URL} target="_blank" rel="noopener noreferrer"><Ic n="spark" />Написать Нейле</a>
-          </div>
+          <NeylaHeader description="Советы по вашим цифрам, помощь и связь с бухгалтером"
+            action={<a className="work-btn" href={NEYLA_URL} target="_blank" rel="noopener noreferrer"><Ic n="spark" />Написать Нейле</a>} />
           <div className="chips" style={{ margin: "12px 0" }}>
             {([["advice", "spark", "Нейла советует"], ["help", "book", "Помощь"], ["sheet", "sheet", "Google-таблица"]] as const).map(([k, ic, l]) =>
               <button key={k} className={`chipbtn ${neySub === k ? "on" : ""}`} onClick={() => setNeySub(k)}><Ic n={ic} c="currentColor" s={16} />{l}</button>)}

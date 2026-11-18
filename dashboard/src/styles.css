@@ -557,7 +557,13 @@ input,select,textarea{border-radius:12px}
 .entry-icon { display: grid; place-items: center; min-height: 36px; border-radius: 9px; background: #edf1fa; color: #16304f; font-weight: 750; }
 .entry-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 
-.neila-feedback-avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 10px; }
+.neyla-header { gap: 12px; align-items: center; flex-wrap: wrap; }
+.neyla-header-identity { display: flex; gap: 12px; align-items: center; }
+.neyla-header-identity img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.neyla-header-identity b { font-size: 17px; }
+.neyla-header-description { display: block; }
+.neyla-help { flex-wrap: wrap; gap: 8px; }
+.neyla-install { margin-top: 14px; }
 .neila-feedback { max-width: 760px; }
 .neila-feedback h2 { margin-top: 0; }
 .neila-feedback-form { display: grid; gap: 16px; }

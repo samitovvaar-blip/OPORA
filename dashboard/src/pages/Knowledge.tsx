@@ -82,7 +82,7 @@ export default function Knowledge() {
 
   return (
     <>
-      <h1>База знаний</h1>
+      <h1 data-tour="cabinet-courses">{student ? "Курсы" : "База знаний"}</h1>
       {err && <div className="error">{err}</div>}
       <div className="course-btns">
         {avail.map((c) => <button key={c.id} className={`course-btn ${cur === c.id ? "on" : ""}`} onClick={() => setCourse(cur === c.id ? null : c.id)}>

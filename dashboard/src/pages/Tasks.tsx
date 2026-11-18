@@ -89,7 +89,7 @@ export default function Tasks() {
 
   return (
     <>
-      <h1>Задания {isOwner ? <span className="badge">{ws?.open ? "🔓 доступ открыт" : "🔒 доступ закрыт"}</span> : null}</h1>
+      <h1 data-tour="staff-tasks">Задания {isOwner ? <span className="badge">{ws?.open ? "🔓 доступ открыт" : "🔒 доступ закрыт"}</span> : null}</h1>
       {error && <div className="error">{error}</div>}
       {(() => {
         // просроченные сроки по проектам: первые 5, остальное — по кнопке

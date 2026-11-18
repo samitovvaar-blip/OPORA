@@ -74,7 +74,7 @@ export default function StaffHome() {
       <div className="staff-top">
         <div className="staff-left">
         <div className="card">
-          <h3><Link to="/tasks" className="h-link">📋 Задания на сегодня →</Link></h3>
+          <h3 data-tour="staff-today"><Link to="/tasks" className="h-link">📋 Задания на сегодня →</Link></h3>
           {todayTasks.map((a) => (
             <label key={a.id} className={`row task ${doneToday(a) ? "done" : ""}`} style={{ cursor: "pointer" }}>
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>

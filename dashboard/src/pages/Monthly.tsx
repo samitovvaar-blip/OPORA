@@ -36,7 +36,7 @@ export default function Monthly({ embedded = false }: { embedded?: boolean }) {
 
   return (
     <>
-      {!embedded && <h1>{isOwner ? "Ежемесячные задачи" : "Мои клиенты"}</h1>}
+      {!embedded && <h1 data-tour="staff-clients">{isOwner ? "Ежемесячные задачи" : "Мои клиенты"}</h1>}
       {error && !list.length && <div className="error">{error}</div>}
       {!list.length ? <div className="card">{isOwner ? <>Пока нет проектов. Создай первый кнопкой «+ Новый проект» — список задач подберётся сам.</> : "Пока нет открытых тебе клиентов."}</div>
       : !opened ? <div className="client-list">{list.map((x) =>

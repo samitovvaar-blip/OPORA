@@ -1,3 +1,4 @@
+import NeylaHeader from "./NeylaHeader";
 // Кабинет «Услуги»: мини-CRM клиента — продукты, база клиентов, проекты, доходы и расходы.
 // Хранится в workspaces/{ws}/clients/{cid}/crm (kind: product | client | project | move). Ведёт сам клиент, владелец видит.
 // Если к кабинету привязана Google-таблица (p.crmSheet), после каждого изменения всё переписывается в листы «ПРИЛОЖЕНИЕ …».
@@ -219,7 +220,7 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     (() => { const n = clients.filter((c) => (c.status || "Ждёт обработку") === "Ждёт обработку" && !projects.some((p) => p.clientId === c.id && p.status !== "done")).length; return n ? `${n} лид(ов) ждут обработки. Один звонок — и может быть новый проект 📞` : ""; })(),
   ].filter(Boolean);
   // обучение: при первом входе клиента (и по кнопке в «Рекомендациях»)
-  const fab = <>{tour == null ? <><NeylaFab lines={neylaLines} />{!isOwner && <RecommendPopup id={p.id} from={p.name} />}</> : <TourCard n={tour} go={goTour} />}</>;
+  const fab = <>{tour == null ? <><NeylaFab lines={neylaLines} />{!isOwner && <RecommendPopup id={p.id} from={p.name} />}</> : <TourCard n={tour} steps={TOUR} go={goTour} />}</>;
   if (view === "clients") return <>{fab}<ClientsTab {...{ del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} /></>;
   if (view === "products") return <>{fab}<ProductsTab {...{ del0, products, projects, add, del, upd }} /></>;
   if (view === "staff") return <>{fab}<StaffTab {...{ del0, MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }} /></>;
@@ -348,11 +349,8 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     </>;
   };
   if (view === "tips") return <>{fab}
-    <div className="card row" style={{ gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-      <span style={{ display: "flex", gap: 12, alignItems: "center" }}><img src="neyla.jpg" alt="" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-        <span><b style={{ fontSize: 17 }}>Нейла — ваш помощник</b><div className="small muted">Советы по вашим цифрам, обучение и связь с бухгалтером</div></span></span>
-      <a className="work-btn" href="https://t.me/dsmitovvaservbot" target="_blank" rel="noopener noreferrer"><Ic n="spark" />Написать Нейле</a>
-    </div>
+    <NeylaHeader description="Советы по вашим цифрам, обучение и связь с бухгалтером"
+      action={<a className="work-btn" href="https://t.me/dsmitovvaservbot" target="_blank" rel="noopener noreferrer"><Ic n="spark" />Написать Нейле</a>} />
     <div data-tour="tips-chips" className="chips" style={{ margin: "12px 0" }}>
       {([["advice", "spark", "Нейла советует"], ["help", "book", "Помощь"], ["sheet", "sheet", "Google-таблица"]] as const).map(([k, ic, l]) =>
         <button key={k} className={`chipbtn ${tipSub === k ? "on" : ""}`} onClick={() => setTipSub(k)}><Ic n={ic} c="currentColor" s={16} />{l}</button>)}
@@ -1076,8 +1074,8 @@ const TOUR: { view: CrmView; sel?: string; title: string; text: string }[] = [
   { view: "tips", sel: "tips-chips", title: "Вкладка «Нейла»", text: "Мои советы по вашим цифрам, помощь (обучение, установка на телефон, чат поддержки) и Google-таблица." },
   { view: "tips", title: "Установите кабинет на телефон 📱", text: "iPhone: Safari → «Поделиться» ⬆ → «На экран „Домой“». Android: Chrome → ⋮ → «Установить приложение». А если нужен совет — нажмите на меня справа внизу 💛" },
 ];
-function TourCard({ n, go }: { n: number; go: (n: number | null) => void }) {
-  const st = TOUR[n], last = n === TOUR.length - 1;
+export function TourCard({ n, go, steps }: { n: number; go: (n: number | null) => void; steps: { sel?: string; title: string; text: string }[] }) {
+  const st = steps[n], last = n === steps.length - 1;
   const [rect, setRect] = useState<DOMRect | null>(null);
   useEffect(() => {
     setRect(null); if (!st.sel) return;
@@ -1086,7 +1084,7 @@ function TourCard({ n, go }: { n: number; go: (n: number | null) => void }) {
       if (el) { if (!scrolled) { el.scrollIntoView({ block: "center", behavior: "smooth" }); scrolled = true; } setRect(el.getBoundingClientRect()); }
       if (tries > 40) clearInterval(t); }, 150);
     return () => clearInterval(t);
-  }, [n]);
+  }, [n, st.sel]);
   const pad = 6, vh = window.innerHeight, w = Math.min(340, window.innerWidth - 32);
   const below = rect ? rect.bottom + 180 < vh : true;
   const top = rect ? (below ? rect.bottom + pad + 10 : Math.max(10, rect.top - pad - 10 - 200)) : vh / 2 - 120;
@@ -1099,9 +1097,9 @@ function TourCard({ n, go }: { n: number; go: (n: number | null) => void }) {
     <div className="card" style={{ position: "fixed", top, left, width: w, margin: 0, boxShadow: "0 10px 30px rgba(0,0,0,.35)", borderRadius: 16, borderTop: "4px solid #e8873a", transition: "all .25s" }}>
       <div className="row" style={{ justifyContent: "flex-start", gap: 10, alignItems: "center" }}>
         <img src="neyla.jpg" alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
-        <div><b>{st.title}</b><div className="small muted">шаг {n + 1} из {TOUR.length}</div></div></div>
+        <div><b>{st.title}</b><div className="small muted">шаг {n + 1} из {steps.length}</div></div></div>
       <div className="small" style={{ marginTop: 8, lineHeight: 1.45 }}>{st.text}</div>
-      <div style={{ display: "flex", gap: 3, margin: "10px 0" }}>{TOUR.map((_, k) => <span key={k} style={{ flex: 1, height: 4, borderRadius: 2, background: k <= n ? "#e8873a" : "var(--border, #e5e5e5)" }} />)}</div>
+      <div style={{ display: "flex", gap: 3, margin: "10px 0" }}>{steps.map((_, k) => <span key={k} style={{ flex: 1, height: 4, borderRadius: 2, background: k <= n ? "#e8873a" : "var(--border, #e5e5e5)" }} />)}</div>
       <div className="row" style={{ gap: 6 }}>
         <button className="ghost" onClick={() => go(null)}>Пропустить</button>
         <span>{n > 0 && <button className="ghost" onClick={() => go(n - 1)}>← Назад</button>}{" "}
