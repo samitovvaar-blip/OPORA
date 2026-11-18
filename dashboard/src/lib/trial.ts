@@ -33,7 +33,7 @@ export async function endTrial(owner: string, email: string) {
       if (snap.data()?.owner === owner) transaction.delete(ref);
     });
   } catch (error) {
-    // Рабочий доступ уже сохранён. При следующем входе он имеет приоритет над демо.
+    // Рабочий доступ уже сохранён; журналируем ошибку закрытия приглашения.
     if ((error as { code?: string })?.code !== "permission-denied") console.warn("Не удалось закрыть демо", error);
   }
 }

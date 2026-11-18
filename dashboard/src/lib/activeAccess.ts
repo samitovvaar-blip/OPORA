@@ -1,7 +1,7 @@
 type AccessIdentity =
   | { role: "trial"; ws: string; cid: string }
   | { role: "client"; ws: string; cid: string }
-  | { role: "staff" | "student"; ws: string };
+  | { role: "staff" | "student" | "owner"; ws: string };
 
 const key = (uid: string) => "opora-active-access:" + uid;
 const identity = (access: AccessIdentity) => JSON.stringify([

@@ -48,6 +48,7 @@ export default function TrialCabinet({ kind, email }: { kind: TrialKind; email: 
     <p>Напишите @samitovva, чтобы подобрать тариф и открыть рабочий кабинет.</p>
     <a className="work-btn" href={telegram} target="_blank" rel="noreferrer">Написать в Telegram</a>
     {" "}<button className="ghost" onClick={() => location.reload()}>Обновить доступы</button>
+    {" "}<button className="ghost" onClick={() => selectAccess?.(null)}>Сменить кабинет</button>
     {" "}<button className="ghost" onClick={() => signOut(auth)}>Выйти</button>
   </div></main>;
   return <main className="trial-main">

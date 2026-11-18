@@ -1,4 +1,4 @@
-import { findTrial, trialKinds, trialNames, type TrialInvite, type TrialKind } from "./trial";
+import { findTrial, trialKinds, trialNames, trialRef, TRIAL_DURATION, type TrialInvite, type TrialKind } from "./trial";
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { collection, doc, getDoc, getDocs, onSnapshot, query, setDoc, where } from "firebase/firestore";
 import type { ClientProject } from "./catalog";
@@ -8,9 +8,10 @@ import { rememberAccess, restoredAccess } from "./activeAccess";
 import { useAuth } from "./auth";
 
 const OWNER = ((import.meta.env.VITE_OWNER_EMAIL as string) || "").trim().toLowerCase();
-export const ROLE_LABELS = { client: "Клиент", staff: "Сотрудник", student: "Ученик", trial: "Демо" };
+export const ROLE_LABELS = { client: "Клиент", staff: "Сотрудник", student: "Ученик", trial: "Демо", owner: "Владелец" };
 type Access =
-  | { role: "trial"; ws: string; cid: TrialKind; name: string; invite: TrialInvite; email: string }
+  | { role: "owner"; ws: string; name: string }
+  | { role: "trial"; ws: string; cid: TrialKind; name: string; email: string }
   | { role: "client"; ws: string; cid: string; name: string; detail: string; project: ClientProject }
   | { role: "staff" | "student"; ws: string; name?: string };
 
@@ -102,19 +103,20 @@ async function findAccess(email: string, uid: string) {
       name: typeof name === "string" && name ? name : openStaff.length > 1 ? `Рабочее пространство ${index + 1}` : undefined });
   });
   if (typeof studentWs === "string" && studentCard?.exists()) choices.push({ role: "student", ws: studentWs });
-  if (!choices.some((choice) => choice.role === "client")) {
-    const invite = await findTrial(email);
-    if (invite) for (const cid of trialKinds) {
-      choices.push({ role: "trial", ws: invite.owner, cid, name: trialNames[cid], invite, email });
-    }
-  }
   return { choices, invitedStaff: otherWorkspaces.length > 0 };
+}
+
+function trialChoices(email: string, invite: TrialInvite | null): Access[] {
+  return invite ? trialKinds.map((cid) => ({
+    role: "trial", ws: invite.owner, cid, name: trialNames[cid], email,
+  })) : [];
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [state, setState] = useState<Ctx>(LOADING);
-  const [choices, setChoices] = useState<Access[]>([]);
+  const [realChoices, setRealChoices] = useState<Access[]>([]);
+  const [demoChoices, setDemoChoices] = useState<Access[]>([]);
   const [selected, setSelected] = useState<Access | null>(null);
   const workspaceId = selected && (selected.role === "staff" || selected.role === "student") ? selected.ws : null;
   const [selectedWorkspace, setSelectedWorkspace] = useState<{ id: string; ws: Workspace | null } | null>(null);
@@ -125,12 +127,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     let unsub = () => {};
     setState(LOADING);
-    setChoices([]);
+    setRealChoices([]);
+    setDemoChoices([]);
     setSelected(null);
 
     function openOwnerWorkspace(uid: string) {
       const ref = doc(db, "workspaces", uid);
       let restoring = false;
+      setSelected({ role: "owner", ws: uid, name: "Владелец" });
       unsub = onSnapshot(ref, { includeMetadataChanges: true }, (snapshot) => {
         if (snapshot.exists()) {
           setState({ ...NONE, wsId: uid, isOwner: true, ws: snapshot.data() as Workspace });
@@ -149,6 +153,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (async () => {
       if (OWNER && email === OWNER) {
         openOwnerWorkspace(user.uid);
+        if (user.emailVerified) {
+          const invite = await findTrial(email);
+          if (!cancelled && invite) {
+            const demos = trialChoices(email, invite);
+            setDemoChoices(demos);
+            setSelected(restoredAccess(user.uid, [{ role: "owner", ws: user.uid, name: "Владелец" }, ...demos])
+              ?? { role: "owner", ws: user.uid, name: "Владелец" });
+          }
+        }
         return;
       }
       if (!user.emailVerified || !email) {
@@ -156,14 +169,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const access = await findAccess(email, user.uid);
+        const [access, invite] = await Promise.all([findAccess(email, user.uid), findTrial(email)]);
         if (cancelled) return;
-        if (!access.choices.length && !OWNER && !access.invitedStaff) {
+        const demos = trialChoices(email, invite);
+        if (!access.choices.length && !demos.length && !OWNER && !access.invitedStaff) {
           openOwnerWorkspace(user.uid);
           return;
         }
-        setChoices(access.choices);
-        setSelected(restoredAccess(user.uid, access.choices));
+        setRealChoices(access.choices);
+        setDemoChoices(demos);
+        setSelected(restoredAccess(user.uid, [...access.choices, ...demos]));
         setState(NONE);
       } catch {
         if (!cancelled) setState({ ...NONE, accessError: true });
@@ -179,27 +194,52 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }, () => setSelectedWorkspace({ id: workspaceId, ws: null }));
   }, [workspaceId]);
 
+  const email = user?.email?.trim().toLowerCase();
+  useEffect(() => {
+    if (!state.ready || !email || !user?.emailVerified) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const stop = onSnapshot(trialRef(email), { includeMetadataChanges: true }, (snap) => {
+      if (snap.metadata.fromCache) return;
+      const invite = snap.data() as TrialInvite | undefined;
+      const remaining = invite ? invite.issuedAt.toMillis() + TRIAL_DURATION - Date.now() : 0;
+      clearTimeout(timer);
+      setDemoChoices(trialChoices(email, invite && remaining > 0 ? invite : null));
+      if (remaining > 0) timer = setTimeout(() => setDemoChoices([]), remaining);
+    }, () => {
+      clearTimeout(timer);
+      setDemoChoices([]);
+    });
+    return () => { clearTimeout(timer); stop(); };
+  }, [state.ready, email, user?.emailVerified]);
+
+  const ownerChoice: Access | null = state.isOwner && state.wsId
+    ? { role: "owner", ws: state.wsId, name: "Владелец" } : null;
+  const choices = [...(ownerChoice ? [ownerChoice] : realChoices), ...demoChoices];
+
   let value = state;
-  if (choices.length) {
+  if (choices.length || selected?.role === "trial") {
     const workspaceLoaded = selectedWorkspace?.id === workspaceId;
+    const current = selected ?? (ownerChoice && ownerChoice.ws === state.wsId && !demoChoices.length ? ownerChoice : null);
     value = {
-      ...state, choices, picking: !selected,
+      ...state, choices, picking: !current,
       selectAccess: (choice) => {
         if (user) rememberAccess(user.uid, choice);
         setSelected(choice);
       },
-      wsId: selected?.role === "trial" ? null : selected?.ws ?? null,
-      trial: selected?.role === "trial" ? selected : undefined,
-      ws: workspaceLoaded ? selectedWorkspace?.ws ?? null : null,
+      isOwner: current?.role === "owner",
+      wsId: current?.role === "trial" ? null : current?.ws ?? null,
+      trial: current?.role === "trial" ? current : undefined,
+      ws: current?.role === "owner" ? state.ws : workspaceLoaded ? selectedWorkspace?.ws ?? null : null,
       ready: state.ready && (!workspaceId || workspaceLoaded),
-      clientOf: selected?.role === "client" ? selected.cid : undefined,
-      clientProject: selected?.role === "client" ? selected.project : undefined,
-      student: selected?.role === "student",
+      clientOf: current?.role === "client" ? current.cid : undefined,
+      clientProject: current?.role === "client" ? current.project : undefined,
+      student: current?.role === "student",
     };
-  } else if (state.isOwner) {
+  }
+  if (value.isOwner) {
     let demoCid = "";
     try { demoCid = sessionStorage.getItem("opora-demo") || ""; } catch { /* */ }
-    if (demoCid) value = { ...state, isOwner: false, clientOf: demoCid, demo: true };
+    if (demoCid) value = { ...value, isOwner: false, clientOf: demoCid, demo: true };
   }
   return <C.Provider value={value}>{children}</C.Provider>;
 }
