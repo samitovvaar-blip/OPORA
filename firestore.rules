@@ -37,6 +37,30 @@ service cloud.firestore {
       }
     }
 
+    // Недельная обратная связь Neila. Ответ видят автор и владелец.
+    match /workspaces/{ws}/feedbackWeeks/{week}/roles/{role}/responses/{email} {
+      function isRespondent() {
+        return verified() && request.auth.token.email.lower() == email
+          && ((role == "staff" && isMember(ws)) || (role == "student" && isStudent(ws)));
+      }
+      function validAnswer(answer) {
+        return answer is string && answer.size() > 0 && answer.size() <= 1000;
+      }
+      function validResponse() {
+        let data = request.resource.data;
+        let answers = data.answers;
+        return week.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")
+          && data.keys().hasOnly(["answers", "submittedAt"])
+          && data.submittedAt == request.time
+          && answers is list && answers.size() == 5
+          && validAnswer(answers[0]) && validAnswer(answers[1])
+          && validAnswer(answers[2]) && validAnswer(answers[3]) && validAnswer(answers[4]);
+      }
+      allow get: if isOwner(ws) || isRespondent();
+      allow list: if isOwner(ws);
+      allow create: if isRespondent() && validResponse();
+    }
+
     // Оплата сотрудника: ведёт владелец, сотрудник видит только свою карточку
     match /workspaces/{ws}/staff/{email} {
       allow read: if isOwner(ws) || (isMember(ws) && request.auth.token.email.lower() == email);

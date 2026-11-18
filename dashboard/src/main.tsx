@@ -14,6 +14,7 @@ import Wallet from "./pages/Wallet";
 import Products from "./pages/Products";
 import Demo from "./pages/Demo";
 import Knowledge from "./pages/Knowledge";
+import NeilaFeedback from "./pages/NeilaFeedback";
 import StaffHome from "./pages/StaffHome";
 import ClientPortal from "./pages/ClientPortal";
 import Tasks from "./pages/Tasks";
@@ -130,6 +131,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="client" element={<ClientGate />} />
             <Route path="tasks" element={<MemberGate><Tasks /></MemberGate>} />
             <Route path="kb" element={<MemberGate><Knowledge /></MemberGate>} />
+            <Route path="neila" element={<MemberGate><NeilaFeedback /></MemberGate>} />
             <Route path="monthly" element={<MemberGate><Monthly /></MemberGate>} />
             <Route path="products" element={<OwnerOnly><Products /></OwnerOnly>} />
             <Route path="demo" element={<OwnerOnly><Demo /></OwnerOnly>} />

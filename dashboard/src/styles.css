@@ -556,3 +556,18 @@ input,select,textarea{border-radius:12px}
 .entry-option small { display: block; color: var(--muted); }
 .entry-icon { display: grid; place-items: center; min-height: 36px; border-radius: 9px; background: #edf1fa; color: #16304f; font-weight: 750; }
 .entry-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+
+.neila-feedback-avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 10px; }
+.neila-feedback { max-width: 760px; }
+.neila-feedback h2 { margin-top: 0; }
+.neila-feedback-form { display: grid; gap: 16px; }
+.neila-feedback-form p { margin: 0; }
+.neila-feedback-form label { display: grid; gap: 6px; }
+.neila-feedback-form label span { font-weight: 650; }
+.neila-feedback-form button { justify-self: start; }
+.neila-feedback-controls { flex-wrap: wrap; margin-bottom: 16px; }
+.neila-feedback-results details { border-top: 1px solid var(--border); padding: 10px 0; }
+.neila-feedback-results summary { cursor: pointer; overflow-wrap: anywhere; }
+.neila-feedback-results dl { display: grid; gap: 10px; margin-bottom: 0; }
+.neila-feedback-results dt { font-weight: 650; }
+.neila-feedback-results dd { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
