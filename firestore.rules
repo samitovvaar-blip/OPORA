@@ -46,10 +46,17 @@ service cloud.firestore {
     // Онлайн и рабочее время сотрудника: пишет сам сотрудник (только свою карточку), смотрит владелец
     match /workspaces/{ws}/presence/{email} {
       allow read: if isOwner(ws) || (isMember(ws) && request.auth.token.email.lower() == email);
-      // пишет сам сотрудник или клиент этого кабинета (clientIndex/{email}.ws == ws) — только свою отметку
+      function canMarkClientPresence() {
+        let legacy = /databases/$(database)/documents/clientIndex/$(email);
+        let cid = request.resource.data.get("cid", "");
+        return verified() && ((cid is string && cid != ""
+          && isClient(get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(cid)).data))
+          || (cid == "" && exists(legacy) && get(legacy).data.ws == ws
+            && isClient(get(/databases/$(database)/documents/workspaces/$(ws)/clients/$(get(legacy).data.cid)).data)));
+      }
       allow write: if request.auth != null && request.auth.token.email.lower() == email
-        && (isMember(ws) || (verified() && get(/databases/$(database)/documents/clientIndex/$(email)).data.ws == ws))
-        && request.resource.data.keys().hasOnly(["lastSeen", "days"]);
+        && (isMember(ws) || canMarkClientPresence())
+        && request.resource.data.keys().hasOnly(["lastSeen", "days", "cid"]);
     }
 
     // Прогресс по курсам: сотрудник отмечает просмотренные уроки (только свои), смотрит владелец
@@ -91,6 +98,17 @@ service cloud.firestore {
       allow read: if verified() && request.auth.token.email.lower() == email;
       allow create: if request.auth != null && request.resource.data.ws == request.auth.uid;
       allow update, delete: if request.auth != null && resource.data.ws == request.auth.uid;
+    }
+    match /clientIndex/{email}/cabinetGrants/{id} {
+      allow read: if verified() && request.auth.token.email.lower() == email;
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(["ws", "cid"])
+        && request.resource.data.ws == request.auth.uid
+        && request.resource.data.cid is string
+        && id == request.auth.uid + "_" + request.resource.data.cid
+        && (resource == null || resource.data.ws == request.auth.uid);
+      allow delete: if request.auth != null
+        && (resource == null || resource.data.ws == request.auth.uid);
     }
     function isClient(data) {
       return verified() && data.clientOpen == true

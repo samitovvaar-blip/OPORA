@@ -1,7 +1,9 @@
+import { signOut } from "firebase/auth";
+import { auth } from "./lib/firebase";
 import NeylaLoading from "./components/NeylaLoading";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { modules } from "./lib/modules";
 import Layout from "./components/Layout";
@@ -30,10 +32,29 @@ const FIN = [{ to: "/pnl", label: "₽ P&L", el: <PnL /> }, { to: "/wallet", lab
 const ADM = [{ to: "/admin", label: "👥 Сотрудники", el: <AdminStaff /> }, { to: "/team-clients", label: "💼 Клиенты", el: <AdminClients /> }, { to: "/report", label: "📊 Отчётность", el: <Report /> }];
 import "./styles.css";
 
+function WorkspaceScreen() {
+  const { cabinets, chooseCabinet, clientOf, accessError } = useWorkspace();
+  const navigate = useNavigate();
+  if (accessError || (cabinets && !clientOf)) {
+    return <main className="card" style={{ maxWidth: 480, margin: "40px auto", padding: 24 }}>
+      <h2>{accessError ? "Не удалось загрузить кабинеты" : "Выберите кабинет"}</h2>
+      {accessError
+        ? <button onClick={() => location.reload()}>Повторить</button>
+        : <div style={{ display: "grid", gap: 8 }}>
+            {cabinets?.map((cabinet) => <button className="ghost" key={cabinet.ws + "/" + cabinet.cid} onClick={() => { chooseCabinet?.(cabinet); navigate("/", { replace: true }); }}>
+              {cabinet.name}
+            </button>)}
+          </div>}
+      <button className="ghost small" style={{ marginTop: 16 }} onClick={() => signOut(auth)}>Выйти</button>
+    </main>;
+  }
+  return <Layout />;
+}
+
 function Protected() {
   const { user, loading } = useAuth();
   if (loading) return <NeylaLoading text="Секунду, открываю кабинет" />;
-  return user ? <WorkspaceProvider><Layout /></WorkspaceProvider> : <Navigate to="/login" replace />;
+  return user ? <WorkspaceProvider key={user.uid}><WorkspaceScreen /></WorkspaceProvider> : <Navigate to="/login" replace />;
 }
 
 // Сотрудник видит только «Задания»

@@ -57,7 +57,7 @@ const MOBILE = ["/", "/tasks", "/projects", "/admin"];
 
 export default function Layout() {
   const { user } = useAuth();
-  const { isOwner, clientOf, student } = useWorkspace();
+  const { isOwner, clientOf, student, cabinets, chooseCabinet } = useWorkspace();
   const loc = useLocation();
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem("theme") || "light"; } catch { return "light"; } });
   const [more, setMore] = useState(false);
@@ -71,7 +71,7 @@ export default function Layout() {
   // вид кабинета клиента (товары / услуги) — сообщает кабинет, чтобы меню показывало нужные разделы
   const [biz, setBiz] = useState<string>(() => { try { return localStorage.getItem("opora-biz") || ""; } catch { return ""; } });
   useEffect(() => { const f = (e: Event) => setBiz((e as CustomEvent).detail || ""); addEventListener("opora-biz", f); return () => removeEventListener("opora-biz", f); }, []);
-  useEffect(() => !isOwner && !student && !demo && wsId && user?.email ? startPresence(wsId, user.email) : undefined, [isOwner, clientOf, wsId, user?.email]);   // сотрудник и клиент
+  useEffect(() => !isOwner && !student && !demo && wsId && user?.email ? startPresence(wsId, user.email, clientOf) : undefined, [isOwner, student, demo, clientOf, wsId, user?.email]);   // сотрудник и клиент
 
   const visible = student ? [{ id: "st", title: "", items: [{ to: "/", label: "Домашние задания", icon: "book" }, { to: "/kb", label: "Курсы", icon: "cap" }] }] : clientOf ? [{ id: "client", title: "", items: biz === "services"
     ? [{ to: "/?t=chome", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=cfin", label: "Финансы", icon: "money" }, { to: "/?t=ccli", label: "Клиенты", icon: "users" },
@@ -96,6 +96,7 @@ export default function Layout() {
     <div className="side-foot">
       <button className="ghost" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "☀ Светлая" : "☾ Тёмная"}</button>
       {clientOf && <div id="side-name" className="side-client" />}
+      {!!cabinets && cabinets.length > 1 && <button className="ghost" onClick={() => chooseCabinet?.(null)}>Сменить кабинет</button>}
       <div className="muted small">{user?.email}</div>
       <button className="ghost" onClick={() => signOut(auth)}>Выйти</button>
       <div className="muted small">версия {__BUILD__}</div>
@@ -124,6 +125,7 @@ export default function Layout() {
           setTimeout(() => b.classList.remove("spin"), 1700); }}><img src="spiral.png" alt="" /></button>
         <button className="navlink m-sec" title="Светлая / тёмная тема" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><span className="ni">{theme === "dark" ? "☀️" : "🌙"}</span></button>
         {isOwner && <button className={`navlink ${more ? "active" : ""}`} onClick={() => setMore(!more)}><span className="ni">☰</span>Ещё</button>}
+        {!!cabinets && cabinets.length > 1 && <button className="navlink" onClick={() => chooseCabinet?.(null)}>Кабинеты</button>}
         {!isOwner && <button className="navlink m-sec" title="Выйти" onClick={() => confirm("Выйти из кабинета?") && signOut(auth)}><span className="ni">⎋</span></button>}
       </nav>
       {more && <div className="msheet-back" onClick={() => setMore(false)}>

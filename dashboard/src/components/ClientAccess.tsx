@@ -1,3 +1,4 @@
+import { changeClientAccess } from "../lib/clientAccess";
 // Владелец: доступ клиента к кабинету, ссылка на P&L из таблицы, план на следующий месяц
 import { FormEvent, useEffect, useState } from "react";
 import { arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
@@ -17,13 +18,12 @@ export default function ClientAccess({ p, wsId }: { p: ClientProject; wsId: stri
 
   async function add(e: FormEvent) {
     e.preventDefault(); const v = email.trim().toLowerCase(); if (!v) return;
-    await updateDoc(ref, { clientEmails: arrayUnion(v) });
-    await setDoc(doc(db, "clientIndex", v), { ws: wsId, cid: p.id });
-    setEmail("");
+    try { await changeClientAccess(wsId, p.id, v, true); setEmail(""); }
+    catch { alert("Не удалось выдать доступ. Попробуй ещё раз."); }
   }
   async function remove(v: string) {
-    await updateDoc(ref, { clientEmails: arrayRemove(v) });
-    await deleteDoc(doc(db, "clientIndex", v)).catch(() => {});
+    try { await changeClientAccess(wsId, p.id, v, false); }
+    catch { alert("Не удалось отозвать доступ. Попробуй ещё раз."); }
   }
   const savePlan = (patch: object) => updateDoc(ref, { clientPlan: { ...plan, ...patch } });
 

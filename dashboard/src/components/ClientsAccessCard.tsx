@@ -1,5 +1,6 @@
+import { cabinetGrant, changeClientAccess } from "../lib/clientAccess";
 // Админка: клиенты с доступом к кабинету — почты, доступ, тариф и ближайшая оплата
-import { arrayUnion, collection, doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, onSnapshot, updateDoc, writeBatch } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { bdayText, seenText } from "./AccessCard";
 import { Link } from "react-router-dom";
@@ -14,6 +15,30 @@ export default function ClientsAccessCard() {
   const { list } = useClientProjects();
   const [pres, setPres] = useState<Record<string, { lastSeen?: any }>>({});
   useEffect(() => wsId ? onSnapshot(collection(db, "workspaces", wsId, "presence"), (s) => setPres(Object.fromEntries(s.docs.map((d) => [d.id, d.data() as any]))), () => {}) : undefined, [wsId]);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreMessage, setRestoreMessage] = useState("");
+  async function restoreGrants() {
+    if (!wsId || restoring) return;
+    setRestoring(true);
+    setRestoreMessage("");
+    try {
+      const grants = list.flatMap((project) =>
+        [...new Set(project.clientEmails ?? [])].map((email) => ({ email, cid: project.id })),
+      );
+      for (let offset = 0; offset < grants.length; offset += 400) {
+        const batch = writeBatch(db);
+        for (const { email, cid } of grants.slice(offset, offset + 400)) {
+          batch.set(cabinetGrant(email, wsId, cid), { ws: wsId, cid });
+        }
+        await batch.commit();
+      }
+      setRestoreMessage("Привязки существующих кабинетов обновлены.");
+    } catch {
+      setRestoreMessage("Не удалось обновить все привязки. Попробуй ещё раз.");
+    } finally {
+      setRestoring(false);
+    }
+  }
   const withAccess = list;   // все клиенты: у кого нет почты — можно выдать доступ прямо здесь
   const today = new Date(new Date().toDateString());
   const rows = withAccess.map((p) => {
@@ -24,6 +49,10 @@ export default function ClientsAccessCard() {
   return (
     <div className="card">
       <h3 style={{ marginTop: 0 }}>💼 Клиенты</h3>
+      {list.some((project) => project.clientEmails?.length) && <button type="button" className="ghost small" disabled={restoring} onClick={restoreGrants}>
+        {restoring ? "Обновляю доступы…" : "Обновить ранее выданные доступы"}
+      </button>}
+      {restoreMessage && <p role="status" className="small">{restoreMessage}</p>}
       {!rows.length && <div className="muted small">Пока ни у одного клиента нет доступа. Проекты → клиент → ⚙ → «Кабинет клиента» → почта клиента.</div>}
       {rows.map(({ p, nd, days }) => (
         <div key={p.id} className="adm-client">
@@ -34,7 +63,8 @@ export default function ClientsAccessCard() {
           </div>
           <form className="inline" style={{ margin: "4px 0" }} onSubmit={async (e) => { e.preventDefault(); const inp = e.currentTarget.elements.namedItem("em") as HTMLInputElement;
               const v = inp.value.trim().toLowerCase(); if (!v.includes("@")) return;
-              await updateDoc(doc(db, "workspaces", wsId!, "clients", p.id), { clientEmails: arrayUnion(v) }); await setDoc(doc(db, "clientIndex", v), { ws: wsId, cid: p.id }); inp.value = ""; }}>
+              try { await changeClientAccess(wsId!, p.id, v, true); inp.value = ""; }
+              catch { alert("Не удалось выдать доступ. Попробуй ещё раз."); } }}>
             <input name="em" type="email" placeholder="+ почта клиента для кабинета" style={{ flex: 1, minWidth: 180, padding: "4px 8px" }} /><button style={{ padding: "4px 10px" }}>Дать доступ</button></form>
           <div className="small muted">{(p.clientEmails || []).join(", ") || "почта не указана"} · {(() => { const ls = (p.clientEmails || []).map((e) => pres[e]?.lastSeen?.toDate?.() as Date | undefined).filter(Boolean) as Date[];
             const last = ls.length ? new Date(Math.max(...ls.map((x) => +x))) : undefined; const st = seenText(last); return <span className={st.online ? "ok" : ""}>{st.text.replace("заходил(а)", "заходил")}</span>; })()}</div>

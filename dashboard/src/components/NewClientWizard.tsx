@@ -1,7 +1,8 @@
 // Мастер подключения нового клиента: всё о клиенте собирается в одну карточку за 5 шагов.
 // 1 Клиент → 2 Ссылки → 3 Отчётность (таблица + скрипт + проверка) → 4 Доступ и тариф → 5 Готово
 import { useEffect, useState } from "react";
-import { addDoc, collection, doc, getDocs, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, doc, getDocs, serverTimestamp, writeBatch } from "firebase/firestore";
+import { cabinetGrant } from "../lib/clientAccess";
 import { auth, db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import { Flag, shown, STAGES } from "../lib/catalog";
@@ -37,6 +38,7 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
   const [payDay, setPayDay] = useState("");
   const [staff, setStaff] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [created, setCreated] = useState<string | null>(null);
 
   useEffect(() => { const u = auth.currentUser; if (!u) return;
@@ -66,7 +68,8 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
   }
 
   async function create() {
-    if (!wsId || !name.trim()) return;
+    if (!wsId || !name.trim() || saving) return;
+    setSaveError("");
     setSaving(true);
     const pr = products.find((x) => x.title === tariff);
     const list = emails.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter((x) => x.includes("@"));
@@ -76,9 +79,25 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
     if (biz === "goods" && pnlUrl) data.pnlUrl = pnlUrl;
     if (pr) data.tariff = { name: pr.title, price: Number(price) || pr.price, period: pr.period || "в месяц", payDay: payDay ? Number(payDay) : null,
       items: (pr.sections?.length ? pr.sections.flatMap((x) => x.items) : pr.includes) || [] };
-    const r = await addDoc(collection(db, "workspaces", wsId, "clients"), data);
-    await Promise.all(list.map((e) => setDoc(doc(db, "clientIndex", e), { ws: wsId, cid: r.id })));
-    setCreated(r.id); setSaving(false); setStep(4);
+    try {
+      const clientRef = doc(collection(db, "workspaces", wsId, "clients"));
+      const batch = writeBatch(db);
+      batch.set(clientRef, data);
+      for (const email of new Set(list)) {
+        batch.set(cabinetGrant(email, wsId, clientRef.id), { ws: wsId, cid: clientRef.id });
+      }
+      await batch.commit();
+      setCreated(clientRef.id);
+      setStep(4);
+    } catch (error) {
+      const denied = typeof error === "object" && error !== null
+        && "code" in error && error.code === "permission-denied";
+      setSaveError(denied
+        ? "Не удалось создать кабинет. Проверь, есть ли у тебя право создавать кабинеты."
+        : "Не удалось сохранить кабинет. Проверь подключение к интернету и попробуй ещё раз.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const invite = `Здравствуйте! Ваш кабинет ОПОРЫ готов 🌀\n\n1. Откройте ${location.origin}${location.pathname}\n2. Нажмите «Первый вход», введите почту ${emails.split(/[\s,;]+/)[0] || ""} и придумайте пароль\n3. Подтвердите почту по ссылке из письма — и заходите.\n\nВ кабинете: показатели, отчётность (ОПиУ, ДДС, аналитика), ход работы и план.`;
@@ -152,8 +171,9 @@ export default function NewClientWizard({ onClose, defaultName = "" }: { onClose
       </div>
     </>}
 
+    {step === 3 && saveError && <p role="alert">{saveError}</p>}
     <div className="row" style={{ marginTop: 14 }}>
-      <button type="button" className="ghost" onClick={step === 0 || step === 4 ? onClose : () => setStep(step - 1)}>{step === 0 ? "Отмена" : step === 4 ? "Закрыть" : "← Назад"}</button>
+      <button type="button" className="ghost" disabled={saving} onClick={step === 0 || step === 4 ? onClose : () => setStep(step - 1)}>{step === 0 ? "Отмена" : step === 4 ? "Закрыть" : "← Назад"}</button>
       {step < 3 && <button type="button" disabled={!can[step]} onClick={() => setStep(step + 1)}>Далее →</button>}
       {step === 3 && <button type="button" disabled={saving || !name.trim()} onClick={create}>{saving ? "Создаю…" : "✓ Создать клиента"}</button>}
     </div>
