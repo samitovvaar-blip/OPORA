@@ -1,6 +1,6 @@
-import { cabinetGrant, changeClientAccess } from "../lib/clientAccess";
+import { changeClientAccess, restoreClientGrants } from "../lib/clientAccess";
 // Админка: клиенты с доступом к кабинету — почты, доступ, тариф и ближайшая оплата
-import { collection, doc, onSnapshot, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { bdayText, seenText } from "./AccessCard";
 import { Link } from "react-router-dom";
@@ -22,16 +22,7 @@ export default function ClientsAccessCard() {
     setRestoring(true);
     setRestoreMessage("");
     try {
-      const grants = list.flatMap((project) =>
-        [...new Set(project.clientEmails ?? [])].map((email) => ({ email, cid: project.id })),
-      );
-      for (let offset = 0; offset < grants.length; offset += 400) {
-        const batch = writeBatch(db);
-        for (const { email, cid } of grants.slice(offset, offset + 400)) {
-          batch.set(cabinetGrant(email, wsId, cid), { ws: wsId, cid });
-        }
-        await batch.commit();
-      }
+      await restoreClientGrants(wsId);
       setRestoreMessage("Привязки существующих кабинетов обновлены.");
     } catch {
       setRestoreMessage("Не удалось обновить все привязки. Попробуй ещё раз.");

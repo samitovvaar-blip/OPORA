@@ -41,13 +41,13 @@ const JOKES = ["Деньги любят счёт. А я люблю ваши от
 const DEPT_NAMES = ["1. Производственный отдел", "2. Отдел продаж", "3. Отдел маркетинга", "4. Админ-хоз отдел и Руководство", "5. Финансовый отдел"];
 
 export default function ClientPortal() {
-  const { wsId, clientOf, isOwner } = useWorkspace();
+  const { wsId, clientOf, isOwner, clientProject } = useWorkspace();
   const { user } = useAuth();
   // staffView — сотрудник смотрит кабинет своего клиента (только чтение)
   const staffView = !isOwner && !clientOf;
   const preview = isOwner || staffView;
   const cid = preview ? new URLSearchParams(location.hash.split("?")[1]).get("p") : clientOf;
-  const [p, setP] = useState<ClientProject | null>(null);
+  const [p, setP] = useState<ClientProject | null>(clientProject ?? null);
   const [err, setErr] = useState("");
   const [neySub, setNeySub] = useState<"advice" | "help" | "sheet">("advice");
   const [tab, setTab] = useState<"work" | "rep" | "dash" | "plan" | "op" | "neyla" | "chome" | "cfin" | "ccli" | "cstaff" | "cprod" | "ctips">("dash");

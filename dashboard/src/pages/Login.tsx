@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword } from "firebase/auth";
 import { Navigate } from "react-router-dom";
 import { auth } from "../lib/firebase";
+import NeylaLoading from "../components/NeylaLoading";
 import { useAuth } from "../lib/auth";
 
 export default function Login() {
@@ -12,6 +13,7 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [signup, setSignup] = useState(false);
   if (user) return <Navigate to="/" replace />;
+  if (busy) return <NeylaLoading text="Вхожу в ОПОРУ" />;
 
   async function submit(e: FormEvent) {
     e.preventDefault(); setErr(""); setBusy(true);
@@ -34,7 +36,7 @@ export default function Login() {
         <input type="email" placeholder="Почта" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <input type="password" placeholder="Пароль" value={pw} onChange={(e) => setPw(e.target.value)} required />
         {err && <div className="error">{err}</div>}
-        <button disabled={busy}>{busy ? <img src="spiral.png" alt="" className="loader-spiral btn-spiral" /> : signup ? "Создать пароль и войти" : "Войти"}</button>
+        <button>{signup ? "Создать пароль и войти" : "Войти"}</button>
         <button type="button" className="ghost" onClick={() => setSignup(!signup)}>
           {signup ? "У меня уже есть пароль" : "Первый вход"}
         </button>

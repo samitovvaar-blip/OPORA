@@ -33,8 +33,9 @@ const ADM = [{ to: "/admin", label: "👥 Сотрудники", el: <AdminStaff
 import "./styles.css";
 
 function WorkspaceScreen() {
-  const { choices, picking, selectAccess, accessError } = useWorkspace();
+  const { choices, picking, selectAccess, accessError, ready } = useWorkspace();
   const navigate = useNavigate();
+  if (!ready) return <NeylaLoading text="Проверяю доступы" />;
   if (accessError || picking) {
     return <main className="entry-picker">
       <div className="entry-brand"><img src="logo.png" alt="" />ОПОРА</div>
