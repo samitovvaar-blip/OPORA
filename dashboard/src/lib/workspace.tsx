@@ -3,6 +3,7 @@ import { collection, doc, getDoc, getDocs, onSnapshot, query, setDoc, where } fr
 import type { ClientProject } from "./catalog";
 import { restoreClientGrants } from "./clientAccess";
 import { db } from "./firebase";
+import { rememberAccess, restoredAccess } from "./activeAccess";
 import { useAuth } from "./auth";
 
 const OWNER = ((import.meta.env.VITE_OWNER_EMAIL as string) || "").trim().toLowerCase();
@@ -105,7 +106,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [state, setState] = useState<Ctx>(LOADING);
   const [choices, setChoices] = useState<Access[]>([]);
-  const [selected, selectAccess] = useState<Access | null>(null);
+  const [selected, setSelected] = useState<Access | null>(null);
   const workspaceId = selected && selected.role !== "client" ? selected.ws : null;
   const [selectedWorkspace, setSelectedWorkspace] = useState<{ id: string; ws: Workspace | null } | null>(null);
 
@@ -116,7 +117,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     let unsub = () => {};
     setState(LOADING);
     setChoices([]);
-    selectAccess(null);
+    setSelected(null);
 
     function openOwnerWorkspace(uid: string) {
       const ref = doc(db, "workspaces", uid);
@@ -153,7 +154,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           return;
         }
         setChoices(access.choices);
-        selectAccess(access.choices.length === 1 ? access.choices[0] : null);
+        setSelected(restoredAccess(user.uid, access.choices));
         setState(NONE);
       } catch {
         if (!cancelled) setState({ ...NONE, accessError: true });
@@ -173,7 +174,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   if (choices.length) {
     const workspaceLoaded = selectedWorkspace?.id === workspaceId;
     value = {
-      ...state, choices, selectAccess, picking: !selected,
+      ...state, choices, picking: !selected,
+      selectAccess: (choice) => {
+        if (user) rememberAccess(user.uid, choice);
+        setSelected(choice);
+      },
       wsId: selected?.ws ?? null,
       ws: workspaceLoaded ? selectedWorkspace?.ws ?? null : null,
       ready: state.ready && (!workspaceId || workspaceLoaded),

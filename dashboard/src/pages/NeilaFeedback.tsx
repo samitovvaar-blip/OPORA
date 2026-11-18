@@ -67,23 +67,26 @@ function WeeklySurvey({ wsId, role, week, email }: { wsId: string; role: Role; w
   const [answers, setAnswers] = useState(blank);
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [readError, setReadError] = useState(false);
+  const [readError, setReadError] = useState("");
+  const [retry, setRetry] = useState(0);
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => onSnapshot(doc(feedbackResponses(wsId, week, role), email), (snapshot) => {
     setSent(snapshot.exists());
     setLoading(false);
-    setReadError(false);
-  }, () => {
-    setReadError(true);
+    setReadError("");
+  }, (error) => {
+    setReadError(error.code === "permission-denied"
+      ? "Отправка пока недоступна. Попроси владельца проверить правила Firestore для «Нейлы»."
+      : "Не удалось проверить отправку опроса. Проверь подключение и попробуй ещё раз.");
     setLoading(false);
-  }), [wsId, week, role, email]);
+  }), [wsId, week, role, email, retry]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     const values = answers.map((answer) => answer.trim());
-    if (loading || saving || sent || values.some((answer) => !answer)) return;
+    if (loading || readError || saving || sent || values.some((answer) => !answer)) return;
     if (week !== feedbackPeriod().week) {
       setSaveError("Уже началась новая неделя. Обнови страницу, чтобы открыть новый опрос.");
       return;
@@ -107,10 +110,15 @@ function WeeklySurvey({ wsId, role, week, email }: { wsId: string; role: Role; w
   return <section className="card neila-feedback">
     <h2>Опрос недели</h2>
     <p className="muted">{weekLabel(week)}</p>
-    {loading ? <NeylaLoading text="Проверяю опрос недели" />
-      : readError ? <p role="alert">Не удалось открыть опрос. Обнови страницу или задай вопрос в Telegram.</p>
-      : sent ? <p role="status">Спасибо! Ответы за эту неделю отправлены. Новый опрос откроется в понедельник.</p>
-      : <form className="neila-feedback-form" onSubmit={submit}>
+    {loading && <p className="muted" role="status">Проверяю, отправлялся ли опрос…</p>}
+    {readError && <div role="alert">
+      <p>{readError}</p>
+      <button type="button" className="ghost" onClick={() => { setLoading(true); setReadError(""); setRetry((attempt) => attempt + 1); }}>Проверить ещё раз</button>
+    </div>}
+    {sent ? <>
+        <p role="status">Спасибо! Ответы за эту неделю отправлены. Новый опрос откроется в понедельник.</p>
+        <SurveyQuestions role={role} />
+      </> : <form className="neila-feedback-form" onSubmit={submit}>
         <p>Ответы видит владелец рабочего пространства.</p>
         {prompts[role].map((prompt, index) => (
           <label key={prompt}>
@@ -131,9 +139,16 @@ function WeeklySurvey({ wsId, role, week, email }: { wsId: string; role: Role; w
           </label>
         ))}
         {saveError && <p className="error" role="alert">{saveError}</p>}
-        <button disabled={saving || answers.some((answer) => !answer.trim())}>{saving ? "Отправляю…" : "Отправить ответы"}</button>
+        <button disabled={loading || !!readError || saving || answers.some((answer) => !answer.trim())}>{saving ? "Отправляю…" : "Отправить ответы"}</button>
       </form>}
   </section>;
+}
+
+function SurveyQuestions({ role }: { role: Role }) {
+  return <div>
+    <h3>Вопросы опроса</h3>
+    <ol>{prompts[role].map((prompt) => <li key={prompt}>{prompt}</li>)}</ol>
+  </div>;
 }
 
 function FeedbackResults({ wsId, current }: { wsId: string; current: string }) {
@@ -152,6 +167,7 @@ function FeedbackResults({ wsId, current }: { wsId: string; current: string }) {
       <button className="ghost" aria-label="Следующая неделя" disabled={week >= current}
         onClick={() => { const next = offsetWeek(week, 1); setSelectedWeek(next >= current ? null : next); }}>→</button>
     </div>
+    <SurveyQuestions role={role} />
     <ResponseList key={week + "/" + role} wsId={wsId} week={week} role={role} />
   </section>;
 }
