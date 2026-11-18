@@ -57,7 +57,7 @@ const MOBILE = ["/", "/tasks", "/projects", "/admin"];
 
 export default function Layout() {
   const { user } = useAuth();
-  const { isOwner, clientOf, student, cabinets, chooseCabinet, role, chooseRole } = useWorkspace();
+  const { isOwner, clientOf, student, choices, selectAccess } = useWorkspace();
   const loc = useLocation();
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem("theme") || "light"; } catch { return "light"; } });
   const [more, setMore] = useState(false);
@@ -96,8 +96,7 @@ export default function Layout() {
     <div className="side-foot">
       <button className="ghost" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "☀ Светлая" : "☾ Тёмная"}</button>
       {clientOf && <div id="side-name" className="side-client" />}
-      {!!cabinets && cabinets.length > 1 && <button className="ghost" onClick={() => chooseCabinet?.(null)}>Сменить кабинет</button>}
-      {role && <button className="ghost" onClick={() => chooseRole?.(null)}>Сменить роль</button>}
+      {(choices?.length ?? 0) > 1 && <button className="ghost" onClick={() => selectAccess?.(null)}>Сменить кабинет</button>}
       <div className="muted small">{user?.email}</div>
       <button className="ghost" onClick={() => signOut(auth)}>Выйти</button>
       <div className="muted small">версия {__BUILD__}</div>
@@ -126,8 +125,7 @@ export default function Layout() {
           setTimeout(() => b.classList.remove("spin"), 1700); }}><img src="spiral.png" alt="" /></button>
         <button className="navlink m-sec" title="Светлая / тёмная тема" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><span className="ni">{theme === "dark" ? "☀️" : "🌙"}</span></button>
         {isOwner && <button className={`navlink ${more ? "active" : ""}`} onClick={() => setMore(!more)}><span className="ni">☰</span>Ещё</button>}
-        {!!cabinets && cabinets.length > 1 && <button className="navlink" onClick={() => chooseCabinet?.(null)}>Кабинеты</button>}
-        {role && <button className="navlink m-sec" aria-label="Сменить роль" title="Сменить роль" onClick={() => chooseRole?.(null)}><span className="ni">⇄</span></button>}
+        {(choices?.length ?? 0) > 1 && <button className="navlink m-sec" aria-label="Сменить кабинет" title="Сменить кабинет" onClick={() => selectAccess?.(null)}><span className="ni">⇄</span></button>}
         {!isOwner && <button className="navlink m-sec" title="Выйти" onClick={() => confirm("Выйти из кабинета?") && signOut(auth)}><span className="ni">⎋</span></button>}
       </nav>
       {more && <div className="msheet-back" onClick={() => setMore(false)}>

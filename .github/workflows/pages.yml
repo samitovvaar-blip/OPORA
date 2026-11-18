@@ -30,7 +30,6 @@ jobs:
       VITE_FIREBASE_APP_ID: 1:636220497751:web:2bb666f7270141fc692812
       VITE_CRM_API_URL: ""
       VITE_OWNER_EMAIL: ${{ vars.OWNER_EMAIL }}
-      VITE_TEST_ACCOUNT_HASH: ${{ vars.TEST_ACCOUNT_HASH || '7effc9c72934fd3fff5e66ca433947fa139f311833cac570f8eda19063031184' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

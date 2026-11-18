@@ -33,40 +33,29 @@ const ADM = [{ to: "/admin", label: "👥 Сотрудники", el: <AdminStaff
 import "./styles.css";
 
 function WorkspaceScreen() {
-  const { cabinets, chooseCabinet, clientOf, accessError, roles, role, chooseRole } = useWorkspace();
+  const { choices, picking, selectAccess, accessError } = useWorkspace();
   const navigate = useNavigate();
-  const pickingRole = !!roles?.length && !role;
-  const pickingCabinet = !!cabinets?.length && !clientOf;
-  const openHome = () => navigate("/", { replace: true });
-  if (accessError || pickingRole || pickingCabinet) {
-    const details = { client: "Отчётность и ход работы", staff: "Задания и база знаний", student: "Курсы и домашние задания" };
+  if (accessError || picking) {
     return <main className="entry-picker">
       <div className="entry-brand"><img src="logo.png" alt="" />ОПОРА</div>
       <section className="card">
-        <h1>{accessError ? "Не удалось загрузить кабинеты" : pickingRole ? "Как войти?" : "Выбери кабинет"}</h1>
+        <h1>{accessError ? "Не удалось загрузить доступы" : "Куда войти?"}</h1>
         {accessError ? <button onClick={() => location.reload()}>Повторить</button>
-          : <>
-            <p className="muted">{pickingRole ? "Выбери роль для входа с тестового аккаунта." : "Выбери клиентский кабинет, который хочешь открыть."}</p>
-            <div className="entry-options">
-              {pickingRole ? roles?.map((item) => (
-                <button className="ghost entry-option" key={item} onClick={() => { chooseRole?.(item); openHome(); }}>
-                  <span className="entry-icon" aria-hidden="true">{ROLE_LABELS[item][0]}</span>
-                  <span><b>{ROLE_LABELS[item]}</b><small>{details[item]}</small></span>
-                  <span aria-hidden="true">›</span>
-                </button>
-              )) : cabinets?.map((cabinet) => (
-                <button className="ghost entry-option" key={cabinet.ws + "/" + cabinet.cid} onClick={() => { chooseCabinet?.(cabinet); openHome(); }}>
-                  <span className="entry-icon" aria-hidden="true">{cabinet.name[0]}</span>
-                  <span><b>{cabinet.name}</b>{cabinet.detail && <small>{cabinet.detail}</small>}</span>
-                  <span aria-hidden="true">›</span>
-                </button>
-              ))}
-            </div>
-          </>}
-        <div className="entry-actions">
-          {pickingCabinet && chooseRole && <button className="ghost" onClick={() => chooseRole(null)}>← К выбору роли</button>}
-          <button className="ghost" onClick={() => signOut(auth)}>Выйти</button>
-        </div>
+          : <div className="entry-options">
+            {choices?.map((choice) => {
+              const label = ROLE_LABELS[choice.role];
+              const title = choice.role === "client" ? choice.name : label;
+              const detail = choice.role === "client" ? `${label} · ${choice.detail}` : choice.name;
+              const key = choice.role === "client" ? choice.cid : "";
+              return <button className="ghost entry-option" key={choice.role + "/" + choice.ws + "/" + key}
+                onClick={() => { selectAccess?.(choice); navigate("/", { replace: true }); }}>
+                <span className="entry-icon" aria-hidden="true">{label[0]}</span>
+                <span><b>{title}</b>{detail && <small>{detail}</small>}</span>
+                <span aria-hidden="true">›</span>
+              </button>;
+            })}
+          </div>}
+        <div className="entry-actions"><button className="ghost" onClick={() => signOut(auth)}>Выйти</button></div>
       </section>
     </main>;
   }
