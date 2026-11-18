@@ -571,3 +571,22 @@ input,select,textarea{border-radius:12px}
 .neila-feedback-results dl { display: grid; gap: 10px; margin-bottom: 0; }
 .neila-feedback-results dt { font-weight: 650; }
 .neila-feedback-results dd { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.neila-telegram {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 52px;
+  padding: 12px 24px; border-radius: 14px; background: var(--brand-orange);
+  color: var(--brand-navy); text-decoration: none; font-size: 1.1rem; font-weight: 750;
+}
+.neila-telegram:hover { background: var(--brand-lav); color: var(--brand-navy); }
+.neila-telegram:focus-visible, .feedback-reminder :focus-visible { outline: 3px solid var(--brand-orange); outline-offset: 3px; }
+.feedback-reminder {
+  position: fixed; z-index: 41; bottom: 24px; right: 24px; display: flex; align-items: flex-start; gap: 12px;
+  width: min(360px, calc(100% - 32px)); padding: 14px 12px; border: 1px solid var(--brand-lav);
+  border-radius: 16px; background: var(--brand-navy); color: white; box-shadow: 0 8px 24px #16304f3b;
+}
+.feedback-reminder img { width: 42px; height: 42px; object-fit: cover; border-radius: 50%; }
+.feedback-reminder a { display: inline-block; margin-top: 6px; color: white; font-weight: 650; text-decoration: underline; }
+.feedback-reminder button { margin-left: auto; min-width: 36px; padding: 4px; background: transparent; color: white; font-size: 1.35rem; }
+@media (max-width: 900px) {
+  .feedback-reminder { right: 16px; bottom: calc(96px + env(safe-area-inset-bottom)); }
+}

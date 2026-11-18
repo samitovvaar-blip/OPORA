@@ -10,6 +10,7 @@ import { useWorkspace } from "../lib/workspace";
 import PullToRefresh from "./PullToRefresh";
 import { startPresence } from "../lib/presence";
 import InstallHint from "./InstallHint";
+import FeedbackReminder from "./FeedbackReminder";
 
 interface Item { to: string; label: string; icon: string; staff?: boolean; staffOnly?: boolean; }
 interface Group { id: string; title: string; items: Item[]; }
@@ -31,7 +32,7 @@ const groups = (): Group[] => [
   { id: "ref", title: "Справочник", items: [
     { to: "/products", label: "Продукты", icon: "box" },
     { to: "/kb", label: "База знаний", icon: "cap", staff: true },
-    { to: "/neila", label: "Neila", icon: "neyla", staff: true },
+    { to: "/neila", label: "Нейла", icon: "neyla", staff: true },
     { to: "/admin", label: "Админка", icon: "gear" },
   ] },
 ];
@@ -49,7 +50,7 @@ const ownerGroups = (): Group[] => [
     ...modules.filter((m) => m.path !== "leads").map((m) => ({ to: "/" + m.path, label: m.title, icon: m.icon })),
     { to: "/products", label: "Продукты", icon: "box" },
     { to: "/kb", label: "База знаний", icon: "cap" },
-    { to: "/neila", label: "Neila", icon: "neyla" },
+    { to: "/neila", label: "Нейла", icon: "neyla" },
     { to: "/demo", label: "Демонстрация", icon: "spark" },
   ] },
 ];
@@ -75,7 +76,7 @@ export default function Layout() {
   useEffect(() => { const f = (e: Event) => setBiz((e as CustomEvent).detail || ""); addEventListener("opora-biz", f); return () => removeEventListener("opora-biz", f); }, []);
   useEffect(() => !isOwner && !student && !demo && wsId && user?.email ? startPresence(wsId, user.email, clientOf) : undefined, [isOwner, student, demo, clientOf, wsId, user?.email]);   // сотрудник и клиент
 
-  const visible = student ? [{ id: "st", title: "", items: [{ to: "/", label: "Домашние задания", icon: "book" }, { to: "/kb", label: "Курсы", icon: "cap" }, { to: "/neila", label: "Neila", icon: "neyla" }] }] : clientOf ? [{ id: "client", title: "", items: (clientProject ? clientProject.bizType : biz) === "services"
+  const visible = student ? [{ id: "st", title: "", items: [{ to: "/", label: "Домашние задания", icon: "book" }, { to: "/kb", label: "Курсы", icon: "cap" }, { to: "/neila", label: "Нейла", icon: "neyla" }] }] : clientOf ? [{ id: "client", title: "", items: (clientProject ? clientProject.bizType : biz) === "services"
     ? [{ to: "/?t=chome", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=cfin", label: "Финансы", icon: "money" }, { to: "/?t=ccli", label: "Клиенты", icon: "users" },
       { to: "/?t=cstaff", label: "Сотрудники", icon: "case" }, { to: "/?t=cprod", label: "Продукты", icon: "box" }, { to: "/?t=ctips", label: "Нейла", icon: "neyla" }]
     : [{ to: "/?t=dash", label: "Мой кабинет", icon: "spiral" }, { to: "/?t=rep", label: "Отчётность", icon: "book" },
@@ -133,6 +134,7 @@ export default function Layout() {
       {more && <div className="msheet-back" onClick={() => setMore(false)}>
         <div className="msheet" onClick={(e) => e.stopPropagation()}>{menu}{foot}</div></div>}
       <main className="main"><PullToRefresh /><InstallHint /><Outlet /></main>
+      {(student || (!isOwner && !clientOf)) && <FeedbackReminder />}
     </div>
   );
 }

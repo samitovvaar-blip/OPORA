@@ -4,9 +4,9 @@ import { useAuth } from "../lib/auth";
 import { db } from "../lib/firebase";
 import { useWorkspace } from "../lib/workspace";
 import NeylaLoading from "../components/NeylaLoading";
+import { FeedbackRole as Role, feedbackPeriod, feedbackResponses, useFeedbackPeriod } from "../lib/feedback";
 import { SUPPORT_URL } from "../components/ServiceCrm";
 
-type Role = "staff" | "student";
 const prompts: Record<Role, string[]> = {
   staff: [
     "Насколько тебя устраивает оплата за текущую работу?",
@@ -29,17 +29,6 @@ const ratings = {
 };
 const workloads = ["Мало", "В самый раз", "Много"];
 const blank = ["", "", "", "", ""];
-const moscow = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Moscow", year: "numeric", month: "numeric", day: "numeric" });
-
-function monday() {
-  const parts = moscow.formatToParts(new Date());
-  const part = (type: string) => Number(parts.find((item) => item.type === type)?.value);
-  // Календарная дата по Москве, с арифметикой дней в UTC.
-  const date = new Date(Date.UTC(part("year"), part("month") - 1, part("day")));
-  date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7);
-  return date.toISOString().slice(0, 10);
-}
-
 function offsetWeek(date: string, weeks: number) {
   const value = new Date(date + "T00:00:00Z");
   value.setUTCDate(value.getUTCDate() + weeks * 7);
@@ -55,24 +44,17 @@ function weekLabel(date: string) {
   return format(date) + " — " + format(end.toISOString().slice(0, 10));
 }
 
-const responses = (ws: string, week: string, role: Role) =>
-  collection(db, "workspaces", ws, "feedbackWeeks", week, "roles", role, "responses");
-
 export default function NeilaFeedback() {
   const { wsId, isOwner, student, ws } = useWorkspace();
   const { user } = useAuth();
-  const [week, setWeek] = useState(monday);
-  useEffect(() => {
-    const timer = setInterval(() => setWeek(monday()), 30_000);
-    return () => clearInterval(timer);
-  }, []);
+  const { week } = useFeedbackPeriod();
   if (!wsId || !user?.email) return null;
   if (!isOwner && !student && ws?.open !== true) return <div className="card">Доступ закрыт владельцем.</div>;
   const role = student ? "student" : "staff";
   return (
     <>
-      <h1><img className="neila-feedback-avatar" src="neyla.jpg" alt="" />Neila</h1>
-      {!isOwner && <p><a className="linkbtn" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">Задать вопрос</a></p>}
+      <h1><img className="neila-feedback-avatar" src="neyla.jpg" alt="" />Нейла</h1>
+      {!isOwner && <p><a className="neila-telegram" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">Задать вопрос</a></p>}
       {isOwner
         ? <FeedbackResults key={wsId} wsId={wsId} current={week} />
         : <WeeklySurvey key={wsId + "/" + role + "/" + week} wsId={wsId} role={role}
@@ -89,7 +71,7 @@ function WeeklySurvey({ wsId, role, week, email }: { wsId: string; role: Role; w
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => onSnapshot(doc(responses(wsId, week, role), email), (snapshot) => {
+  useEffect(() => onSnapshot(doc(feedbackResponses(wsId, week, role), email), (snapshot) => {
     setSent(snapshot.exists());
     setLoading(false);
     setReadError(false);
@@ -102,14 +84,14 @@ function WeeklySurvey({ wsId, role, week, email }: { wsId: string; role: Role; w
     event.preventDefault();
     const values = answers.map((answer) => answer.trim());
     if (loading || saving || sent || values.some((answer) => !answer)) return;
-    if (week !== monday()) {
+    if (week !== feedbackPeriod().week) {
       setSaveError("Уже началась новая неделя. Обнови страницу, чтобы открыть новый опрос.");
       return;
     }
     setSaving(true);
     setSaveError("");
     try {
-      const ref = doc(responses(wsId, week, role), email);
+      const ref = doc(feedbackResponses(wsId, week, role), email);
       await runTransaction(db, async (transaction) => {
         if ((await transaction.get(ref)).exists()) return;
         transaction.set(ref, { answers: values, submittedAt: serverTimestamp() });
@@ -177,11 +159,11 @@ function FeedbackResults({ wsId, current }: { wsId: string; current: string }) {
 function ResponseList({ wsId, week, role }: { wsId: string; week: string; role: Role }) {
   const [rows, setRows] = useState<{ email: string; answers: string[] }[] | null>(null);
   const [error, setError] = useState(false);
-  useEffect(() => onSnapshot(responses(wsId, week, role), (snapshot) => {
+  useEffect(() => onSnapshot(feedbackResponses(wsId, week, role), (snapshot) => {
     setRows(snapshot.docs.map((item) => ({ email: item.id, answers: item.data().answers as string[] })));
     setError(false);
   }, () => setError(true)), [wsId, week, role]);
-  if (error) return <p role="alert">Ответы недоступны. Проверь, опубликованы ли правила Firestore для Neila.</p>;
+  if (error) return <p role="alert">Ответы недоступны. Проверь, опубликованы ли правила Firestore для вкладки «Нейла».</p>;
   if (!rows) return <NeylaLoading text="Загружаю ответы" />;
   if (!rows.length) return <p className="muted">За эту неделю ответов пока нет.</p>;
   return <div className="neila-feedback-results">
