@@ -1,3 +1,5 @@
+import ProjectHistoryImport from "./ProjectHistoryImport";
+import { calculateLtv as ltvOf, type HistoryMove } from "../lib/projectHistory";
 import PayCalendar from "./PayCalendar";
 import { useTrialData } from "../lib/trialData";
 import NeylaHeader from "./NeylaHeader";
@@ -5,7 +7,7 @@ import NeylaHeader from "./NeylaHeader";
 // Хранится в workspaces/{ws}/clients/{cid}/crm (kind: product | client | project | move). Ведёт сам клиент, владелец видит.
 // Если к кабинету привязана Google-таблица (p.crmSheet), после каждого изменения всё переписывается в листы «ПРИЛОЖЕНИЕ …».
 import { FormEvent, Fragment, useEffect, useRef, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { rub } from "../lib/money";
 import { ClientProject } from "../lib/catalog";
@@ -105,11 +107,6 @@ function StatusBtns({ cur, onPick, pad = "0 14px 10px", onStart }: { cur?: strin
       style={{ background: cur === k ? c : "transparent", color: cur === k ? "#fff" : c, border: `1.5px solid ${c}`, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>
       {cur === k ? "✓ " : ""}{k}</button>)}{onStart && <button type="button" onClick={(e) => { e.stopPropagation(); onStart(); }} style={{ background: "#16a34a", color: "#fff", border: "1.5px solid #16a34a", borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>▶ Начали работу</button>}</div>;
 }
-// LTV: сколько клиент принёс за всё время (все оплаты по его проектам) и сколько месяцев платит
-const ltvOf = (moves: { type: string; projectId?: string; amount: number; date: string }[], pids: string[]) => {
-  const pay = moves.filter((m) => m.type === "in" && m.projectId && pids.includes(m.projectId));
-  return { sum: pay.reduce((a, m) => a + m.amount, 0), months: new Set(pay.map((m) => m.date.slice(0, 7))).size };
-};
 // продукты проекта: несколько (productIds) или старое одно поле productId
 const pids = (x: { productId?: string; productIds?: string[] }) => x.productIds || (x.productId ? [x.productId] : []);
 const ST: Record<Status, string> = { new: "🆕 новый", work: "🛠 в работе", done: "✓ сдан" };
@@ -155,7 +152,10 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner, canEditCalen
     const lastMk = Number(t.slice(8)) >= (pr.payDay || 1) ? mkOf(t) : shift(mkOf(t), -1);
     while (k <= lastMk && out.length < 120) { out.push(k); k = shift(k, 1); } return out; };
   const expectedOf = (pr: CProject) => pr.monthly ? pr.price * monthsOf(pr).length : pr.price;
-  const debt = (pr: CProject) => pr.status === "done" && pr.monthly ? 0 : Math.max(0, expectedOf(pr) - paidOf(pr.id));
+  const paidForBilling = (pr: CProject) => !pr.monthly ? paidOf(pr.id) : moves
+    .filter((move) => move.type === "in" && move.projectId === pr.id && mkOf(move.date) >= mkOf(pr.start))
+    .reduce((sum, move) => sum + move.amount, 0);
+  const debt = (pr: CProject) => pr.status === "done" && pr.monthly ? 0 : Math.max(0, expectedOf(pr) - paidForBilling(pr));
   const cname = (id: string) => clients.find((c) => c.id === id)?.name || "—";
   const pname = (id?: string) => { const x = projects.find((y) => y.id === id); return x ? cname(x.clientId) + " · " + x.name : ""; };
   const sumM = (k: string, t: "in" | "out") => moves.filter((m) => mkOf(m.date) === k && m.type === t).reduce((a, m) => a + m.amount, 0);
@@ -173,6 +173,39 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner, canEditCalen
     if (trialData) return trialData.updateCrm(id, data);
     touch(); return updateDoc(doc(col!, id), data).catch((e) => alert("Не сохранилось: " + e.message));
   };
+
+  async function importHistory(projectId: string, rows: HistoryMove[]) {
+    const signature = (row: HistoryMove) => JSON.stringify([row.type, row.date, row.amount,
+      row.account.trim().toLowerCase(), row.note.trim().replace(/\s+/g, " ").toLowerCase()]);
+    const existing = new Set(moves.filter((move) => move.projectId === projectId).map((move) =>
+      signature({ ...move, account: move.account || ACCOUNTS[0], note: move.note || "" })));
+    const unique = new Map(rows.map((row) => [signature(row), row]));
+    const fresh = [...unique].filter(([key]) => !existing.has(key));
+    const payload = (row: HistoryMove) => ({ ...row, account: row.account.trim(), projectId, kind: "move",
+      category: row.type === "in" ? "Оплата проекта" : "Расходы по проекту" });
+    if (!fresh.length) return 0;
+    if (trialData) {
+      if (trialData.locked) throw new Error("Демо закрыто для редактирования");
+      const result = await Promise.all(fresh.map(([, row]) => trialData.addCrm(payload(row))));
+      if (result.some((entry) => !entry)) throw new Error("Демо закрыто для редактирования");
+      return result.length;
+    }
+    const docs = await Promise.all(fresh.map(async ([key, row]) => {
+      const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(projectId + "|" + key));
+      const id = Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
+      return { ref: doc(col!, "history-" + id), data: payload(row) };
+    }));
+    const saved = await runTransaction(db, async (tx) => {
+      const snapshots = await Promise.all(docs.map(({ ref }) => tx.get(ref)));
+      let count = 0;
+      docs.forEach(({ ref, data }, index) => {
+        if (!snapshots[index].exists()) { tx.set(ref, data); count++; }
+      });
+      return count;
+    });
+    if (saved) touch();
+    return saved;
+  }
 
   // ── выгрузка в Google-таблицу клиента (скрипт pnl.gs, doPost) ──
   const push = () => {
@@ -230,12 +263,12 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner, canEditCalen
   const neylaLines = [
     incPrev ? (incNow >= incPrev ? `Выручка уже ${rub(incNow)} — это ${Math.round(incNow / incPrev * 100)}% от прошлого месяца 💪` : `Выручка пока ${rub(incNow)}, в прошлом месяце было ${rub(incPrev)}. Догоним!`) : `Выручка за месяц: ${rub(incNow)}.`,
     profNow < 0 ? `Пока месяц в минусе на ${rub(-profNow)}. Проверь расходы — может, что-то можно сдвинуть.` : `Чистая прибыль месяца: ${rub(profNow)} ✨`,
-    (() => { const n = projects.filter((x) => x.status !== "done" && x.monthly && paidOf(x.id) < expectedOf(x)).length; return n ? `${n} проект(а) ещё не оплатили — загляни в «Проекты».` : "Все проекты оплачены — красота!"; })(),
+    (() => { const n = projects.filter((x) => x.status !== "done" && x.monthly && debt(x) > 0).length; return n ? `${n} проект(а) ещё не оплатили — загляни в «Проекты».` : "Все проекты оплачены — красота!"; })(),
     (() => { const n = clients.filter((c) => (c.status || "Ждёт обработку") === "Ждёт обработку" && !projects.some((p) => p.clientId === c.id && p.status !== "done")).length; return n ? `${n} лид(ов) ждут обработки. Один звонок — и может быть новый проект 📞` : ""; })(),
   ].filter(Boolean);
   // обучение: при первом входе клиента (и по кнопке в «Рекомендациях»)
   const fab = <>{tour == null ? <><NeylaFab lines={neylaLines} />{!isOwner && <RecommendPopup id={p.id} from={p.name} />}</> : <TourCard n={tour} steps={TOUR} go={goTour} />}</>;
-  if (view === "clients") return <>{fab}<ClientsTab {...{ del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} /></>;
+  if (view === "clients") return <>{fab}<ClientsTab importHistory={importHistory} historyDisabled={!!trialData?.locked} {...{ paidForBilling, del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }} /></>;
   if (view === "products") return <>{fab}<ProductsTab {...{ del0, products, projects, add, del, upd }} /></>;
   if (view === "staff") return <>{fab}<StaffTab {...{ del0, MonthPick, mk, staff, projects, moves, cname, add, del, upd, postSal, salPending }} /></>;
 
@@ -465,9 +498,9 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner, canEditCalen
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0 24px" }}>
         <div className="small">
           <div className="row"><span>Новых проектов</span><b>{newProj.length}</b></div>
-          {(() => { const per = clients.map((c) => ltvOf(moves, projects.filter((y) => y.clientId === c.id).map((y) => y.id))).filter((x) => x.sum > 0);
-            return <><div className="row" title="Сколько в среднем приносит клиент за всё время сотрудничества"><span>Средний LTV клиента</span><b>{per.length ? rub(per.reduce((a, x) => a + x.sum, 0) / per.length) : "—"}</b></div>
-              <div className="row"><span>Средний срок с клиентом</span><b>{per.length ? (per.reduce((a, x) => a + x.months, 0) / per.length).toFixed(1).replace(".0", "") + " мес." : "—"}</b></div></>; })()}
+          {(() => { const per = clients.map((c) => ltvOf(moves, projects.filter((y) => y.clientId === c.id).map((y) => y.id))).filter((x) => x.entries > 0);
+            return <><div className="row" title="Оплаты минус расходы по проектам за всё время"><span>Средний LTV клиента</span><b>{per.length ? rub(per.reduce((a, x) => a + x.sum, 0) / per.length) : "—"}</b></div>
+              <div className="row"><span>Среднее число месяцев с оплатой</span><b>{per.length ? (per.reduce((a, x) => a + x.months, 0) / per.length).toFixed(1).replace(".0", "") + " мес." : "—"}</b></div></>; })()}
           <div className="row"><span>Средний чек</span><b>{avg != null ? rub(avg) : "—"}</b></div>
           <div className="row"><span>Новых клиентов</span><b>{newClients}</b></div>
           <div className="row"><span>Расходы</span><b className="neg">{rub(S.out)}</b></div>
@@ -579,7 +612,8 @@ function FinTab({ del0, pending, MonthPick, mk, moves, projects, pname, add, del
   </>;
 }
 
-function ClientsTab({ del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }: {
+function ClientsTab({ importHistory, historyDisabled, paidForBilling, del0, staff, salPending, postSal, clients, projects, products, moves, regulars, paidOf, costOf, debt, monthsOf, expectedOf, cname, add, del, upd }: {
+  importHistory: (projectId: string, rows: HistoryMove[]) => Promise<number>; historyDisabled?: boolean; paidForBilling: (project: CProject) => number;
   staff: CEmployee[]; salPending: (e: CEmployee, K: string) => { amount: number; projectId?: string }[]; postSal: (e: CEmployee, K: string, pid?: string) => void;
   clients: CClient[]; projects: CProject[]; products: CProduct[]; moves: CMove[]; regulars: CRegular[]; paidOf: (id: string) => number; costOf: (id: string) => number; monthsOf: (p: CProject) => string[]; expectedOf: (p: CProject) => number; debt: (p: CProject) => number; cname: (id: string) => string;
   add: (d: object) => Promise<unknown>; del: (id: string) => void; del0: (id: string) => void; upd: (id: string, d: object) => void;
@@ -675,7 +709,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
           const payLate = d > 0 && !x.monthly && x.payDate && x.payDate < today();
           const pays = moves.filter((m) => m.projectId === x.id && m.type === "in").sort((a, b) => b.date.localeCompare(a.date));
           const costs = moves.filter((m) => m.projectId === x.id && m.type === "out").sort((a, b) => b.date.localeCompare(a.date));
-          const exp = expectedOf(x), share = exp ? Math.min(100, Math.round(paid / exp * 100)) : paid ? 100 : 0;
+          const exp = expectedOf(x), share = exp ? Math.min(100, Math.round(paidForBilling(x) / exp * 100)) : paid ? 100 : 0;
           const profit = paid - cost, margin = paid ? Math.round(profit / paid * 100) : null;
           const cm = today().slice(0, 7), mi = moves.filter((m) => m.projectId === x.id && m.type === "in" && mkOf(m.date) === cm).reduce((a, m) => a + m.amount, 0),
             mc = moves.filter((m) => m.projectId === x.id && m.type === "out" && mkOf(m.date) === cm).reduce((a, m) => a + m.amount, 0), mmg = mi ? Math.round((mi - mc) / mi * 100) : null;
@@ -690,7 +724,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
                   <span><span className="muted">Расходы</span> <b className="neg">{rub(cost)}</b></span><span className="muted">=</span>
                   <span><span className="muted">Прибыль</span> <b className={profit < 0 ? "error" : "ok"}>{rub(profit)}</b></span>
                   <span><span className="muted">Маржа</span> <b className={margin != null && margin < 0 ? "error" : ""}>{margin != null ? margin + "%" : "—"}</b></span></div></div>
-                  {(() => { const lt = ltvOf(moves, projects.filter((y) => y.clientId === x.clientId).map((y) => y.id)); return <span title="Сколько клиент принёс за всё время сотрудничества"><span className="muted">LTV</span> <b>{rub(lt.sum)}</b><span className="muted"> · {lt.months} мес.</span></span>; })()}
+                  {(() => { const lt = ltvOf(moves, projects.filter((y) => y.clientId === x.clientId).map((y) => y.id)); return <span title="Доходы минус расходы по всем проектам клиента; указаны месяцы с оплатой"><span className="muted">LTV</span> <b>{rub(lt.sum)}</b><span className="muted"> · {lt.months} мес.</span></span>; })()}
               <div className="row" style={{ alignItems: "center", gap: 14 }}>
                 <button onClick={() => { setOpen(on ? null : x.id); setPay(null); setCostF(null); }} style={{ background: "#16304f", color: "#fff", border: 0, fontWeight: 700 }}>{on ? "✕ Закрыть" : "⚙ Настройки"}</button></div>
             </div>
@@ -755,6 +789,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
                     ? <L l="Дата оплаты (число)"><input type="number" min={1} max={31} key={x.id + "d" + (x.payDay || "")} defaultValue={x.payDay || 1} style={{ flex: 1 }} onBlur={(e) => upd(x.id, { payDay: Math.min(31, Math.max(1, Number(e.target.value) || 1)) })} /></L>
                     : <L l="Оплата до"><input type="date" value={x.payDate || ""} onChange={(e) => upd(x.id, { payDate: e.target.value })} style={{ flex: 1 }} /></L>}
                   <L l="Начало"><input type="date" value={x.start} onChange={(e) => e.target.value && upd(x.id, { start: e.target.value })} style={{ flex: 1 }} /></L>
+                  <ProjectHistoryImport today={today()} disabled={historyDisabled} save={(rows) => importHistory(x.id, rows)} />
                 </div>
                 <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 10 }}><span />
                   <span><button className="ghost" onClick={() => finish(x)}>Завершить работу</button> <button className="ghost" onClick={() => del(x.id)}>Удалить проект</button></span></div>
@@ -869,7 +904,7 @@ function ClientsTab({ del0, staff, salPending, postSal, clients, projects, produ
                   upd(x.id, { comments: [...(x.comments || []), { at: new Date().toISOString(), text: t }] }); setCmt({ ...cmt, [x.id]: "" }); }}>
                   <input placeholder="Написать комментарий: созвонились, отправил КП…" value={cmt[x.id] || ""} onChange={(e) => setCmt({ ...cmt, [x.id]: e.target.value })} style={{ flex: 1 }} />
                   <button disabled={!(cmt[x.id] || "").trim()}>➤</button></form></div>
-              {ps.length > 0 && <div><span className="muted"><Ic n="case" s={15} />История проектов</span>{(() => { const lt = ltvOf(moves, ps.map((y) => y.id)); return lt.sum ? <span> · <b>LTV {rub(lt.sum)}</b> <span className="muted">за {lt.months} мес.</span></span> : null; })()}
+              {ps.length > 0 && <div><span className="muted"><Ic n="case" s={15} />История проектов</span>{(() => { const lt = ltvOf(moves, ps.map((y) => y.id)); return lt.entries ? <span> · <b>LTV {rub(lt.sum)}</b> <span className="muted">за {lt.months} мес.</span></span> : null; })()}
                 {ps.map((p) => { const pin = moves.filter((m) => m.projectId === p.id && m.type === "in").sort((a, b) => a.date.localeCompare(b.date)), pc = moves.filter((m) => m.projectId === p.id && m.type === "out").reduce((a, m) => a + m.amount, 0);
                   const tot = pin.reduce((a, m) => a + m.amount, 0), mg = tot ? Math.round((tot - pc) / tot * 100) : null;
                   return <details key={p.id} style={{ marginTop: 4, padding: "6px 10px", border: "1px solid var(--border, #e5e5e5)", borderRadius: 10, background: "var(--surface, #fff)" }}>
