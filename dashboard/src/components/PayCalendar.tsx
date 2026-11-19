@@ -20,8 +20,16 @@ export function monthSum(it: PayItem, mk: string) {
   return it.amount;
 }
 
-export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, isOwner }: {
-  p: ClientProject; wsId: string; mk: string; planRevenue: number | null; startBalance: number | null; isOwner: boolean;
+export interface CalendarOperation {
+  id: string;
+  day: number;
+  label: string;
+  amount: number;
+  type: "in" | "out";
+}
+
+export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, isOwner, actual }: {
+  p: ClientProject; wsId: string; mk: string; planRevenue: number | null; startBalance: number | null; isOwner: boolean; actual?: CalendarOperation[];
 }) {
   const cal = p.payCal?.[mk] || {}, items = cal.items || [];
   const [y, m] = mk.split("-").map(Number), days = new Date(y, m, 0).getDate();
@@ -38,13 +46,25 @@ export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, is
   const onDay = (it: PayItem, d: number) => it.kind === "daily" ? it.amount : it.kind === "spread" ? it.amount / days
     : it.kind === "weekly" ? (wdOf(d) === (it.weekday ?? 0) ? it.amount : 0) : (it.day === d ? it.amount : 0);
   const inc = cal.revenue ?? planRevenue ?? 0, incDay = inc / days;
+  const actualByDay = new Map<number, CalendarOperation[]>();
+  for (const entry of actual ?? []) {
+    if (!Number.isInteger(entry.day) || entry.day < 1 || entry.day > days || !Number.isFinite(entry.amount)) continue;
+    const entries = actualByDay.get(entry.day) ?? [];
+    entries.push(entry);
+    actualByDay.set(entry.day, entries);
+  }
   let bal = cal.start ?? startBalance ?? 0;
   const rows = Array.from({ length: days }, (_, k) => {
     // оплаченные заранее платежи остаток не уменьшают; приходы из списка — добавляют
     const d = k + 1, out = items.filter((it) => !it.paid && !it.income).reduce((a, it) => a + onDay(it, d), 0);
     const extra = items.filter((it) => it.income).reduce((a, it) => a + onDay(it, d), 0);
-    bal += incDay + extra - out;
-    return { d, out, extra, net: incDay + extra - out, bal };
+    const operations = actualByDay.get(d) ?? [];
+    const actualIn = operations.reduce((sum, entry) => sum + (entry.type === "in" ? entry.amount : 0), 0);
+    const actualOut = operations.reduce((sum, entry) => sum + (entry.type === "out" ? entry.amount : 0), 0);
+    const incoming = incDay + extra + actualIn;
+    const outgoing = out + actualOut;
+    bal += incoming - outgoing;
+    return { d, incoming, outgoing, operations, actualIn, actualOut, bal };
   });
   const gap = rows.find((r) => r.bal < 0);
   const totalOut = items.filter((it) => !it.paid && !it.income).reduce((a, it) => a + monthSum(it, mk), 0);
@@ -54,18 +74,23 @@ export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, is
   const Num = ({ v, k, ph }: { v?: number | null; k: "start" | "revenue"; ph: string }) => isOwner
     ? <input type="number" step="any" style={{ width: 140 }} placeholder={ph} key={k + mk + (v ?? "")} defaultValue={v ?? ""}
       onBlur={(e) => save({ [k]: e.target.value === "" ? null : Number(e.target.value) })} />
-    : <b>{ph}</b>;
+    : <b>{v == null ? ph : rub(v)}</b>;
 
   return <div className="card soft-card" style={{ marginTop: 14 }}>
     <h3 style={{ marginTop: 0 }}>📅 Платёжный календарь</h3>
     <div className="row small" style={{ flexWrap: "wrap", gap: 10 }}>
       <span>Остаток на начало: <Num v={cal.start} k="start" ph={rub(startBalance ?? 0)} /></span>
-      <span>Приход за месяц: <Num v={cal.revenue} k="revenue" ph={rub(planRevenue ?? 0)} /> <span className="muted">→ {rub(Math.round(incDay))}/день</span></span>
+      <span>{actual ? "Плановый приход за месяц" : "Приход за месяц"}: <Num v={cal.revenue} k="revenue" ph={rub(planRevenue ?? 0)} /> <span className="muted">→ {rub(Math.round(incDay))}/день</span></span>
     </div>
     <div className="row small" style={{ margin: "8px 0" }}>
       <span>Расходы по плану: <b className="neg">−{rub(Math.round(totalOut))}</b></span>
       <span>Остаток на конец: <b className={bal < 0 ? "error" : "ok"}>{rub(Math.round(bal))}</b></span>
     </div>
+    {actual && <div className="row small" style={{ flexWrap: "wrap", gap: 10 }}>
+      <span>По операциям: <b className="ok">+{rub(rows.reduce((sum, row) => sum + row.actualIn, 0))}</b>{" "}
+        <b className="neg">−{rub(rows.reduce((sum, row) => sum + row.actualOut, 0))}</b></span>
+      <span className="muted">Факт берётся из операций. В план добавляй только ещё не проведённые платежи.</span>
+    </div>}
     {gap && <div className="card error small" style={{ margin: "6px 0" }}>⚠️ Кассовый разрыв {gap.d} {["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"][m - 1]}: не хватит {rub(Math.round(-gap.bal))}</div>}
 
     <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4, marginTop: 8 }}>
@@ -74,13 +99,16 @@ export default function PayCalendar({ p, wsId, mk, planRevenue, startBalance, is
       {rows.map((r) => <div key={r.d} onClick={() => setOpenDay(openDay === r.d ? null : r.d)} style={{ cursor: "pointer", border: "1px solid var(--border, #333)", borderRadius: 8, padding: 4, fontSize: 11, minWidth: 0,
         background: r.bal < 0 ? "rgba(232,80,80,.18)" : undefined, outline: openDay === r.d ? "2px solid var(--accent)" : undefined }}>
         <div style={{ textAlign: "right" }}><b>{r.d}</b></div>
-        <div className="ok">+{Math.round((incDay + r.extra) / 1000)}к</div>
-        {r.out > 0 && <div className="neg">−{Math.round(r.out / 1000)}к</div>}
+        <div className="ok">+{Math.round(r.incoming / 1000)}к</div>
+        {r.outgoing > 0 && <div className="neg">−{Math.round(r.outgoing / 1000)}к</div>}
         <div style={{ borderTop: "1px solid var(--border, #333)", marginTop: 2 }} className={r.bal < 0 ? "error" : ""}>{Math.round(r.bal / 1000)}к</div>
       </div>)}
     </div>
-    {openDay && <div className="comment small" style={{ marginTop: 8 }}>
-      <b>{openDay} число:</b> приход +{rub(Math.round(incDay))}{items.filter((it) => onDay(it, openDay)).map((it) => <div key={it.id} style={{ textDecoration: it.paid ? "line-through" : undefined }}>{it.income ? "+" : "−"}{rub(Math.round(onDay(it, openDay)))} · {it.name}{it.paid ? " (оплачено заранее)" : ""}</div>)}
+    {openDay && openDay <= days && <div className="comment small" style={{ marginTop: 8 }}>
+      <b>{openDay} число:</b> {actual ? "плановый приход" : "приход"} +{rub(Math.round(incDay))}{items.filter((it) => onDay(it, openDay)).map((it) => <div key={it.id} style={{ textDecoration: it.paid ? "line-through" : undefined }}>{it.income ? "+" : "−"}{rub(Math.round(onDay(it, openDay)))} · {it.name}{it.paid ? " (оплачено заранее)" : ""}</div>)}
+      {rows[openDay - 1].operations.map((entry) => <div key={entry.id}>
+        {entry.type === "in" ? "+" : "−"}{rub(entry.amount)} · {entry.label} <span className="muted">· факт</span>
+      </div>)}
       <div>Остаток на конец дня: <b>{rub(Math.round(rows[openDay - 1].bal))}</b></div>
     </div>}
 

@@ -1,3 +1,4 @@
+import PayCalendar from "./PayCalendar";
 import { useTrialData } from "../lib/trialData";
 import NeylaHeader from "./NeylaHeader";
 // Кабинет «Услуги»: мини-CRM клиента — продукты, база клиентов, проекты, доходы и расходы.
@@ -119,7 +120,7 @@ const shift = (mk: string, n: number) => { const [y, m] = mk.split("-").map(Numb
 const dmy = (d?: string) => d ? d.split("-").reverse().join(".") : "";
 const pct = (a: number, b: number) => b ? Math.round((a - b) / Math.abs(b) * 100) : null;
 
-export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: string; p: ClientProject; view: CrmView; onNav: (v: CrmView) => void; isOwner?: boolean }) {
+export default function ServiceCrm({ wsId, p, view, onNav, isOwner, canEditCalendar }: { wsId: string; p: ClientProject; view: CrmView; onNav: (v: CrmView) => void; isOwner?: boolean; canEditCalendar: boolean }) {
   const trialData = useTrialData();
   const col = trialData ? null : collection(db, "workspaces", wsId, "clients", p.id, "crm");
   const [liveItems, setItems] = useState<Item[]>([]);
@@ -404,6 +405,13 @@ export default function ServiceCrm({ wsId, p, view, onNav, isOwner }: { wsId: st
     {MonthPick}
     {planFact(mk)}
     {donut}
+    <PayCalendar key={mk} p={p} wsId={wsId} mk={mk} isOwner={canEditCalendar}
+      planRevenue={null} startBalance={moves.filter((move) => mkOf(move.date) < mk)
+        .reduce((sum, move) => sum + (move.type === "in" ? move.amount : -move.amount), 0)}
+      actual={moves.filter((move) => mkOf(move.date) === mk).map((move) => ({
+        id: move.id, day: Number(move.date.slice(8, 10)), amount: move.amount, type: move.type,
+        label: move.note || (move.projectId ? pname(move.projectId) : "") || move.category || (move.type === "in" ? "Приход" : "Расход"),
+      }))} />
     <div style={{ marginTop: 12 }}><FinTab {...{ del0, pending: pendingOf(mk), MonthPick: <></>, mk, moves, projects, pname, add, del, upd, sumM, p, push, sync, regulars, nActive: activeIn(mk).length }} /></div>
   </>;
   // расчёт плитки — раскрывается прямо внутри плитки

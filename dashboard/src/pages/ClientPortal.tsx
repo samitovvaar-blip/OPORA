@@ -432,6 +432,7 @@ export default function ClientPortal() {
       })() : <div className="card muted">Отчёт ДДС появится после обновления скрипта в таблице.</div>)}
 
       {svc && (tab === "chome" || tab === "cfin" || tab === "ccli" || tab === "cstaff" || tab === "cprod" || tab === "ctips") && <div style={{ marginTop: 10 }}><ServiceCrm wsId={wsId!} p={p} isOwner={isOwner}
+        canEditCalendar={trialData ? !trialData.locked : isOwner || !staffView}
         view={tab === "chome" ? "home" : tab === "cfin" ? "fin" : tab === "ccli" ? "clients" : tab === "cstaff" ? "staff" : tab === "ctips" ? "tips" : "products"}
         onNav={(v) => setTab(v === "clients" ? "ccli" : v === "products" ? "cprod" : v === "fin" ? "cfin" : v === "staff" ? "cstaff" : v === "tips" ? "ctips" : "chome")} /></div>}
       {view === "goods" && !svc && pnl?.goods && cur != null && <GoodsReport g={pnl.goods} mk={pnl.months[cur].mk || ""} label={`${pnl.months[cur].label} ${pnl.months[cur].year}`} p={p} wsId={wsId!} isOwner={isOwner} />}
