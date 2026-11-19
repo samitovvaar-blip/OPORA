@@ -27,23 +27,22 @@ export function parseProjectHistory(text: string, fallbackMonth: string) {
   const rows: HistoryMove[] = [];
   const rejected: string[] = [];
   for (const line of text.split(/[\n;]+/).map((part) => part.trim()).filter(Boolean)) {
-    const incoming = /(?:^|\s)(?:приход|доход|поступление|выручка)(?=$|[\s:])/iu.test(line);
-    const outgoing = /(?:^|\s)(?:расход|затраты)(?=$|[\s:])/iu.test(line);
     const iso = line.match(/\b\d{4}-\d{2}-\d{2}\b/);
     const numeric = line.match(/\b(\d{2})\.(\d{2})\.(\d{4})\b/);
     const named = line.match(new RegExp(`(?:^|\\s)(${months.join("|")})[а-яё]*\\s+(\\d{4})(?=\\s|:|$)`, "iu"));
     const namedMonth = named ? named[2] + "-" + String(months.findIndex((month) => new RegExp(`^${month}$`, "iu").test(named[1])) + 1).padStart(2, "0") : "";
     const date = iso?.[0] ?? (numeric ? `${numeric[3]}-${numeric[2]}-${numeric[1]}` : monthEnd(namedMonth || fallbackMonth));
     const withoutDate = line.replace(iso?.[0] ?? numeric?.[0] ?? named?.[0] ?? "", " ");
-    const amountMatch = withoutDate.match(/(?:^|[\s:])((?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d+)(?:[,.]\d{1,2})?)(?:\s*(тыс(?:яч(?:и|а)?)?\.?|[кk]))?(?=[\s₽.,:]|$)/iu);
-    const amount = amountMatch
-      ? Math.round(Number(amountMatch[1].replace(/[\s\u00a0\u202f]/g, "").replace(",", ".")) * (amountMatch[2] ? 1000 : 1) * 100) / 100 : 0;
-    if (incoming === outgoing || !validHistoryDate(date) || !Number.isFinite(amount) || amount <= 0) {
+    const amounts = [...withoutDate.matchAll(/(?:^|[\s:])([+−-])\s*((?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d+)(?:[,.]\d{1,2})?)(?:\s*(тыс(?:яч(?:и|а)?)?\.?|[кk]))?(?=[\s₽.,:]|$)/giu)];
+    const [match] = amounts;
+    const amount = match
+      ? Math.round(Number(match[2].replace(/\s/g, "").replace(",", ".")) * (match[3] ? 1000 : 1) * 100) / 100 : 0;
+    if (amounts.length !== 1 || !validHistoryDate(date) || !Number.isFinite(amount) || amount <= 0) {
       rejected.push(line);
       continue;
     }
     const account = withoutDate.match(/\sна\s+([^,.]+?)(?=\s+за\s|$)/iu)?.[1]?.trim() ?? "Расчётный счёт";
-    rows.push({ type: incoming ? "in" : "out", date, amount, account, note: line });
+    rows.push({ type: match[1] === "+" ? "in" : "out", date, amount, account, note: line });
   }
   return { rows, rejected };
 }

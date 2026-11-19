@@ -18,7 +18,7 @@ export default function ProjectHistoryImport({ today, disabled, save }: {
     const result = parseProjectHistory(text, month);
     setRows(result.rows.slice(0, 50));
     setRejected([...result.rejected, ...result.rows.slice(50).map((row) => row.note)]);
-    setMessage(result.rows.length ? "" : "Операции не распознаны. Проверь сумму, дату и слова «приход» или «расход».");
+    setMessage(result.rows.length ? "" : "Операции не распознаны. Проверь дату, сумму и знак + или − перед ней.");
   }
   async function confirm() {
     if (disabled || busy || invalid || !rows.length) return;
@@ -36,12 +36,12 @@ export default function ProjectHistoryImport({ today, disabled, save }: {
 
   return <section className="card" style={{ margin: "10px 0 0" }}>
     <h4 style={{ margin: "0 0 8px" }}>Доходы и расходы за прошлые месяцы</h4>
-    <p className="muted small">Одна операция на строку. Можно указать дату в комментарии или выбрать месяц ниже. Для суммы за весь месяц ОПОРА предложит его последний день.</p>
+    <p className="muted small">Одна операция на строку. Поставь + перед доходом и − перед расходом. Можно указать дату в комментарии или выбрать месяц ниже. Для суммы за весь месяц ОПОРА предложит его последний день.</p>
     <div className="neila-feedback-form">
       <label>Месяц для строк без даты <input type="month" value={month} max={today.slice(0, 7)} disabled={busy || disabled}
         onChange={(e) => { setMonth(e.target.value); setRows([]); setRejected([]); setMessage(""); }} /></label>
       <label>Комментарий <textarea rows={3} value={text} maxLength={10000} disabled={busy || disabled}
-        placeholder={"Январь 2026: приход 130 тысяч на Яндекс\n15.02.2026 расход 18 500 — подрядчик"}
+        placeholder={"Январь 2026: +130 тысяч на Яндекс\n15.02.2026 -18 500 — подрядчик"}
         onChange={(e) => { setText(e.target.value); setRows([]); setRejected([]); setMessage(""); }} /></label>
       <button type="button" disabled={busy || disabled || !text.trim()} onClick={parse}>Распознать операции</button>
     </div>
