@@ -47,6 +47,51 @@ export function parseProjectHistory(text: string, fallbackMonth: string) {
   return { rows, rejected };
 }
 
+const smallNumbers: Record<string, number> = {
+  ноль: 0, один: 1, одна: 1, два: 2, две: 2, три: 3, четыре: 4, пять: 5, шесть: 6, семь: 7, восемь: 8, девять: 9,
+  десять: 10, одиннадцать: 11, двенадцать: 12, тринадцать: 13, четырнадцать: 14, пятнадцать: 15, шестнадцать: 16,
+  семнадцать: 17, восемнадцать: 18, девятнадцать: 19, двадцать: 20, тридцать: 30, сорок: 40, пятьдесят: 50,
+  шестьдесят: 60, семьдесят: 70, восемьдесят: 80, девяносто: 90, сто: 100, двести: 200, триста: 300,
+  четыреста: 400, пятьсот: 500, шестьсот: 600, семьсот: 700, восемьсот: 800, девятьсот: 900,
+};
+
+function spokenAmount(value: string) {
+  const digit = value.match(/\b(\d+(?:[.,]\d{1,2})?)(?:\s*(миллион(?:а|ов)?|тысяч(?:а|и)?|тыс\.?|[кk]))?/iu);
+  if (digit) {
+    const suffix = digit[2] || value.slice((digit.index || 0) + digit[0].length).trimStart().match(/^(миллион(?:а|ов)?|тысяч(?:а|и)?|тыс\.?|[кk])/iu)?.[1];
+    return Number(digit[1].replace(",", ".")) * (/миллион/iu.test(suffix || "") ? 1_000_000 : suffix ? 1000 : 1);
+  }
+  const words = value.toLowerCase().replace(/ё/g, "е").split(/[^а-я]+/).filter(Boolean);
+  let total = 0, group = 0, found = false;
+  for (const word of words) {
+    if (word in smallNumbers) { group += smallNumbers[word]; found = true; continue; }
+    if (/^тысяч/.test(word)) { total += Math.max(group, 1) * 1000; group = 0; found = true; continue; }
+    if (/^миллион/.test(word)) { total += Math.max(group, 1) * 1_000_000; group = 0; found = true; continue; }
+    if (found && /^(руб|рубл)/.test(word)) break;
+  }
+  return found ? total + group : 0;
+}
+
+const incomeWords = /(?:^|\s)(?:пришл[оиа]?|получил[аи]?|поступил[оиа]?|зачислил[оиа]?|внесл[аи]?)(?=\s|$)/iu;
+const expenseWords = /(?:^|\s)(?:потратил[аи]?|заплатил[аи]?|заплатили|списал[ои]?|списали|купил[аи]?|оплатил[аи]?|оплатили|расход)(?=\s|$)/iu;
+
+export function parseSpokenHistory(text: string, date: string) {
+  const chunks = text.split(/[.!?;]+|\s+(?:а\s+)?(?:потом|затем)\s+|\s+а\s+(?=(?:я\s+)?(?:потрат|заплат|спис|купил|оплат|получ|приш|внес|поступ))/iu)
+    .map((part) => part.trim()).filter(Boolean);
+  const rows: HistoryMove[] = [], rejected: string[] = [];
+  for (const chunk of chunks) {
+    const hasExpense = expenseWords.test(chunk);
+    const incomingContext = /(?:мне|нам|клиент|заказчик)\s+(?:оплатил[аи]?|оплатили|заплатил[аи]?|заплатили|перевел[аи]?|перевели)/iu.test(chunk);
+    const hasIncome = incomeWords.test(chunk) || incomingContext;
+    const type = hasExpense && !incomingContext ? "out" : hasIncome ? "in" : null;
+    const amount = spokenAmount(chunk);
+    if (!type || !amount) { rejected.push(chunk); continue; }
+    const purpose = chunk.match(/\s(?:на|за)\s+(.+?)(?:\s+\d|$)/iu)?.[1]?.trim();
+    rows.push({ type, date, amount, account: "Расчётный счёт", note: purpose || chunk });
+  }
+  return { rows, rejected };
+}
+
 export function calculateLtv(moves: { type: string; date: string; amount: number; projectId?: string }[], ids: string[]) {
   const projects = new Set(ids);
   let income = 0, expenses = 0;
